@@ -1,36 +1,79 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 💈 Barbearia do Johnn
 
-## Getting Started
+Sistema de gestão profissional para barbearia, com IA integrada ao WhatsApp.
 
-First, run the development server:
+## 🛠️ Stack
 
-```bash
+- **Frontend**: Next.js 14 (App Router) + TypeScript + Tailwind CSS
+- **Banco**: Supabase (PostgreSQL + Auth + Storage + Realtime)
+- **Validação**: Zod + React Hook Form
+- **Gráficos**: Recharts
+- **Ícones**: Lucide
+- **Toasts**: Sonner
+
+## 🚀 Como rodar localmente
+
+```powershell
+# 1. Clone e entre na pasta
+cd "C:\Users\welbe\OneDrive\Documentos\GitHub\barbearia-do-johnn"
+
+# 2. Copie o env e preencha
+copy .env.example .env.local
+# Edite .env.local com suas chaves do Supabase
+
+# 3. Instale dependências (já feito)
+npm install
+
+# 4. Rode em dev
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Acesse [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📁 Estrutura
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+src/
+├── app/
+│   ├── (auth)/
+│   │   └── login/              # Tela de login
+│   ├── admin/                  # Painel admin (protegido)
+│   │   ├── _components/        # Sidebar e Topbar
+│   │   └── page.tsx            # Dashboard
+│   ├── layout.tsx              # Layout raiz
+│   ├── page.tsx                # Redirect → /login
+│   └── globals.css             # Tailwind + tema dark
+├── lib/
+│   ├── supabase/
+│   │   ├── client.ts           # Cliente browser
+│   │   ├── server.ts           # Cliente server
+│   │   └── middleware.ts       # Refresh sessão
+│   └── utils.ts                # cn(), formatadores
+└── middleware.ts               # Auth guard
+```
 
-## Learn More
+## 🎨 Tema
 
-To learn more about Next.js, take a look at the following resources:
+**Cyber Dark + Dourado** (casa com a logo da barbearia)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `--bg-DEFAULT`: `#0A0E1A` (fundo)
+- `--primary-DEFAULT`: `#FB944D` (laranja)
+- `--gold-DEFAULT`: `#D4A04F` (dourado)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 📚 Documentação completa
 
-## Deploy on Vercel
+Toda a documentação está no Obsidian Vault em:
+`C:\Users\welbe\OneDrive\Documentos\Obsidian Vault\Claude\BarbeariaDoJohnn\`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `Contexto.md` — visão geral do projeto
+- `Pendencias.md` — backlog
+- `Decisoes.md` — decisões arquiteturais
+- `Sessoes.md` — registro cronológico
+- `database/*.sql` — schema do banco
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📞 Cliente
+
+**Jonathan (Barbearia do Johnn)**
+- QI QL 20 Loja 08, Taguatinga, Brasília
+- (61) 99264-3078
+- @barbearia_dojohnn
