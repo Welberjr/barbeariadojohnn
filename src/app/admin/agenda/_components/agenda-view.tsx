@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ChevronLeft,
   ChevronRight,
-  CalendarDays,
   Plus,
   CalendarOff,
 } from 'lucide-react';
@@ -84,14 +83,8 @@ interface AgendaViewProps {
   services: Service[];
 }
 
-// Slots de 30 min entre 8h e 22h
-const SLOT_HEIGHT = 60; // px por hora
 const HOUR_HEIGHT = 60;
 
-function timeToMinutes(time: string) {
-  const [h, m] = time.split(':').map(Number);
-  return h * 60 + m;
-}
 
 const DAY_NAMES: Record<number, keyof BusinessHours> = {
   0: 'sunday',

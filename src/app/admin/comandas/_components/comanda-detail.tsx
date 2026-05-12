@@ -115,7 +115,6 @@ export function ComandaDetail({
   const [isPending, startTransition] = useTransition();
   const [showAddService, setShowAddService] = useState(false);
   const [showAddProduct, setShowAddProduct] = useState(false);
-  const [showClose, setShowClose] = useState(false);
 
   const [serviceForm, setServiceForm] = useState({
     service_id: '',

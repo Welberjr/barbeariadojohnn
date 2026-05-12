@@ -66,7 +66,7 @@ export function ComandasView({
   staff,
 }: ComandasViewProps) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [isPending] = useTransition();
   const [showNew, setShowNew] = useState(false);
   const [newForm, setNewForm] = useState({
     customer_id: '',
