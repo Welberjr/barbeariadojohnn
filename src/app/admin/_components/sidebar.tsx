@@ -18,6 +18,8 @@ import {
   FileText,
   Receipt,
   Globe,
+  Clock,
+  ClipboardList,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -34,10 +36,12 @@ const menuItems: MenuItem[] = [
   // GESTÃO
   { label: 'Dashboard', icon: LayoutDashboard, href: '/admin', section: 'Gestão' },
   { label: 'Agenda', icon: Calendar, href: '/admin/agenda', section: 'Gestão' },
+  { label: 'Comandas', icon: ClipboardList, href: '/admin/comandas', section: 'Gestão' },
   { label: 'Clientes', icon: Users, href: '/admin/clientes', section: 'Gestão' },
 
   // OPERAÇÃO
   { label: 'Profissionais', icon: UserCog, href: '/admin/profissionais', section: 'Operação' },
+  { label: 'Disponibilidade', icon: Clock, href: '/admin/disponibilidade', section: 'Operação' },
   { label: 'Serviços', icon: Scissors, href: '/admin/servicos', section: 'Operação' },
   { label: 'Produtos', icon: Package, href: '/admin/produtos', section: 'Operação' },
 
