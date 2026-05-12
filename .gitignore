@@ -37,3 +37,8 @@ next-env.d.ts
 
 # dev server logs
 dev-server.log
+.vercel
+
+# Vercel debug files
+.env.vercel-debug
+.env.vercel-check
