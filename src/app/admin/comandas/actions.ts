@@ -23,6 +23,13 @@ export async function createComanda(data: CreateComandaData) {
     customer_id: data.customer_id,
     staff_id: data.staff_id,
     status: 'open',
+    subtotal: 0,
+    discount_type: 'percentage',
+    discount_value: 0,
+    total: 0,
+    card_fee_total: 0,
+    net_total: 0,
+    opened_at: new Date().toISOString(),
   };
 
   if (data.appointment_id) payload.appointment_id = data.appointment_id;
@@ -40,7 +47,7 @@ export async function createComanda(data: CreateComandaData) {
 }
 
 /**
- * Adiciona um serviço à comanda.
+ * Adiciona um serviço à comanda (insere em comanda_items com item_type='service').
  */
 export async function addServiceToComanda(
   comandaId: string,
@@ -51,22 +58,38 @@ export async function addServiceToComanda(
 ) {
   const admin = createAdminClient();
 
-  // Tenta inserir em comanda_services
+  // Buscar nome do serviço + commission_percent do staff em paralelo
+  const [{ data: service }, { data: staff }] = await Promise.all([
+    admin.from('services').select('name').eq('id', serviceId).maybeSingle(),
+    admin
+      .from('staff')
+      .select('default_commission_percent')
+      .eq('id', staffId)
+      .maybeSingle(),
+  ]);
+
+  const commissionPercent = Number(staff?.default_commission_percent ?? 0);
+  const totalPrice = price * quantity;
+  const commissionValue = (totalPrice * commissionPercent) / 100;
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const payload: any = {
+    barbershop_id: BARBERSHOP_ID,
     comanda_id: comandaId,
+    item_type: 'service',
     service_id: serviceId,
-    staff_id: staffId,
-    unit_price: price,
+    name: service?.name ?? 'Serviço',
     quantity,
-    subtotal: price * quantity,
+    unit_price: price,
+    total_price: totalPrice,
+    staff_id: staffId,
+    commission_percent: commissionPercent,
+    commission_value: commissionValue,
   };
 
-  const { error } = await admin.from('comanda_services').insert(payload);
-
+  const { error } = await admin.from('comanda_items').insert(payload);
   if (error) return { ok: false, error: error.message };
 
-  // Recalcular total
   await recalculateComandaTotal(comandaId);
 
   revalidatePath('/admin/comandas');
@@ -74,7 +97,7 @@ export async function addServiceToComanda(
 }
 
 /**
- * Adiciona um produto à comanda.
+ * Adiciona um produto à comanda (insere em comanda_items com item_type='product').
  */
 export async function addProductToComanda(
   comandaId: string,
@@ -84,17 +107,29 @@ export async function addProductToComanda(
 ) {
   const admin = createAdminClient();
 
+  const { data: product } = await admin
+    .from('products')
+    .select('name')
+    .eq('id', productId)
+    .maybeSingle();
+
+  const totalPrice = price * quantity;
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const payload: any = {
+    barbershop_id: BARBERSHOP_ID,
     comanda_id: comandaId,
+    item_type: 'product',
     product_id: productId,
-    unit_price: price,
+    name: product?.name ?? 'Produto',
     quantity,
-    subtotal: price * quantity,
+    unit_price: price,
+    total_price: totalPrice,
+    commission_percent: 0,
+    commission_value: 0,
   };
 
-  const { error } = await admin.from('comanda_products').insert(payload);
-
+  const { error } = await admin.from('comanda_items').insert(payload);
   if (error) return { ok: false, error: error.message };
 
   await recalculateComandaTotal(comandaId);
@@ -104,18 +139,17 @@ export async function addProductToComanda(
 }
 
 /**
- * Remove um item da comanda.
+ * Remove um item da comanda (qualquer item_type).
  */
 export async function removeComandaItem(
   comandaId: string,
   itemId: string,
-  type: 'service' | 'product'
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _type: 'service' | 'product'
 ) {
   const admin = createAdminClient();
 
-  const table = type === 'service' ? 'comanda_services' : 'comanda_products';
-  const { error } = await admin.from(table).delete().eq('id', itemId);
-
+  const { error } = await admin.from('comanda_items').delete().eq('id', itemId);
   if (error) return { ok: false, error: error.message };
 
   await recalculateComandaTotal(comandaId);
@@ -125,42 +159,31 @@ export async function removeComandaItem(
 }
 
 /**
- * Recalcula o total da comanda baseado nos itens.
+ * Recalcula o total da comanda baseado nos itens (somando comanda_items.total_price).
  */
 async function recalculateComandaTotal(comandaId: string) {
   const admin = createAdminClient();
 
-  // Soma serviços
-  const { data: services } = await admin
-    .from('comanda_services')
-    .select('subtotal')
+  const { data: items } = await admin
+    .from('comanda_items')
+    .select('total_price')
     .eq('comanda_id', comandaId);
 
-  // Soma produtos
-  const { data: products } = await admin
-    .from('comanda_products')
-    .select('subtotal')
-    .eq('comanda_id', comandaId);
-
-  const serviceTotal =
-    services?.reduce((sum, s) => sum + Number(s.subtotal), 0) ?? 0;
-  const productTotal =
-    products?.reduce((sum, p) => sum + Number(p.subtotal), 0) ?? 0;
-  const total = serviceTotal + productTotal;
+  const subtotal =
+    items?.reduce((sum, i) => sum + Number(i.total_price), 0) ?? 0;
 
   await admin
     .from('comandas')
     .update({
-      service_total: serviceTotal,
-      product_total: productTotal,
-      subtotal: total,
-      total,
+      subtotal,
+      total: subtotal,
+      net_total: subtotal,
     })
     .eq('id', comandaId);
 }
 
 /**
- * Fecha a comanda (transforma em venda).
+ * Fecha a comanda (transforma em venda) — insere pagamento em comanda_payments.
  */
 export async function closeComanda(
   comandaId: string,
@@ -170,7 +193,7 @@ export async function closeComanda(
 ) {
   const admin = createAdminClient();
 
-  // Buscar a comanda atual
+  // Buscar subtotal atualizado
   const { data: comanda } = await admin
     .from('comandas')
     .select('subtotal')
@@ -181,20 +204,38 @@ export async function closeComanda(
 
   const subtotal = Number(comanda.subtotal);
   const total = subtotal - discount + tip;
+  // discount_value armazena percentual (não valor absoluto)
+  const discountPct =
+    discount > 0 && subtotal > 0 ? (discount / subtotal) * 100 : 0;
 
-  const { error } = await admin
+  // 1. Atualiza comanda para closed
+  const { error: errUpdate } = await admin
     .from('comandas')
     .update({
       status: 'closed',
-      payment_method: paymentMethod,
-      discount,
-      tip,
+      discount_type: 'percentage',
+      discount_value: discountPct,
       total,
+      net_total: total,
       closed_at: new Date().toISOString(),
     })
     .eq('id', comandaId);
 
-  if (error) return { ok: false, error: error.message };
+  if (errUpdate) return { ok: false, error: errUpdate.message };
+
+  // 2. Cria o pagamento em comanda_payments
+  const { error: errPayment } = await admin.from('comanda_payments').insert({
+    barbershop_id: BARBERSHOP_ID,
+    comanda_id: comandaId,
+    method: paymentMethod,
+    amount: total,
+    installments: 1,
+    fee_percent: 0,
+    fee_value: 0,
+    net_amount: total,
+  });
+
+  if (errPayment) return { ok: false, error: errPayment.message };
 
   revalidatePath('/admin/comandas');
   revalidatePath('/admin/agenda');

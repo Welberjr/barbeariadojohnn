@@ -14,7 +14,8 @@ export default async function ComandaPage({ params }: ComandaPageProps) {
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: comanda } = await supabase
+  // 1. Comanda + relações
+  const { data: comandaRaw } = await supabase
     .from('comandas')
     .select(
       `
@@ -26,42 +27,90 @@ export default async function ComandaPage({ params }: ComandaPageProps) {
     .eq('id', id)
     .maybeSingle();
 
-  if (!comanda) notFound();
+  if (!comandaRaw) notFound();
 
-  // Itens
-  const { data: comandaServices } = await supabase
-    .from('comanda_services')
+  // 2. Itens da comanda (tabela unificada comanda_items)
+  const { data: comandaItems } = await supabase
+    .from('comanda_items')
     .select(
       `
       id,
+      item_type,
       service_id,
-      staff_id,
-      unit_price,
+      product_id,
+      name,
       quantity,
-      subtotal,
+      unit_price,
+      total_price,
+      staff_id,
       services:services ( name, base_duration_minutes ),
+      products:products ( name ),
       staff:staff ( display_name )
     `
     )
     .eq('comanda_id', id)
     .order('created_at');
 
-  const { data: comandaProducts } = await supabase
-    .from('comanda_products')
-    .select(
-      `
-      id,
-      product_id,
-      unit_price,
-      quantity,
-      subtotal,
-      products:products ( name )
-    `
-    )
-    .eq('comanda_id', id)
-    .order('created_at');
+  // 3. Separar em services e products para manter compatibilidade com o ComandaDetail
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const items = (comandaItems ?? []) as any[];
 
-  // Serviços disponíveis
+  const comandaServices = items
+    .filter((i) => i.item_type === 'service')
+    .map((i) => ({
+      id: i.id,
+      service_id: i.service_id,
+      staff_id: i.staff_id,
+      unit_price: i.unit_price,
+      quantity: i.quantity,
+      subtotal: i.total_price, // mapeia total_price -> subtotal pro client
+      services: i.services,
+      staff: i.staff,
+    }));
+
+  const comandaProducts = items
+    .filter((i) => i.item_type === 'product')
+    .map((i) => ({
+      id: i.id,
+      product_id: i.product_id,
+      unit_price: i.unit_price,
+      quantity: i.quantity,
+      subtotal: i.total_price,
+      products: i.products,
+    }));
+
+  // 4. Buscar pagamento (se existir, comanda fechada)
+  const { data: payments } = await supabase
+    .from('comanda_payments')
+    .select('method')
+    .eq('comanda_id', id)
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  const paymentMethod = payments?.[0]?.method ?? null;
+
+  // 5. Montar objeto comanda compatível com a interface do ComandaDetail
+  const subtotalNum = Number(comandaRaw.subtotal ?? 0);
+  const totalNum = Number(comandaRaw.total ?? 0);
+  const serviceTotal = comandaServices.reduce(
+    (s, i) => s + Number(i.subtotal),
+    0
+  );
+  const productTotal = comandaProducts.reduce(
+    (s, i) => s + Number(i.subtotal),
+    0
+  );
+
+  const comanda = {
+    ...comandaRaw,
+    payment_method: paymentMethod,
+    service_total: serviceTotal,
+    product_total: productTotal,
+    discount: Math.max(0, subtotalNum - totalNum),
+    tip: 0,
+  };
+
+  // 6. Catálogos auxiliares
   const { data: services } = await supabase
     .from('services')
     .select('id, name, base_price, base_duration_minutes, category')
@@ -69,7 +118,6 @@ export default async function ComandaPage({ params }: ComandaPageProps) {
     .eq('active', true)
     .order('display_order');
 
-  // Produtos disponíveis
   const { data: products } = await supabase
     .from('products')
     .select('id, name, price, category')
@@ -77,7 +125,6 @@ export default async function ComandaPage({ params }: ComandaPageProps) {
     .eq('active', true)
     .order('name');
 
-  // Profissionais
   const { data: staff } = await supabase
     .from('staff')
     .select('id, display_name')
@@ -99,9 +146,9 @@ export default async function ComandaPage({ params }: ComandaPageProps) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         comanda={comanda as any}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        comandaServices={(comandaServices ?? []) as any}
+        comandaServices={comandaServices as any}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        comandaProducts={(comandaProducts ?? []) as any}
+        comandaProducts={comandaProducts as any}
         services={services ?? []}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         products={(products ?? []) as any}

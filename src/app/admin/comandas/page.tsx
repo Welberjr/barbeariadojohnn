@@ -11,7 +11,7 @@ export default async function ComandasPage() {
   const supabase = await createClient();
 
   // Comandas abertas
-  const { data: openComandas } = await supabase
+  const { data: openComandasRaw } = await supabase
     .from('comandas')
     .select(
       `
@@ -21,10 +21,7 @@ export default async function ComandasPage() {
       status,
       total,
       subtotal,
-      service_total,
-      product_total,
       opened_at,
-      payment_method,
       customers:customers ( full_name, phone ),
       staff:staff ( display_name )
     `
@@ -37,7 +34,7 @@ export default async function ComandasPage() {
   const today = new Date().toISOString().split('T')[0];
   const todayStart = `${today}T00:00:00.000-03:00`;
 
-  const { data: closedToday } = await supabase
+  const { data: closedTodayRaw } = await supabase
     .from('comandas')
     .select(
       `
@@ -46,7 +43,6 @@ export default async function ComandasPage() {
       staff_id,
       status,
       total,
-      payment_method,
       closed_at,
       customers:customers ( full_name ),
       staff:staff ( display_name )
@@ -57,6 +53,57 @@ export default async function ComandasPage() {
     .gte('closed_at', todayStart)
     .order('closed_at', { ascending: false })
     .limit(50);
+
+  // Para cada comanda, agregar items (services/products totals) e payment_method
+  const openIds = (openComandasRaw ?? []).map((c) => c.id);
+  const closedIds = (closedTodayRaw ?? []).map((c) => c.id);
+  const allIds = [...openIds, ...closedIds];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let itemsByComanda: Record<string, { service_total: number; product_total: number }> = {};
+  let paymentByComanda: Record<string, string> = {};
+
+  if (allIds.length > 0) {
+    const [{ data: itemsAgg }, { data: paymentsAgg }] = await Promise.all([
+      supabase
+        .from('comanda_items')
+        .select('comanda_id, item_type, total_price')
+        .in('comanda_id', allIds),
+      supabase
+        .from('comanda_payments')
+        .select('comanda_id, method')
+        .in('comanda_id', allIds),
+    ]);
+
+    for (const item of itemsAgg ?? []) {
+      const cid = item.comanda_id as string;
+      if (!itemsByComanda[cid]) {
+        itemsByComanda[cid] = { service_total: 0, product_total: 0 };
+      }
+      const val = Number(item.total_price);
+      if (item.item_type === 'service') itemsByComanda[cid].service_total += val;
+      else if (item.item_type === 'product') itemsByComanda[cid].product_total += val;
+    }
+
+    for (const pay of paymentsAgg ?? []) {
+      const cid = pay.comanda_id as string;
+      // pega primeiro pagamento (se houver vários, prevalece o primeiro encontrado)
+      if (!paymentByComanda[cid]) paymentByComanda[cid] = pay.method as string;
+    }
+  }
+
+  // Anexa nas comandas
+  const openComandas = (openComandasRaw ?? []).map((c) => ({
+    ...c,
+    service_total: itemsByComanda[c.id]?.service_total ?? 0,
+    product_total: itemsByComanda[c.id]?.product_total ?? 0,
+    payment_method: paymentByComanda[c.id] ?? null,
+  }));
+
+  const closedToday = (closedTodayRaw ?? []).map((c) => ({
+    ...c,
+    payment_method: paymentByComanda[c.id] ?? null,
+  }));
 
   // Dados auxiliares pra criar nova comanda
   const { data: customers } = await supabase
@@ -76,9 +123,9 @@ export default async function ComandasPage() {
   return (
     <ComandasView
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      openComandas={(openComandas ?? []) as any}
+      openComandas={openComandas as any}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      closedToday={(closedToday ?? []) as any}
+      closedToday={closedToday as any}
       customers={customers ?? []}
       staff={staff ?? []}
     />

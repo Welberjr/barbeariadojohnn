@@ -34,27 +34,63 @@ export default async function AgendaPage({ searchParams }: AgendaPageProps) {
     .in('role', ['barber', 'owner', 'manager'])
     .order('display_name');
 
-  // Buscar appointments do dia
-  const { data: appointments } = await supabase
+  // Buscar appointments do dia (SEM service_id direto — usa appointment_services)
+  const { data: appointmentsRaw } = await supabase
     .from('appointments')
     .select(
       `
       id,
       customer_id,
       staff_id,
-      service_id,
       start_at,
       end_at,
       status,
       notes,
-      customers:customers ( full_name, phone ),
-      services:services ( name, base_price, base_duration_minutes )
+      customers:customers ( full_name, phone )
     `
     )
     .eq('barbershop_id', BARBERSHOP_ID)
     .gte('start_at', dayStart)
     .lte('start_at', dayEnd)
     .order('start_at');
+
+  // Buscar appointment_services correspondentes (pode ter 1 ou + serviços por appointment)
+  const apptIds = (appointmentsRaw ?? []).map((a) => a.id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let servicesByAppointment: Record<string, any> = {};
+
+  if (apptIds.length > 0) {
+    const { data: apptServices } = await supabase
+      .from('appointment_services')
+      .select(
+        `
+        appointment_id,
+        service_id,
+        price,
+        duration_minutes,
+        services:services ( name, base_price, base_duration_minutes )
+      `
+      )
+      .in('appointment_id', apptIds);
+
+    for (const as of apptServices ?? []) {
+      const aid = as.appointment_id as string;
+      // Pega o primeiro serviço de cada appointment (UI atual mostra 1 serviço)
+      if (!servicesByAppointment[aid]) {
+        servicesByAppointment[aid] = {
+          service_id: as.service_id,
+          services: as.services,
+        };
+      }
+    }
+  }
+
+  // Anexa service_id e services nas appointments (compatibilidade com AgendaView)
+  const appointments = (appointmentsRaw ?? []).map((a) => ({
+    ...a,
+    service_id: servicesByAppointment[a.id]?.service_id ?? null,
+    services: servicesByAppointment[a.id]?.services ?? null,
+  }));
 
   // Buscar barbershop pra pegar horários de funcionamento
   const { data: barbershop } = await supabase
@@ -88,11 +124,10 @@ export default async function AgendaPage({ searchParams }: AgendaPageProps) {
 
   return (
     <AgendaView
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       selectedDate={dateStr}
       staff={staff ?? []}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      appointments={(appointments ?? []) as any}
+      appointments={appointments as any}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       businessHours={(barbershop?.business_hours ?? null) as any}
       daysOff={daysOff ?? []}
