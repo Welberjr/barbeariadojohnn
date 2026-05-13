@@ -9,14 +9,18 @@ import {
   ArrowUpRight,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { formatCurrency } from '@/lib/utils';
+
+const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
 export default async function DashboardPage() {
   const supabase = await createClient();
 
-  // Pegar dados básicos do banco (que já temos)
+  // ---- DADOS BÁSICOS ----
   const { data: services } = await supabase
     .from('services')
     .select('name, base_price, base_duration_minutes, category')
+    .eq('active', true)
     .order('display_order')
     .limit(8);
 
@@ -28,36 +32,84 @@ export default async function DashboardPage() {
   const totalServices = services?.length ?? 0;
   const totalStaff = staff?.length ?? 0;
 
+  // ---- KPIs DO DASHBOARD ----
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+    .toISOString()
+    .split('T')[0];
+
+  // Atendimentos de hoje (appointments)
+  const { count: countAppointmentsToday } = await supabase
+    .from('appointments')
+    .select('id', { count: 'exact', head: true })
+    .eq('barbershop_id', BARBERSHOP_ID)
+    .gte('start_at', `${todayStr}T00:00:00.000-03:00`)
+    .lte('start_at', `${todayStr}T23:59:59.999-03:00`);
+
+  // Clientes ativos
+  const { count: countCustomers } = await supabase
+    .from('customers')
+    .select('id', { count: 'exact', head: true })
+    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('active', true);
+
+  // Faturamento do mês
+  const { data: comandasMonth } = await supabase
+    .from('comandas')
+    .select('total')
+    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('status', 'closed')
+    .gte('closed_at', `${firstOfMonth}T00:00:00.000-03:00`);
+
+  const faturamentoMes = (comandasMonth ?? []).reduce(
+    (s, c) => s + Number(c.total ?? 0),
+    0
+  );
+
+  // Comandas abertas (em curso agora)
+  const { count: countOpenComandas } = await supabase
+    .from('comandas')
+    .select('id', { count: 'exact', head: true })
+    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('status', 'open');
+
   const stats = [
     {
       label: 'Atendimentos hoje',
-      value: '—',
-      hint: 'Aguardando agendamentos',
+      value: String(countAppointmentsToday ?? 0),
+      hint:
+        (countAppointmentsToday ?? 0) === 0
+          ? 'Nenhum agendamento'
+          : 'Agendados',
       icon: Calendar,
     },
     {
       label: 'Clientes ativos',
-      value: '0',
-      hint: 'Cadastre seus clientes',
+      value: String(countCustomers ?? 0),
+      hint: (countCustomers ?? 0) === 0 ? 'Cadastre clientes' : 'No cadastro',
       icon: Users,
     },
     {
       label: 'Faturamento mês',
-      value: 'R$ 0',
-      hint: 'Sem vendas registradas',
+      value: formatCurrency(faturamentoMes),
+      hint: `${comandasMonth?.length ?? 0} vendas`,
       icon: CircleDollarSign,
     },
     {
-      label: 'Avaliação média',
-      value: '5.0',
-      hint: '★ Novo no sistema',
+      label: 'Em curso agora',
+      value: String(countOpenComandas ?? 0),
+      hint:
+        (countOpenComandas ?? 0) === 0
+          ? 'Nenhuma comanda aberta'
+          : 'Comandas abertas',
       icon: Star,
     },
   ];
 
   return (
     <div className="space-y-8 animate-fade-in max-w-7xl">
-      {/* ============ HEADER ============ */}
+      {/* HEADER */}
       <div className="flex items-end justify-between flex-wrap gap-4">
         <div>
           <p className="text-[10px] text-fg-dim tracking-[0.25em] uppercase mb-1">
@@ -80,10 +132,9 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Linha divisória dourada */}
       <div className="divider-gold" />
 
-      {/* ============ STATS CARDS ============ */}
+      {/* STATS CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => {
           const Icon = stat.icon;
@@ -92,7 +143,6 @@ export default async function DashboardPage() {
               key={stat.label}
               className="card card-hover p-5 relative overflow-hidden group"
             >
-              {/* Highlight dourado no canto */}
               <div className="absolute -top-12 -right-12 w-24 h-24 rounded-full bg-gold/5 group-hover:bg-gold/10 transition-colors blur-xl" />
 
               <div className="relative flex items-start justify-between mb-3">
@@ -116,9 +166,9 @@ export default async function DashboardPage() {
         })}
       </div>
 
-      {/* ============ GRID PRINCIPAL ============ */}
+      {/* GRID PRINCIPAL */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* ===== COLUNA ESQUERDA — Cardápio de serviços ===== */}
+        {/* Cardápio de serviços */}
         <div className="lg:col-span-2 card p-6">
           <div className="flex items-center justify-between mb-5">
             <div>
@@ -165,14 +215,14 @@ export default async function DashboardPage() {
                   className="text-base font-bold text-gold"
                   style={{ fontFamily: 'var(--font-playfair), serif' }}
                 >
-                  R$ {svc.base_price}
+                  {formatCurrency(Number(svc.base_price))}
                 </p>
               </div>
             ))}
           </div>
         </div>
 
-        {/* ===== COLUNA DIREITA — Equipe + Roadmap ===== */}
+        {/* Coluna direita */}
         <div className="space-y-6">
           {/* Equipe */}
           <div className="card p-6">
@@ -212,7 +262,7 @@ export default async function DashboardPage() {
             ))}
           </div>
 
-          {/* Status do projeto */}
+          {/* Roadmap atualizado */}
           <div
             className="card p-6 relative overflow-hidden"
             style={{
@@ -226,7 +276,7 @@ export default async function DashboardPage() {
               <div className="flex items-center gap-2 mb-3">
                 <TrendingUp className="w-4 h-4 text-gold" />
                 <p className="text-[10px] tracking-[0.2em] uppercase text-gold font-semibold">
-                  Em Desenvolvimento
+                  Roadmap
                 </p>
               </div>
 
@@ -234,21 +284,19 @@ export default async function DashboardPage() {
                 className="text-lg font-bold text-fg mb-2"
                 style={{ fontFamily: 'var(--font-playfair), serif' }}
               >
-                Sistema em construção
+                Cronograma do projeto
               </h3>
-
-              <p className="text-xs text-fg-muted leading-relaxed mb-4">
-                Estamos entregando o sistema em ciclos semanais. Acompanhe o
-                cronograma abaixo.
-              </p>
 
               <div className="space-y-2.5">
                 {[
                   { label: 'Setup + Autenticação + Equipe', done: true },
-                  { label: 'Agenda + Clientes + Atendimento', done: false },
-                  { label: 'Financeiro + Metas + Produtos', done: false },
-                  { label: 'Pagamento online + Anti no-show', done: false },
-                  { label: 'IA no WhatsApp', done: false },
+                  { label: 'Agenda + Clientes + Atendimento', done: true },
+                  {
+                    label: 'Produtos + Financeiro + Metas + Config',
+                    done: true,
+                  },
+                  { label: 'DRE + Contas a Pagar + Assinaturas', done: false },
+                  { label: 'IA no WhatsApp + Fidelidade', done: false },
                 ].map((item, i) => (
                   <div key={i} className="flex items-start gap-2.5 text-xs">
                     <div
