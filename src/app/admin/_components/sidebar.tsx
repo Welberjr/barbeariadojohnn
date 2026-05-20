@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -33,17 +33,17 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
-  // GESTÃO
-  { label: 'Dashboard', icon: LayoutDashboard, href: '/admin', section: 'Gestão' },
-  { label: 'Agenda', icon: Calendar, href: '/admin/agenda', section: 'Gestão' },
-  { label: 'Comandas', icon: ClipboardList, href: '/admin/comandas', section: 'Gestão' },
-  { label: 'Clientes', icon: Users, href: '/admin/clientes', section: 'Gestão' },
+  // GESTÃƒO
+  { label: 'Dashboard', icon: LayoutDashboard, href: '/admin', section: 'GestÃ£o' },
+  { label: 'Agenda', icon: Calendar, href: '/admin/agenda', section: 'GestÃ£o' },
+  { label: 'Comandas', icon: ClipboardList, href: '/admin/comandas', section: 'GestÃ£o' },
+  { label: 'Clientes', icon: Users, href: '/admin/clientes', section: 'GestÃ£o' },
 
-  // OPERAÇÃO
-  { label: 'Profissionais', icon: UserCog, href: '/admin/profissionais', section: 'Operação' },
-  { label: 'Disponibilidade', icon: Clock, href: '/admin/disponibilidade', section: 'Operação' },
-  { label: 'Serviços', icon: Scissors, href: '/admin/servicos', section: 'Operação' },
-  { label: 'Produtos', icon: Package, href: '/admin/produtos', section: 'Operação' },
+  // OPERAÃ‡ÃƒO
+  { label: 'Profissionais', icon: UserCog, href: '/admin/profissionais', section: 'OperaÃ§Ã£o' },
+  { label: 'Disponibilidade', icon: Clock, href: '/admin/disponibilidade', section: 'OperaÃ§Ã£o' },
+  { label: 'ServiÃ§os', icon: Scissors, href: '/admin/servicos', section: 'OperaÃ§Ã£o' },
+  { label: 'Produtos', icon: Package, href: '/admin/produtos', section: 'OperaÃ§Ã£o' },
 
   // FINANCEIRO
   { label: 'Financeiro', icon: CircleDollarSign, href: '/admin/financeiro', section: 'Financeiro' },
@@ -55,13 +55,13 @@ const menuItems: MenuItem[] = [
   { label: 'Assinaturas', icon: Crown, href: '/admin/assinaturas', section: 'Marketing' },
   { label: 'Fidelidade', icon: Trophy, href: '/admin/fidelidade', section: 'Marketing' },
   { label: 'WhatsApp', icon: MessageSquare, href: '/admin/whatsapp', section: 'Marketing' },
-  { label: 'Site Público', icon: Globe, href: '/admin/site', section: 'Marketing' },
+  { label: 'Site PÃºblico', icon: Globe, href: '/admin/site', section: 'Marketing' },
 
   // SISTEMA
-  { label: 'Configurações', icon: Settings, href: '/admin/configuracoes', section: 'Sistema' },
+  { label: 'ConfiguraÃ§Ãµes', icon: Settings, href: '/admin/configuracoes', section: 'Sistema' },
 ];
 
-// Agrupar por seção mantendo a ordem
+// Agrupar por seÃ§Ã£o mantendo a ordem
 const groupedMenu = menuItems.reduce<Record<string, MenuItem[]>>((acc, item) => {
   const section = item.section || 'Outros';
   if (!acc[section]) acc[section] = [];
@@ -90,7 +90,7 @@ export function AdminSidebar() {
         <div className="absolute bottom-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent" />
       </div>
 
-      {/* ========== MENU (com seções) ========== */}
+      {/* ========== MENU (com seÃ§Ãµes) ========== */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
         {Object.entries(groupedMenu).map(([section, items]) => (
           <div key={section} className="space-y-1">
