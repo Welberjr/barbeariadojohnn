@@ -1,10 +1,13 @@
+﻿export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 /**
  * Webhook do WhatsApp Cloud API.
  *
- * GET: Handshake de verificação Meta (compara hub.verify_token com config)
+ * GET: Handshake de verificaÃ§Ã£o Meta (compara hub.verify_token com config)
  * POST: Recebe eventos (mensagens, status de entrega, leitura, etc.)
  *
- * Por enquanto: apenas valida e loga. Quando integração estiver ativa,
+ * Por enquanto: apenas valida e loga. Quando integraÃ§Ã£o estiver ativa,
  * processa fluxo conversacional (agendamentos via WhatsApp).
  */
 
@@ -20,7 +23,7 @@ interface WhatsAppConfig {
 }
 
 /**
- * Handshake da Meta — Meta envia GET com hub.mode=subscribe, hub.verify_token e hub.challenge.
+ * Handshake da Meta â€” Meta envia GET com hub.mode=subscribe, hub.verify_token e hub.challenge.
  * Devemos retornar o challenge se o verify_token confere.
  */
 export async function GET(req: NextRequest) {
@@ -47,7 +50,7 @@ export async function GET(req: NextRequest) {
     const cfg = (bs?.whatsapp_config ?? {}) as WhatsAppConfig;
 
     if (cfg.verify_token && token === cfg.verify_token) {
-      // Retorna challenge em texto puro (não JSON)
+      // Retorna challenge em texto puro (nÃ£o JSON)
       return new NextResponse(challenge, {
         status: 200,
         headers: { 'Content-Type': 'text/plain' },
@@ -68,15 +71,15 @@ export async function GET(req: NextRequest) {
 
 /**
  * Recebe eventos da Meta (mensagens recebidas, status de entrega/leitura).
- * Por enquanto: apenas loga payload. Implementação completa de fluxo
- * conversacional virá quando Meta verificar a conta.
+ * Por enquanto: apenas loga payload. ImplementaÃ§Ã£o completa de fluxo
+ * conversacional virÃ¡ quando Meta verificar a conta.
  */
 export async function POST(req: NextRequest) {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const body: any = await req.json();
 
-    // Log estrutura recebida (em produção, isso vai pro Vercel Logs)
+    // Log estrutura recebida (em produÃ§Ã£o, isso vai pro Vercel Logs)
     if (process.env.NODE_ENV !== 'production') {
       // eslint-disable-next-line no-console
       console.log('[WhatsApp Webhook] Payload:', JSON.stringify(body, null, 2));
@@ -96,13 +99,13 @@ export async function POST(req: NextRequest) {
     // }
 
     if (body?.object !== 'whatsapp_business_account') {
-      // Não é um evento WhatsApp — ignora
+      // NÃ£o Ã© um evento WhatsApp â€” ignora
       return NextResponse.json({ ok: true });
     }
 
     const admin = createAdminClient();
 
-    // Verifica se a integração está ativa antes de processar
+    // Verifica se a integraÃ§Ã£o estÃ¡ ativa antes de processar
     const { data: bs } = await admin
       .from('barbershops')
       .select('whatsapp_config')
@@ -111,7 +114,7 @@ export async function POST(req: NextRequest) {
 
     const cfg = (bs?.whatsapp_config ?? {}) as WhatsAppConfig;
     if (!cfg.enabled || cfg.meta_status !== 'verified') {
-      // Integração ainda não ativa — só acknowledge
+      // IntegraÃ§Ã£o ainda nÃ£o ativa â€” sÃ³ acknowledge
       return NextResponse.json({ ok: true, skipped: 'not_active' });
     }
 
@@ -146,7 +149,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Meta espera 200 dentro de 5s, senão tenta reentregar
+    // Meta espera 200 dentro de 5s, senÃ£o tenta reentregar
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json(

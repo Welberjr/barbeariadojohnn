@@ -1,7 +1,12 @@
-import { type NextRequest } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
 
 export async function middleware(request: NextRequest) {
+  // Skip auth refresh para endpoints de API (webhooks, crons, etc.)
+  // Esses endpoints têm sua própria autenticação (CRON_SECRET, verify_token, etc.)
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    return NextResponse.next({ request });
+  }
   return await updateSession(request);
 }
 

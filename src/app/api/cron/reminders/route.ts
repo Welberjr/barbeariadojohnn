@@ -1,10 +1,13 @@
+﻿export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 /**
  * Cron de lembretes de agendamento.
  *
- * Vercel Cron Jobs chamará este endpoint periodicamente (configurado em vercel.json).
- * Busca appointments que ocorrerão em ~24h e dispara lembretes via WhatsApp.
+ * Vercel Cron Jobs chamarÃ¡ este endpoint periodicamente (configurado em vercel.json).
+ * Busca appointments que ocorrerÃ£o em ~24h e dispara lembretes via WhatsApp.
  *
- * Se WhatsApp ainda não estiver verificado, sendWhatsAppMessage retorna mocked=true.
+ * Se WhatsApp ainda nÃ£o estiver verificado, sendWhatsAppMessage retorna mocked=true.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -29,8 +32,8 @@ export async function GET(req: NextRequest) {
   try {
     const admin = createAdminClient();
 
-    // Janela: appointments começando entre 23h e 25h a partir de agora
-    // Cron rodará a cada hora — pegamos uma janela de 2h pra garantir cobertura mesmo com pequenos atrasos
+    // Janela: appointments comeÃ§ando entre 23h e 25h a partir de agora
+    // Cron rodarÃ¡ a cada hora â€” pegamos uma janela de 2h pra garantir cobertura mesmo com pequenos atrasos
     const now = new Date();
     const windowStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
     const windowEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000);
@@ -99,7 +102,7 @@ export async function GET(req: NextRequest) {
         .maybeSingle(),
     ]);
 
-    // Buscar nomes dos serviços
+    // Buscar nomes dos serviÃ§os
     const serviceIds = Array.from(
       new Set((appServices ?? []).map((s) => s.service_id).filter(Boolean))
     ) as string[];
@@ -180,7 +183,7 @@ export async function GET(req: NextRequest) {
         dateTime: new Date(app.start_at as string),
         barbershopName,
       });
-      // staffName usado em outros templates; aqui no 24h não precisa
+      // staffName usado em outros templates; aqui no 24h nÃ£o precisa
       void staffName;
 
       const result = await sendWhatsAppMessage(customer.phone, message);
