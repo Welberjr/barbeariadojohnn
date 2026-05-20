@@ -1,11 +1,35 @@
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { Logo } from '@/components/brand/logo';
-import { MapPin, Phone, Clock, Scissors, Star } from 'lucide-react';
+import {
+  MapPin,
+  Phone,
+  Clock,
+  Scissors,
+  Star,
+  Sparkles,
+  AtSign,
+  Link2,
+} from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
 interface CardapioPageProps {
   params: Promise<{ slug: string }>;
+}
+
+interface SiteConfig {
+  hero_title?: string | null;
+  hero_subtitle?: string | null;
+  hero_cta?: string | null;
+  about_title?: string | null;
+  about_text?: string | null;
+  show_hours?: boolean;
+  show_gallery?: boolean;
+  gallery_urls?: string[] | null;
+  instagram_url?: string | null;
+  facebook_url?: string | null;
+  google_maps_url?: string | null;
+  custom_message?: string | null;
 }
 
 export async function generateMetadata({ params }: CardapioPageProps) {
@@ -13,15 +37,22 @@ export async function generateMetadata({ params }: CardapioPageProps) {
   const supabase = await createClient();
   const { data: barbershop } = await supabase
     .from('barbershops')
-    .select('name, address_city')
+    .select('name, address_city, site_config')
     .eq('slug', slug)
     .maybeSingle();
 
   if (!barbershop) return { title: 'Cardápio' };
 
+  const cfg = (barbershop.site_config ?? {}) as SiteConfig;
+  const title = cfg.hero_title
+    ? `${cfg.hero_title} | ${barbershop.name}`
+    : `Cardápio | ${barbershop.name}`;
+
   return {
-    title: `Cardápio | ${barbershop.name}`,
-    description: `Serviços e preços da ${barbershop.name} em ${barbershop.address_city}. Cabelo, barba e visagismo com padrão premium.`,
+    title,
+    description:
+      cfg.hero_subtitle ??
+      `Serviços e preços da ${barbershop.name} em ${barbershop.address_city}. Cabelo, barba e visagismo com padrão premium.`,
   };
 }
 
@@ -38,6 +69,12 @@ export default async function CardapioPage({ params }: CardapioPageProps) {
   if (!barbershop) {
     notFound();
   }
+
+  const cfg = (barbershop.site_config ?? {}) as SiteConfig;
+  const gallery = Array.isArray(cfg.gallery_urls)
+    ? cfg.gallery_urls.filter((u) => typeof u === 'string' && u.length > 0)
+    : [];
+  const showGallery = (cfg.show_gallery ?? true) && gallery.length > 0;
 
   const { data: services } = await supabase
     .from('services')
@@ -56,6 +93,10 @@ export default async function CardapioPage({ params }: CardapioPageProps) {
     acc[cat].push(svc);
     return acc;
   }, {});
+
+  const heroTitle = cfg.hero_title || barbershop.name;
+  const heroSubtitle = cfg.hero_subtitle;
+  const heroCta = cfg.hero_cta || 'Agendar pelo WhatsApp';
 
   return (
     <div className="min-h-screen bg-bg relative overflow-x-hidden">
@@ -78,7 +119,7 @@ export default async function CardapioPage({ params }: CardapioPageProps) {
         }}
       />
 
-      {/* ========= HEADER ========= */}
+      {/* ========= HEADER + HERO ========= */}
       <header className="relative z-10 pt-12 pb-8 px-4">
         <div className="max-w-3xl mx-auto text-center space-y-6">
           <div className="flex justify-center">
@@ -91,15 +132,22 @@ export default async function CardapioPage({ params }: CardapioPageProps) {
 
           <div className="space-y-2">
             <p className="text-[10px] text-gold tracking-[0.4em] uppercase font-semibold">
-              Cardápio · Preços · Serviços
+              {cfg.hero_title
+                ? barbershop.name
+                : 'Cardápio · Preços · Serviços'}
             </p>
             <h1
               className="text-3xl md:text-4xl font-bold text-fg"
               style={{ fontFamily: 'var(--font-playfair), serif' }}
             >
-              {barbershop.name}
+              {heroTitle}
             </h1>
-            {barbershop.address_city && (
+            {heroSubtitle && (
+              <p className="text-sm md:text-base text-fg-muted max-w-xl mx-auto leading-relaxed pt-2">
+                {heroSubtitle}
+              </p>
+            )}
+            {barbershop.address_city && !heroSubtitle && (
               <p className="text-sm text-fg-muted flex items-center justify-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5 text-gold" />
                 {barbershop.address_city}
@@ -116,6 +164,84 @@ export default async function CardapioPage({ params }: CardapioPageProps) {
           </div>
         </div>
       </header>
+
+      {/* ========= MENSAGEM CUSTOM ========= */}
+      {cfg.custom_message && (
+        <section className="relative z-10 px-4 pb-6">
+          <div className="max-w-3xl mx-auto">
+            <div
+              className="card-premium p-5 border-gold/40 relative overflow-hidden"
+              style={{
+                background:
+                  'linear-gradient(135deg, rgba(212, 160, 79, 0.08) 0%, rgba(10, 10, 10, 1) 100%)',
+              }}
+            >
+              <div className="flex items-start gap-3">
+                <Sparkles className="w-5 h-5 text-gold flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-fg leading-relaxed">
+                  {cfg.custom_message}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ========= SOBRE ========= */}
+      {(cfg.about_title || cfg.about_text) && (
+        <section className="relative z-10 px-4 pb-10">
+          <div className="max-w-3xl mx-auto">
+            <div className="card-premium p-6 md:p-8 space-y-3">
+              {cfg.about_title && (
+                <h2
+                  className="text-2xl font-bold text-fg"
+                  style={{ fontFamily: 'var(--font-playfair), serif' }}
+                >
+                  {cfg.about_title}
+                </h2>
+              )}
+              {cfg.about_text && (
+                <p className="text-sm md:text-base text-fg-muted leading-relaxed whitespace-pre-line">
+                  {cfg.about_text}
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ========= GALERIA ========= */}
+      {showGallery && (
+        <section className="relative z-10 px-4 pb-10">
+          <div className="max-w-3xl mx-auto">
+            <div className="flex items-center gap-3 mb-5">
+              <h2
+                className="text-xl md:text-2xl font-bold text-fg"
+                style={{ fontFamily: 'var(--font-playfair), serif' }}
+              >
+                Galeria
+              </h2>
+              <div className="flex-1 h-px bg-gradient-to-r from-gold/30 to-transparent" />
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {gallery.map((url, i) => (
+                <div
+                  key={i}
+                  className="aspect-square rounded-md overflow-hidden border border-border bg-bg-elevated"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={url}
+                    alt={`Foto ${i + 1}`}
+                    loading="lazy"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ========= CARDÁPIO ========= */}
       <main className="relative z-10 px-4 pb-16">
@@ -227,12 +353,53 @@ export default async function CardapioPage({ params }: CardapioPageProps) {
                 className="btn-gold-shimmer inline-flex items-center gap-2"
               >
                 <Phone className="w-4 h-4" />
-                <span>Agendar pelo WhatsApp</span>
+                <span>{heroCta}</span>
               </a>
             )}
           </div>
         </div>
       </section>
+
+      {/* ========= REDES SOCIAIS ========= */}
+      {(cfg.instagram_url || cfg.facebook_url || cfg.google_maps_url) && (
+        <section className="relative z-10 px-4 pb-8">
+          <div className="max-w-3xl mx-auto flex justify-center gap-3 flex-wrap">
+            {cfg.instagram_url && (
+              <a
+                href={cfg.instagram_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 rounded-md border border-border hover:border-gold/40 hover:text-gold transition-colors text-sm text-fg-muted"
+              >
+                <AtSign className="w-4 h-4" />
+                <span>Instagram</span>
+              </a>
+            )}
+            {cfg.facebook_url && (
+              <a
+                href={cfg.facebook_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 rounded-md border border-border hover:border-gold/40 hover:text-gold transition-colors text-sm text-fg-muted"
+              >
+                <Link2 className="w-4 h-4" />
+                <span>Facebook</span>
+              </a>
+            )}
+            {cfg.google_maps_url && (
+              <a
+                href={cfg.google_maps_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 rounded-md border border-border hover:border-gold/40 hover:text-gold transition-colors text-sm text-fg-muted"
+              >
+                <MapPin className="w-4 h-4" />
+                <span>Como chegar</span>
+              </a>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* ========= FOOTER ========= */}
       <footer className="relative z-10 border-t border-border/40 py-8 px-4">

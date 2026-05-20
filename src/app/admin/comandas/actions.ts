@@ -1,4 +1,4 @@
-'use server';
+﻿'use server';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
@@ -18,7 +18,7 @@ export interface CreateComandaData {
 export async function createComanda(data: CreateComandaData) {
   const admin = createAdminClient();
 
-  // Se houver appointment, verificar se já existe comanda vinculada
+  // Se houver appointment, verificar se jÃ¡ existe comanda vinculada
   if (data.appointment_id) {
     const { data: existing } = await admin
       .from('comandas')
@@ -28,7 +28,7 @@ export async function createComanda(data: CreateComandaData) {
       .maybeSingle();
 
     if (existing) {
-      // Já existe comanda vinculada ao agendamento; reutiliza
+      // JÃ¡ existe comanda vinculada ao agendamento; reutiliza
       return { ok: true, comanda: existing, reused: true };
     }
   }
@@ -58,13 +58,13 @@ export async function createComanda(data: CreateComandaData) {
 
   if (error) return { ok: false, error: error.message };
 
-  // Integração: ao abrir comanda vinculada a appointment, marca-o como in_progress
+  // IntegraÃ§Ã£o: ao abrir comanda vinculada a appointment, marca-o como in_progress
   if (data.appointment_id) {
     await admin
       .from('appointments')
       .update({ status: 'in_progress' })
       .eq('id', data.appointment_id)
-      .in('status', ['scheduled']); // só atualiza se ainda estiver scheduled
+      .in('status', ['scheduled']); // sÃ³ atualiza se ainda estiver scheduled
   }
 
   revalidatePath('/admin/comandas');
@@ -73,8 +73,8 @@ export async function createComanda(data: CreateComandaData) {
 }
 
 /**
- * Pré-popula a comanda com os serviços que estavam no agendamento.
- * Útil quando se abre a comanda a partir de um appointment.
+ * PrÃ©-popula a comanda com os serviÃ§os que estavam no agendamento.
+ * Ãštil quando se abre a comanda a partir de um appointment.
  */
 export async function populateComandaFromAppointment(
   comandaId: string,
@@ -82,7 +82,7 @@ export async function populateComandaFromAppointment(
 ) {
   const admin = createAdminClient();
 
-  // Buscar serviços do agendamento
+  // Buscar serviÃ§os do agendamento
   const { data: apptServices } = await admin
     .from('appointment_services')
     .select('service_id, price, commission_percent')
@@ -101,7 +101,7 @@ export async function populateComandaFromAppointment(
 
   const staffId = comanda?.staff_id as string | null;
 
-  // Buscar nomes dos serviços
+  // Buscar nomes dos serviÃ§os
   const serviceIds = apptServices.map((s) => s.service_id);
   const { data: services } = await admin
     .from('services')
@@ -118,7 +118,7 @@ export async function populateComandaFromAppointment(
     comanda_id: comandaId,
     item_type: 'service',
     service_id: s.service_id,
-    name: nameMap.get(s.service_id as string) ?? 'Serviço',
+    name: nameMap.get(s.service_id as string) ?? 'ServiÃ§o',
     quantity: 1,
     unit_price: Number(s.price ?? 0),
     total_price: Number(s.price ?? 0),
@@ -138,7 +138,7 @@ export async function populateComandaFromAppointment(
 }
 
 /**
- * Adiciona um serviço à comanda (insere em comanda_items com item_type='service').
+ * Adiciona um serviÃ§o Ã  comanda (insere em comanda_items com item_type='service').
  */
 export async function addServiceToComanda(
   comandaId: string,
@@ -168,7 +168,7 @@ export async function addServiceToComanda(
     comanda_id: comandaId,
     item_type: 'service',
     service_id: serviceId,
-    name: service?.name ?? 'Serviço',
+    name: service?.name ?? 'ServiÃ§o',
     quantity,
     unit_price: price,
     total_price: totalPrice,
@@ -187,8 +187,8 @@ export async function addServiceToComanda(
 }
 
 /**
- * Adiciona um produto à comanda (insere em comanda_items com item_type='product').
- * Também decrementa stock_current do produto.
+ * Adiciona um produto Ã  comanda (insere em comanda_items com item_type='product').
+ * TambÃ©m decrementa stock_current do produto.
  */
 export async function addProductToComanda(
   comandaId: string,
@@ -204,7 +204,7 @@ export async function addProductToComanda(
     .eq('id', productId)
     .maybeSingle();
 
-  // Buscar staff_id da comanda (vendedor recebe comissão do produto)
+  // Buscar staff_id da comanda (vendedor recebe comissÃ£o do produto)
   const { data: comanda } = await admin
     .from('comandas')
     .select('staff_id')
@@ -265,7 +265,7 @@ export async function removeComandaItem(
 ) {
   const admin = createAdminClient();
 
-  // Antes de remover, verificar se é produto pra devolver estoque
+  // Antes de remover, verificar se Ã© produto pra devolver estoque
   const { data: item } = await admin
     .from('comanda_items')
     .select('item_type, product_id, quantity')
@@ -321,7 +321,7 @@ async function recalculateComandaTotal(comandaId: string) {
 }
 
 /**
- * Fecha a comanda (transforma em venda) — insere pagamento em comanda_payments.
+ * Fecha a comanda (transforma em venda) â€” insere pagamento em comanda_payments.
  * Se vinculada a appointment, marca-o como 'completed'.
  * Atualiza total_appointments e total_spent do cliente.
  */
@@ -339,7 +339,7 @@ export async function closeComanda(
     .eq('id', comandaId)
     .maybeSingle();
 
-  if (!comanda) return { ok: false, error: 'Comanda não encontrada' };
+  if (!comanda) return { ok: false, error: 'Comanda nÃ£o encontrada' };
 
   const subtotal = Number(comanda.subtotal);
   const total = subtotal - discount + tip;
@@ -375,7 +375,7 @@ export async function closeComanda(
 
   if (errPayment) return { ok: false, error: errPayment.message };
 
-  // 3. Integração: marca appointment como completed se houver
+  // 3. IntegraÃ§Ã£o: marca appointment como completed se houver
   if (comanda.appointment_id) {
     await admin
       .from('appointments')
@@ -387,7 +387,7 @@ export async function closeComanda(
       .eq('id', comanda.appointment_id);
   }
 
-  // 4. Atualiza estatísticas do cliente
+  // 4. Atualiza estatÃ­sticas do cliente
   if (comanda.customer_id) {
     const { data: customer } = await admin
       .from('customers')
