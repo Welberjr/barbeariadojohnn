@@ -119,7 +119,7 @@ export function CustomerForm({
   }
 
   return (
-    <div className="max-w-3xl space-y-6 animate-fade-in">
+    <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
       <div>
         <Link
           href="/admin/clientes"

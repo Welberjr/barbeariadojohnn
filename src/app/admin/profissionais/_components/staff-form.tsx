@@ -112,7 +112,7 @@ export function StaffForm({ staffId, defaultValues }: StaffFormProps) {
   }
 
   return (
-    <div className="max-w-3xl space-y-6 animate-fade-in">
+    <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
       {/* Header */}
       <div>
         <Link
