@@ -108,7 +108,7 @@ export default async function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-8 animate-fade-in max-w-7xl">
+    <div className="space-y-8 animate-fade-in">
       {/* HEADER */}
       <div className="flex items-end justify-between flex-wrap gap-4">
         <div>

@@ -1,7 +1,8 @@
-﻿'use client';
+'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import {
   LayoutDashboard,
   Calendar,
@@ -33,17 +34,17 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
-  // GESTÃƒO
-  { label: 'Dashboard', icon: LayoutDashboard, href: '/admin', section: 'GestÃ£o' },
-  { label: 'Agenda', icon: Calendar, href: '/admin/agenda', section: 'GestÃ£o' },
-  { label: 'Comandas', icon: ClipboardList, href: '/admin/comandas', section: 'GestÃ£o' },
-  { label: 'Clientes', icon: Users, href: '/admin/clientes', section: 'GestÃ£o' },
+  // GESTÃO
+  { label: 'Dashboard', icon: LayoutDashboard, href: '/admin', section: 'Gestão' },
+  { label: 'Agenda', icon: Calendar, href: '/admin/agenda', section: 'Gestão' },
+  { label: 'Comandas', icon: ClipboardList, href: '/admin/comandas', section: 'Gestão' },
+  { label: 'Clientes', icon: Users, href: '/admin/clientes', section: 'Gestão' },
 
-  // OPERAÃ‡ÃƒO
-  { label: 'Profissionais', icon: UserCog, href: '/admin/profissionais', section: 'OperaÃ§Ã£o' },
-  { label: 'Disponibilidade', icon: Clock, href: '/admin/disponibilidade', section: 'OperaÃ§Ã£o' },
-  { label: 'ServiÃ§os', icon: Scissors, href: '/admin/servicos', section: 'OperaÃ§Ã£o' },
-  { label: 'Produtos', icon: Package, href: '/admin/produtos', section: 'OperaÃ§Ã£o' },
+  // OPERAÇÃO
+  { label: 'Profissionais', icon: UserCog, href: '/admin/profissionais', section: 'Operação' },
+  { label: 'Disponibilidade', icon: Clock, href: '/admin/disponibilidade', section: 'Operação' },
+  { label: 'Serviços', icon: Scissors, href: '/admin/servicos', section: 'Operação' },
+  { label: 'Produtos', icon: Package, href: '/admin/produtos', section: 'Operação' },
 
   // FINANCEIRO
   { label: 'Financeiro', icon: CircleDollarSign, href: '/admin/financeiro', section: 'Financeiro' },
@@ -55,13 +56,13 @@ const menuItems: MenuItem[] = [
   { label: 'Assinaturas', icon: Crown, href: '/admin/assinaturas', section: 'Marketing' },
   { label: 'Fidelidade', icon: Trophy, href: '/admin/fidelidade', section: 'Marketing' },
   { label: 'WhatsApp', icon: MessageSquare, href: '/admin/whatsapp', section: 'Marketing' },
-  { label: 'Site PÃºblico', icon: Globe, href: '/admin/site', section: 'Marketing' },
+  { label: 'Site Público', icon: Globe, href: '/admin/site', section: 'Marketing' },
 
   // SISTEMA
-  { label: 'ConfiguraÃ§Ãµes', icon: Settings, href: '/admin/configuracoes', section: 'Sistema' },
+  { label: 'Configurações', icon: Settings, href: '/admin/configuracoes', section: 'Sistema' },
 ];
 
-// Agrupar por seÃ§Ã£o mantendo a ordem
+// Agrupar por seção mantendo a ordem
 const groupedMenu = menuItems.reduce<Record<string, MenuItem[]>>((acc, item) => {
   const section = item.section || 'Outros';
   if (!acc[section]) acc[section] = [];
@@ -71,6 +72,16 @@ const groupedMenu = menuItems.reduce<Record<string, MenuItem[]>>((acc, item) => 
 
 export function AdminSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  // Prefetch agressivo de todas as rotas no mount
+  // Faz o Next.js carregar o JS/RSC de cada página em background,
+  // tornando a navegação instantânea após o primeiro segundo na tela.
+  useEffect(() => {
+    menuItems.forEach((item) => {
+      router.prefetch(item.href);
+    });
+  }, [router]);
 
   return (
     <aside
@@ -90,7 +101,7 @@ export function AdminSidebar() {
         <div className="absolute bottom-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-gold/30 to-transparent" />
       </div>
 
-      {/* ========== MENU (com seÃ§Ãµes) ========== */}
+      {/* ========== MENU (com seções) ========== */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
         {Object.entries(groupedMenu).map(([section, items]) => (
           <div key={section} className="space-y-1">
@@ -110,6 +121,8 @@ export function AdminSidebar() {
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={true}
+                  onMouseEnter={() => router.prefetch(item.href)}
                   className={cn(
                     'group flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all relative overflow-hidden',
                     isActive
