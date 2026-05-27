@@ -61,7 +61,7 @@ export default async function DisponibilidadePage() {
   const businessHours = (barbershop?.business_hours as typeof DEFAULT_HOURS) ?? DEFAULT_HOURS;
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       {/* ============= HEADER ============= */}
       <div>
         <p className="text-[10px] text-gold tracking-[0.3em] uppercase font-semibold mb-1">

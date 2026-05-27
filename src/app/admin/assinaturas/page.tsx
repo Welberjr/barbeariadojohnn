@@ -124,7 +124,7 @@ export default async function AssinaturasPage() {
   })();
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-7xl">
+    <div className="space-y-6 animate-fade-in">
       {/* HEADER */}
       <div className="flex items-end justify-between flex-wrap gap-4">
         <div>

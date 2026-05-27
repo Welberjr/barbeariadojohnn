@@ -67,7 +67,7 @@ export default async function WhatsAppPage() {
   const StatusIcon = statusInfo.icon;
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-4xl">
+    <div className="space-y-6 animate-fade-in max-w-6xl">
       {/* HEADER */}
       <div className="flex items-end justify-between flex-wrap gap-4">
         <div>

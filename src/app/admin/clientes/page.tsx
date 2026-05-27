@@ -42,7 +42,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
   const newCustomers = customers?.filter((c) => c.tier === 'new').length ?? 0;
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-7xl">
+    <div className="space-y-6 animate-fade-in">
       {/* HEADER */}
       <div className="flex items-end justify-between flex-wrap gap-4">
         <div>

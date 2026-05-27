@@ -170,7 +170,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
     receitaBruta > 0 ? (lucroLiquido / receitaBruta) * 100 : 0;
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-6xl">
+    <div className="space-y-6 animate-fade-in">
       {/* HEADER */}
       <div className="flex items-end justify-between flex-wrap gap-4">
         <div>
