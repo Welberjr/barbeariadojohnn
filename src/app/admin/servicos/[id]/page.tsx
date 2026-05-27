@@ -83,7 +83,7 @@ export default async function EditServicePage({ params }: EditServicePageProps) 
         }}
       />
 
-      <div className="max-w-5xl mx-auto">
+      <div className="">
         <ServiceStaffManager
           serviceId={service.id}
           basePrice={Number(service.base_price)}

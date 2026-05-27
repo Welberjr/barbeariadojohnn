@@ -149,7 +149,7 @@ export function ProductForm({
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       {/* HEADER */}
       <div>
         <Link
