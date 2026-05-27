@@ -17,7 +17,7 @@ export default async function ConfiguracoesPage() {
     .maybeSingle();
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-6xl">
+    <div className="space-y-6 animate-fade-in max-w-5xl mx-auto">
       <div>
         <p className="text-[10px] text-fg-dim tracking-[0.25em] uppercase mb-1">
           Sistema
