@@ -11,18 +11,22 @@ import {
 import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
 import { CommissionPayButton } from './_components/commission-pay-button';
+import { AllowancesSection } from './_components/allowances-section';
+import { RevenueChart } from './_components/revenue-chart';
+import { FinanceiroButtons } from './_components/financeiro-buttons';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
 export const metadata = { title: 'Financeiro' };
+export const dynamic = 'force-dynamic';
 
 interface FinanceiroPageProps {
-  searchParams: Promise<{ from?: string; to?: string; tab?: string }>;
+  searchParams: Promise<{ from?: string; to?: string; staff?: string }>;
 }
 
 export default async function FinanceiroPage({ searchParams }: FinanceiroPageProps) {
   const { from: fromParam, to: toParam } = await searchParams;
-  const admin = await createClient();
+  const supabase = await createClient();
 
   const now = new Date();
   const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -38,8 +42,10 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
     { data: comandasRaw },
     { data: staffRaw },
     { data: payoutHistoryRaw },
+    { data: allowancesRaw },
+    { data: manualTxRaw },
   ] = await Promise.all([
-    admin
+    supabase
       .from('comandas')
       .select('id, total, subtotal, net_total, staff_id, closed_at, customer_id')
       .eq('barbershop_id', BARBERSHOP_ID)
@@ -47,17 +53,32 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
       .gte('closed_at', periodStart)
       .lte('closed_at', periodEnd)
       .order('closed_at', { ascending: false }),
-    admin
+    supabase
       .from('staff')
       .select('id, display_name')
       .eq('active', true)
       .order('display_name'),
-    admin
+    supabase
       .from('commission_payouts')
       .select('id, staff_id, amount_paid, period_start, period_end, payment_date, payment_method, notes, staff:staff(display_name)')
       .eq('barbershop_id', BARBERSHOP_ID)
       .order('payment_date', { ascending: false })
       .limit(30),
+    // Vales (todos, filtro de mês feito no cliente)
+    supabase
+      .from('allowances')
+      .select('id, staff_id, amount, reason, status, requested_at, reviewed_at, staff:staff(display_name)')
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .order('requested_at', { ascending: false })
+      .limit(200),
+    // Receitas e despesas manuais no período
+    supabase
+      .from('transactions')
+      .select('type, amount, occurred_at, category')
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .in('type', ['other', 'expense'])
+      .gte('occurred_at', periodStart)
+      .lte('occurred_at', periodEnd),
   ]);
 
   const comandas = comandasRaw ?? [];
@@ -70,11 +91,11 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
 
   if (comandaIds.length > 0) {
     const [{ data: itemsAgg }, { data: paymentsAgg }] = await Promise.all([
-      admin
+      supabase
         .from('comanda_items')
         .select('comanda_id, item_type, total_price, commission_value, staff_id')
         .in('comanda_id', comandaIds),
-      admin
+      supabase
         .from('comanda_payments')
         .select('comanda_id, method, amount, net_amount, fee_value')
         .in('comanda_id', comandaIds),
@@ -90,9 +111,15 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
   const totalServicos = items.filter((i) => i.item_type === 'service').reduce((s, i) => s + Number(i.total_price ?? 0), 0);
   const totalProdutos = items.filter((i) => i.item_type === 'product').reduce((s, i) => s + Number(i.total_price ?? 0), 0);
 
+  // Despesas manuais (type=expense) e receitas extras (type=other)
+  const manualTx = manualTxRaw ?? [];
+  const totalDespesasManuais = manualTx.filter((t) => t.type === 'expense').reduce((s, t) => s + Number(t.amount ?? 0), 0);
+  const totalReceitasExtras = manualTx.filter((t) => t.type === 'other').reduce((s, t) => s + Number(t.amount ?? 0), 0);
+  const totalDespesas = totalDespesasManuais;
+
   const staffMap = new Map((staffRaw ?? []).map((s) => [s.id as string, s.display_name as string]));
 
-  // Comissões por profissional (no período)
+  // Comissões por profissional
   const commissionByStaff = new Map<string, {
     name: string; commission: number; vendas: number;
     servicos: number; produtos: number; atend: number;
@@ -108,8 +135,6 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
     else cur.produtos += Number(item.total_price ?? 0);
     commissionByStaff.set(sid, cur);
   }
-
-  // Atendimentos por profissional
   for (const c of comandas) {
     const sid = c.staff_id as string | null;
     if (!sid) continue;
@@ -120,11 +145,6 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
   const comissoesArray = Array.from(commissionByStaff.entries())
     .map(([id, v]) => ({ id, ...v }))
     .sort((a, b) => b.commission - a.commission);
-
-  // Historico de pagamentos de comissao
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const payoutHistory = (payoutHistoryRaw ?? []) as any[];
-
   const totalComissoes = comissoesArray.reduce((s, c) => s + c.commission, 0);
 
   const paymentByMethod = new Map<string, { amount: number; net: number; fees: number; count: number }>();
@@ -142,12 +162,64 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
     .sort((a, b) => b.amount - a.amount);
 
   const methodLabel = (m: string) => {
-    const map: Record<string, string> = { pix: 'PIX', cash: 'Dinheiro', dinheiro: 'Dinheiro', credit: 'Crédito', credito: 'Crédito', debit: 'Débito', debito: 'Débito' };
+    const map: Record<string, string> = { pix: 'PIX', cash: 'Dinheiro', credit: 'Crédito', debit: 'Débito' };
     return map[m] ?? m;
   };
 
-  const fmtDate = (iso: string | null) =>
-    iso ? new Date(iso).toLocaleDateString('pt-BR') : '—';
+  const fmtDate = (iso: string | null) => iso ? new Date(iso).toLocaleDateString('pt-BR') : '—';
+
+  // Histograma por dia (receitas das comandas + manuais vs despesas)
+  const dayMap = new Map<string, { income: number; expense: number }>();
+  // Preenche todos os dias do mês
+  const daysInMonth = new Date(fromDate.getFullYear(), fromDate.getMonth() + 1, 0).getDate();
+  for (let d = 1; d <= daysInMonth; d++) {
+    const label = `${String(d).padStart(2, '0')}/${String(fromDate.getMonth() + 1).padStart(2, '0')}`;
+    dayMap.set(label, { income: 0, expense: 0 });
+  }
+  for (const c of comandas) {
+    if (!c.closed_at) continue;
+    const d = new Date(c.closed_at as string);
+    const label = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const cur = dayMap.get(label) ?? { income: 0, expense: 0 };
+    cur.income += Number(c.total ?? 0);
+    dayMap.set(label, cur);
+  }
+  for (const t of manualTx) {
+    if (!t.occurred_at) continue;
+    const d = new Date(t.occurred_at as string);
+    const label = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const cur = dayMap.get(label) ?? { income: 0, expense: 0 };
+    if (t.type === 'expense') cur.expense += Number(t.amount ?? 0);
+    else cur.income += Number(t.amount ?? 0);
+    dayMap.set(label, cur);
+  }
+  const chartData = Array.from(dayMap.entries()).map(([date, v]) => ({ date, ...v }));
+
+  // Vales para o componente client
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allowances = ((allowancesRaw ?? []) as any[]).map((a) => ({
+    id: a.id as string,
+    staff_id: a.staff_id as string,
+    staff_name: (a.staff?.display_name as string) ?? '—',
+    amount: Number(a.amount ?? 0),
+    reason: (a.reason as string | null) ?? null,
+    status: a.status as string,
+    requested_at: a.requested_at as string,
+    reviewed_at: (a.reviewed_at as string | null) ?? null,
+  }));
+
+  const staffOptions = (staffRaw ?? []).map((s) => ({
+    id: s.id as string,
+    display_name: s.display_name as string,
+  }));
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const payoutHistory = (payoutHistoryRaw ?? []) as any[];
+
+  const monthLabel = new Date(fromDate.getFullYear(), fromDate.getMonth()).toLocaleString('pt-BR', {
+    month: 'long',
+    year: 'numeric',
+  });
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -158,53 +230,59 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
           <h1 className="text-3xl text-fg font-bold" style={{ fontFamily: 'var(--font-playfair), serif' }}>
             Financeiro
           </h1>
-          <p className="text-sm text-fg-muted mt-2">Controle completo das suas finanças</p>
+          <p className="text-sm text-fg-muted mt-1">Controle completo das suas finanças</p>
         </div>
-        <form className="flex items-end gap-2" method="get">
-          <div>
-            <label className="label text-[10px]">De</label>
-            <input type="date" name="from" defaultValue={fromStr} className="input py-1.5 text-sm" />
-          </div>
-          <div>
-            <label className="label text-[10px]">Até</label>
-            <input type="date" name="to" defaultValue={toStr} className="input py-1.5 text-sm" />
-          </div>
-          <button type="submit" className="btn-secondary py-2 text-sm">Aplicar</button>
-        </form>
+        <FinanceiroButtons staff={staffOptions} />
       </div>
 
       <div className="divider-gold" />
 
-      {/* ATALHOS */}
-      <div className="flex flex-wrap gap-2">
-        {(() => {
-          const today = new Date();
-          const todayStr = today.toISOString().split('T')[0];
-          const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-          const sevenAgo = new Date(today.getTime() - 6 * 86400000).toISOString().split('T')[0];
-          const thirtyAgo = new Date(today.getTime() - 29 * 86400000).toISOString().split('T')[0];
-          return [
-            { label: 'Hoje', from: todayStr, to: todayStr },
-            { label: '7 dias', from: sevenAgo, to: todayStr },
-            { label: '30 dias', from: thirtyAgo, to: todayStr },
-            { label: 'Este mês', from: firstDay, to: todayStr },
-          ].map((p) => (
-            <Link key={p.label} href={`/admin/financeiro?from=${p.from}&to=${p.to}`}
-              className="text-xs px-3 py-1.5 rounded-md border border-border hover:border-gold/40 hover:text-gold transition-colors text-fg-muted">
-              {p.label}
-            </Link>
-          ));
-        })()}
+      {/* FILTROS DE PERÍODO */}
+      <div className="card p-4 space-y-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 flex-wrap">
+          <p className="text-xs text-fg-muted uppercase tracking-widest">Período:</p>
+          <div className="flex flex-wrap gap-2">
+            {(() => {
+              const today = new Date();
+              const todayStr = today.toISOString().split('T')[0];
+              const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+              const sevenAgo = new Date(today.getTime() - 6 * 86400000).toISOString().split('T')[0];
+              const thirtyAgo = new Date(today.getTime() - 29 * 86400000).toISOString().split('T')[0];
+              return [
+                { label: 'Hoje', from: todayStr, to: todayStr },
+                { label: '7 dias', from: sevenAgo, to: todayStr },
+                { label: '30 dias', from: thirtyAgo, to: todayStr },
+                { label: 'Este mês', from: firstDay, to: todayStr },
+              ].map((p) => (
+                <Link key={p.label} href={`/admin/financeiro?from=${p.from}&to=${p.to}`}
+                  className="text-xs px-3 py-1.5 rounded-md border border-border hover:border-gold/40 hover:text-gold transition-colors text-fg-muted">
+                  {p.label}
+                </Link>
+              ));
+            })()}
+          </div>
+          <form className="flex items-end gap-2 ml-auto" method="get">
+            <div>
+              <label className="label text-[10px]">De</label>
+              <input type="date" name="from" defaultValue={fromStr} className="input py-1.5 text-sm" />
+            </div>
+            <div>
+              <label className="label text-[10px]">Até</label>
+              <input type="date" name="to" defaultValue={toStr} className="input py-1.5 text-sm" />
+            </div>
+            <button type="submit" className="btn-secondary py-2 text-sm">Aplicar</button>
+          </form>
+        </div>
       </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
-          { label: 'Receita real', value: formatCurrency(faturamentoBruto), sub: `Prevista: ${formatCurrency(faturamentoBruto * 1.1)}`, icon: CircleDollarSign, cls: 'text-gold' },
-          { label: 'Despesas', value: formatCurrency(0), sub: 'Total no período', icon: Receipt, cls: 'text-danger' },
+          { label: 'Receita real', value: formatCurrency(faturamentoBruto + totalReceitasExtras), sub: `Prevista: ${formatCurrency((faturamentoBruto + totalReceitasExtras) * 1.1)}`, icon: CircleDollarSign, cls: 'text-gold' },
+          { label: 'Despesas', value: formatCurrency(totalDespesas), sub: 'Total no período', icon: Receipt, cls: 'text-danger' },
           { label: 'Comissões reais', value: formatCurrency(totalComissoes), sub: `Prevista: ${formatCurrency(totalComissoes * 1.1)}`, icon: Users, cls: 'text-fg' },
           { label: 'Ticket médio', value: formatCurrency(ticketMedio), sub: `${clientesUnicos} clientes únicos`, icon: TrendingUp, cls: 'text-fg' },
-          { label: 'Lucro líquido', value: formatCurrency(faturamentoBruto - totalComissoes), sub: 'Receitas − Comissões', icon: Wallet, cls: 'text-success' },
+          { label: 'Lucro líquido', value: formatCurrency(faturamentoBruto + totalReceitasExtras - totalComissoes - totalDespesas), sub: 'Receitas − Comissões − Despesas', icon: Wallet, cls: 'text-success' },
         ].map((k) => {
           const Icon = k.icon;
           return (
@@ -222,23 +300,19 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
         })}
       </div>
 
-      {/* RANKING COMISSÕES POR PROFISSIONAL */}
+      {/* GRÁFICO RECEITAS vs DESPESAS */}
+      <RevenueChart
+        data={chartData}
+        title={`Receitas vs Despesas (${monthLabel})`}
+      />
+
+      {/* RANKING COMISSÕES */}
       <section className="card p-6 space-y-4">
         <div className="flex items-center gap-2">
           <Users className="w-4 h-4 text-gold" />
           <h2 className="text-lg font-semibold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>
             Ranking de Comissões por Profissional
           </h2>
-        </div>
-
-        {/* Seletor de período para o ranking */}
-        <div className="flex gap-2 flex-wrap">
-          {['Mês/Ano', 'Intervalo'].map((label) => (
-            <button key={label} type="button"
-              className="px-3 py-1 rounded-md text-xs border border-border text-fg-muted hover:border-gold/40 hover:text-gold transition-colors">
-              {label}
-            </button>
-          ))}
         </div>
 
         {comissoesArray.length === 0 ? (
@@ -265,7 +339,7 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
                     <td className="py-3 text-fg-dim">{i + 1}</td>
                     <td className="py-3">
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-gold/20 text-gold text-[10px] flex items-center justify-center font-bold flex-shrink-0">
+                        <div className="w-7 h-7 rounded-full bg-gold/20 text-gold text-[10px] flex items-center justify-center font-bold">
                           {c.name.slice(0, 1).toUpperCase()}
                         </div>
                         <span className="text-fg font-medium">{c.name}</span>
@@ -294,6 +368,9 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
         )}
       </section>
 
+      {/* VALES / ADIANTAMENTOS */}
+      <AllowancesSection allowances={allowances} staff={staffOptions} />
+
       {/* HISTÓRICO DE PAGAMENTOS DE COMISSÃO */}
       <section className="card p-6 space-y-4">
         <div className="flex items-center gap-2">
@@ -302,10 +379,9 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
             Histórico de Pagamentos de Comissão
           </h2>
         </div>
-
         {payoutHistory.length === 0 ? (
           <p className="text-sm text-fg-subtle py-6 text-center">
-            Nenhum pagamento registrado ainda. Clique em &quot;Pagar&quot; para registrar.
+            Nenhum pagamento registrado ainda.
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -346,10 +422,12 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
         <section className="card p-6">
           <div className="flex items-center gap-2 mb-4">
             <Wallet className="w-4 h-4 text-gold" />
-            <h2 className="text-lg font-semibold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>Fluxo de Caixa</h2>
+            <h2 className="text-lg font-semibold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>
+              Fluxo de Caixa
+            </h2>
           </div>
           {paymentsArray.length === 0 ? (
-            <p className="text-sm text-fg-subtle py-8 text-center">Nenhum pagamento registrado no período.</p>
+            <p className="text-sm text-fg-subtle py-8 text-center">Nenhum pagamento no período.</p>
           ) : (
             <div className="space-y-3">
               {paymentsArray.map((p) => (
@@ -369,18 +447,24 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
         </section>
 
         <section className="card p-6">
-          <h2 className="text-lg font-semibold text-fg mb-4" style={{ fontFamily: 'var(--font-playfair), serif' }}>Mix de Vendas</h2>
+          <h2 className="text-lg font-semibold text-fg mb-4" style={{ fontFamily: 'var(--font-playfair), serif' }}>
+            Mix de Vendas
+          </h2>
           <div className="grid grid-cols-2 gap-4">
             <div className="p-4 rounded-md bg-bg-elevated border border-border/60">
               <p className="text-[10px] uppercase tracking-wider text-fg-dim">Serviços</p>
-              <p className="text-2xl font-bold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>{formatCurrency(totalServicos)}</p>
+              <p className="text-2xl font-bold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>
+                {formatCurrency(totalServicos)}
+              </p>
               <p className="text-[11px] text-fg-subtle mt-1">
                 {faturamentoBruto > 0 ? `${((totalServicos / faturamentoBruto) * 100).toFixed(1)}% do mix` : '—'}
               </p>
             </div>
             <div className="p-4 rounded-md bg-bg-elevated border border-border/60">
               <p className="text-[10px] uppercase tracking-wider text-fg-dim">Produtos</p>
-              <p className="text-2xl font-bold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>{formatCurrency(totalProdutos)}</p>
+              <p className="text-2xl font-bold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>
+                {formatCurrency(totalProdutos)}
+              </p>
               <p className="text-[11px] text-fg-subtle mt-1">
                 {faturamentoBruto > 0 ? `${((totalProdutos / faturamentoBruto) * 100).toFixed(1)}% do mix` : '—'}
               </p>
@@ -393,7 +477,9 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
       <section className="card p-6">
         <div className="flex items-center gap-2 mb-4">
           <Calendar className="w-4 h-4 text-gold" />
-          <h2 className="text-lg font-semibold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>Últimas vendas do período</h2>
+          <h2 className="text-lg font-semibold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>
+            Últimas vendas do período
+          </h2>
         </div>
         {comandas.length === 0 ? (
           <p className="text-sm text-fg-subtle py-8 text-center">Nenhuma comanda fechada no período.</p>
