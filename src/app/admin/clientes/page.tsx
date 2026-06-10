@@ -1,5 +1,4 @@
 ﻿import { createAdminClient } from '@/lib/supabase/admin';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { Plus, Users, Crown, TrendingUp, Heart, Trophy } from 'lucide-react';
 import Link from 'next/link';
 import { CustomersList } from './_components/customers-list';

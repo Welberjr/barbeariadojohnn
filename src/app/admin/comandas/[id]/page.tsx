@@ -2,7 +2,6 @@
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { getActiveSubscription } from '@/lib/subscriptions';
 import { ComandaDetail } from '../_components/comanda-detail';
 
