@@ -38,6 +38,8 @@ export default async function EditCustomerPage({
     <CustomerForm
       customerId={customer.id}
       barbers={barbers ?? []}
+      hasAccess={Boolean(customer.auth_user_id)}
+      accessEmail={customer.email ?? null}
       defaultValues={{
         full_name: customer.full_name,
         phone: customer.phone ?? '',
@@ -49,6 +51,7 @@ export default async function EditCustomerPage({
         preferred_barber_id: customer.preferred_barber_id ?? '',
         accepts_marketing: customer.accepts_marketing,
         active: customer.active,
+        photo_url: customer.photo_url ?? null,
       }}
     />
   );

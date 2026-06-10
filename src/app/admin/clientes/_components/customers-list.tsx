@@ -12,6 +12,8 @@ import {
   TrendingUp,
   Heart,
   Star,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 
@@ -56,23 +58,44 @@ interface CustomersListProps {
   customers: Customer[];
   initialQuery: string;
   initialTier: string;
+  page: number;
+  totalPages: number;
+  totalCount: number;
 }
 
-export function CustomersList({ customers, initialQuery, initialTier }: CustomersListProps) {
+export function CustomersList({
+  customers,
+  initialQuery,
+  initialTier,
+  page,
+  totalPages,
+  totalCount,
+}: CustomersListProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [query, setQuery] = useState(initialQuery);
   const [tier, setTier] = useState(initialTier);
 
-  function applyFilters(newQuery?: string, newTier?: string) {
+  function buildUrl(opts: { q?: string; t?: string; p?: number }) {
     const params = new URLSearchParams();
-    const q = newQuery ?? query;
-    const t = newTier ?? tier;
+    const q = opts.q ?? query;
+    const t = opts.t ?? tier;
+    const p = opts.p ?? 1;
     if (q) params.set('q', q);
     if (t && t !== 'all') params.set('tier', t);
+    if (p > 1) params.set('page', String(p));
+    return `/admin/clientes${params.toString() ? '?' + params.toString() : ''}`;
+  }
 
+  function applyFilters(newQuery?: string, newTier?: string) {
     startTransition(() => {
-      router.push(`/admin/clientes${params.toString() ? '?' + params.toString() : ''}`);
+      router.push(buildUrl({ q: newQuery, t: newTier, p: 1 }));
+    });
+  }
+
+  function goToPage(p: number) {
+    startTransition(() => {
+      router.push(buildUrl({ p }));
     });
   }
 
@@ -125,7 +148,11 @@ export function CustomersList({ customers, initialQuery, initialTier }: Customer
       {/* RESULTADOS */}
       <div className="flex items-center justify-between text-xs text-fg-subtle">
         <p>
-          {isPending ? 'Buscando...' : `${customers.length} cliente${customers.length === 1 ? '' : 's'}`}
+          {isPending
+            ? 'Buscando...'
+            : `${totalCount} cliente${totalCount === 1 ? '' : 's'}${
+                totalPages > 1 ? ` · página ${page} de ${totalPages}` : ''
+              }`}
         </p>
       </div>
 
@@ -265,6 +292,33 @@ export function CustomersList({ customers, initialQuery, initialTier }: Customer
           );
         })}
       </div>
+
+      {/* PAGINAÇÃO */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-2">
+          <button
+            type="button"
+            onClick={() => goToPage(page - 1)}
+            disabled={page <= 1 || isPending}
+            className="btn-secondary text-xs flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+            <span>Anterior</span>
+          </button>
+          <span className="text-xs text-fg-muted px-3">
+            {page} / {totalPages}
+          </span>
+          <button
+            type="button"
+            onClick={() => goToPage(page + 1)}
+            disabled={page >= totalPages || isPending}
+            className="btn-secondary text-xs flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <span>Próxima</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

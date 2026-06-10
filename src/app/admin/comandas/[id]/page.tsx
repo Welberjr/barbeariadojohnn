@@ -2,6 +2,8 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { getActiveSubscription } from '@/lib/subscriptions';
 import { ComandaDetail } from '../_components/comanda-detail';
 
 interface ComandaPageProps {
@@ -132,6 +134,12 @@ export default async function ComandaPage({ params }: ComandaPageProps) {
     .in('role', ['barber', 'owner', 'manager'])
     .order('display_name');
 
+  // 7. Assinatura ativa do cliente (para cobrir servicos pelo clube)
+  const admin = createAdminClient();
+  const subscription = comandaRaw.customer_id
+    ? await getActiveSubscription(admin, comandaRaw.customer_id as string)
+    : null;
+
   return (
     <div className="space-y-4">
       <Link
@@ -153,6 +161,19 @@ export default async function ComandaPage({ params }: ComandaPageProps) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         products={(products ?? []) as any}
         staff={staff ?? []}
+        subscription={
+          subscription
+            ? {
+                usesLeft: subscription.usesLeft,
+                usedInCycle: subscription.usedInCycle,
+                includedUses: subscription.plan.included_uses,
+                planName: subscription.plan.name,
+                allowedDays: subscription.plan.allowed_days,
+                isExpired: subscription.isExpired,
+                periodEnd: subscription.current_period_end,
+              }
+            : null
+        }
       />
     </div>
   );

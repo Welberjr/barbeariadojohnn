@@ -7,18 +7,25 @@ export const metadata = {
   title: 'Clientes',
 };
 
+const PAGE_SIZE = 24;
+
 interface ClientesPageProps {
-  searchParams: Promise<{ q?: string; tier?: string }>;
+  searchParams: Promise<{ q?: string; tier?: string; page?: string }>;
 }
 
 export default async function ClientesPage({ searchParams }: ClientesPageProps) {
-  const { q, tier } = await searchParams;
+  const { q, tier, page: pageParam } = await searchParams;
   const supabase = await createClient();
+
+  const page = Math.max(1, parseInt(pageParam ?? '1', 10) || 1);
+  const from = (page - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
 
   let query = supabase
     .from('customers')
     .select(
-      'id, full_name, phone, email, cpf, birth_date, tier, loyalty_tier, loyalty_points, total_appointments, total_spent, last_visit_at, photo_url, active, created_at'
+      'id, full_name, phone, email, cpf, birth_date, tier, loyalty_tier, loyalty_points, total_appointments, total_spent, last_visit_at, photo_url, active, created_at',
+      { count: 'exact' }
     )
     .order('created_at', { ascending: false });
 
@@ -33,13 +40,28 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
     query = query.eq('tier', tier);
   }
 
-  const { data: customers, error } = await query.limit(200);
+  const { data: customers, count, error } = await query.range(from, to);
 
-  // Stats
-  const total = customers?.length ?? 0;
-  const vips = customers?.filter((c) => c.tier === 'vip').length ?? 0;
-  const regulars = customers?.filter((c) => c.tier === 'regular').length ?? 0;
-  const newCustomers = customers?.filter((c) => c.tier === 'new').length ?? 0;
+  const totalCount = count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
+  // Stats globais (independentes da busca)
+  const [{ count: totalAll }, { count: vips }, { count: regulars }, { count: news }] =
+    await Promise.all([
+      supabase.from('customers').select('id', { count: 'exact', head: true }),
+      supabase
+        .from('customers')
+        .select('id', { count: 'exact', head: true })
+        .eq('tier', 'vip'),
+      supabase
+        .from('customers')
+        .select('id', { count: 'exact', head: true })
+        .eq('tier', 'active'),
+      supabase
+        .from('customers')
+        .select('id', { count: 'exact', head: true })
+        .eq('tier', 'new'),
+    ]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -86,7 +108,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
             className="text-3xl font-bold text-fg"
             style={{ fontFamily: 'var(--font-playfair), serif' }}
           >
-            {total}
+            {totalAll ?? 0}
           </p>
         </div>
 
@@ -103,7 +125,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
             className="text-3xl font-bold text-gold"
             style={{ fontFamily: 'var(--font-playfair), serif' }}
           >
-            {vips}
+            {vips ?? 0}
           </p>
         </div>
 
@@ -120,7 +142,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
             className="text-3xl font-bold text-info"
             style={{ fontFamily: 'var(--font-playfair), serif' }}
           >
-            {regulars}
+            {regulars ?? 0}
           </p>
         </div>
 
@@ -137,7 +159,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
             className="text-3xl font-bold text-success"
             style={{ fontFamily: 'var(--font-playfair), serif' }}
           >
-            {newCustomers}
+            {news ?? 0}
           </p>
         </div>
       </div>
@@ -151,7 +173,6 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
         </div>
       ) : !customers || customers.length === 0 ? (
         q || tier ? (
-          // Busca sem resultados
           <div className="card p-12 text-center">
             <div className="inline-flex p-3 rounded-full bg-fg-dim/10 text-fg-subtle mb-4">
               <Users className="w-6 h-6" />
@@ -170,7 +191,6 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
             </Link>
           </div>
         ) : (
-          // Banco vazio
           <div className="card p-12 text-center">
             <div className="inline-flex p-3 rounded-full bg-gold/10 text-gold mb-4">
               <Users className="w-6 h-6" />
@@ -195,7 +215,14 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
           </div>
         )
       ) : (
-        <CustomersList customers={customers} initialQuery={q ?? ''} initialTier={tier ?? 'all'} />
+        <CustomersList
+          customers={customers}
+          initialQuery={q ?? ''}
+          initialTier={tier ?? 'all'}
+          page={page}
+          totalPages={totalPages}
+          totalCount={totalCount}
+        />
       )}
     </div>
   );

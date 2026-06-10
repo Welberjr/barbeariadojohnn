@@ -1,6 +1,14 @@
 /**
- * Supabase Middleware — Refresh de sessão Auth
- * Roda em todas as requests pra manter o token válido
+ * Supabase Middleware — Refresh de sessão Auth + roteamento por papel
+ *
+ * Papéis:
+ *  - Equipe/admin: usuários sem user_metadata.role (fluxo original /login -> /admin)
+ *  - Clientes: user_metadata.role === 'customer' (fluxo /cliente/login -> /cliente)
+ *
+ * Regras:
+ *  - /admin exige login e NUNCA aceita cliente (cliente é mandado pro /cliente)
+ *  - /cliente exige login (exceto /cliente/login)
+ *  - Logado tentando acessar telas de login é redirecionado pro painel certo
  */
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
@@ -34,20 +42,38 @@ export async function updateSession(request: NextRequest) {
   // Refresh session
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Rotas protegidas: redireciona pra login se não estiver autenticado
-  const isProtectedRoute = request.nextUrl.pathname.startsWith('/admin');
-  const isAuthRoute = request.nextUrl.pathname.startsWith('/login');
+  const pathname = request.nextUrl.pathname;
+  const isCustomerUser = user?.user_metadata?.role === 'customer';
 
-  if (isProtectedRoute && !user) {
+  const isAdminRoute = pathname.startsWith('/admin');
+  const isAdminLogin = pathname.startsWith('/login');
+  const isCustomerLogin = pathname.startsWith('/cliente/login');
+  const isCustomerRoute = pathname.startsWith('/cliente') && !isCustomerLogin;
+
+  function redirectTo(path: string) {
     const url = request.nextUrl.clone();
-    url.pathname = '/login';
+    url.pathname = path;
+    url.search = '';
     return NextResponse.redirect(url);
   }
 
-  if (isAuthRoute && user) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/admin';
-    return NextResponse.redirect(url);
+  // ----- Área administrativa -----
+  if (isAdminRoute) {
+    if (!user) return redirectTo('/login');
+    if (isCustomerUser) return redirectTo('/cliente'); // cliente não entra no admin
+  }
+
+  // ----- Painel do cliente -----
+  if (isCustomerRoute && !user) {
+    return redirectTo('/cliente/login');
+  }
+
+  // ----- Telas de login com sessão ativa -----
+  if (isAdminLogin && user) {
+    return redirectTo(isCustomerUser ? '/cliente' : '/admin');
+  }
+  if (isCustomerLogin && user) {
+    return redirectTo(isCustomerUser ? '/cliente' : '/admin');
   }
 
   return supabaseResponse;

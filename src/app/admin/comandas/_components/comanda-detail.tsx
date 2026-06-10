@@ -18,6 +18,7 @@ import {
   Clock,
   Phone,
   User,
+  Star,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, formatCurrency } from '@/lib/utils';
@@ -87,6 +88,16 @@ interface Staff {
   display_name: string;
 }
 
+interface SubscriptionInfo {
+  usesLeft: number;
+  usedInCycle: number;
+  includedUses: number;
+  planName: string;
+  allowedDays: number[];
+  isExpired: boolean;
+  periodEnd: string;
+}
+
 interface ComandaDetailProps {
   comanda: Comanda;
   comandaServices: ServiceItem[];
@@ -94,13 +105,14 @@ interface ComandaDetailProps {
   services: Service[];
   products: Product[];
   staff: Staff[];
+  subscription?: SubscriptionInfo | null;
 }
 
 const PAYMENT_METHODS = [
   { value: 'cash', label: 'Dinheiro', icon: Banknote },
   { value: 'pix', label: 'PIX', icon: Smartphone },
-  { value: 'credit_card', label: 'Crédito', icon: CreditCard },
-  { value: 'debit_card', label: 'Débito', icon: CreditCard },
+  { value: 'credit', label: 'Crédito', icon: CreditCard },
+  { value: 'debit', label: 'Débito', icon: CreditCard },
 ];
 
 export function ComandaDetail({
@@ -110,6 +122,7 @@ export function ComandaDetail({
   services,
   products,
   staff,
+  subscription = null,
 }: ComandaDetailProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -120,6 +133,7 @@ export function ComandaDetail({
     service_id: '',
     staff_id: comanda.staff_id,
     price: 0,
+    use_subscription: false,
   });
   const [productForm, setProductForm] = useState({
     product_id: '',
@@ -198,16 +212,23 @@ export function ComandaDetail({
       comanda.id,
       serviceForm.service_id,
       serviceForm.staff_id,
-      serviceForm.price
+      serviceForm.price,
+      1,
+      serviceForm.use_subscription
     );
 
     if (result.ok) {
-      toast.success('Serviço adicionado!');
+      toast.success(
+        serviceForm.use_subscription
+          ? 'Serviço coberto pela assinatura!'
+          : 'Serviço adicionado!'
+      );
       setShowAddService(false);
       setServiceForm({
         service_id: '',
         staff_id: comanda.staff_id,
         price: 0,
+        use_subscription: false,
       });
       startTransition(() => router.refresh());
     } else {
@@ -373,6 +394,39 @@ export function ComandaDetail({
           </div>
         </div>
 
+        {/* BANNER ASSINATURA */}
+        {subscription && (
+          <div
+            className="card-premium p-4 border-gold/30 flex items-start gap-3"
+            style={{
+              background:
+                'linear-gradient(135deg, rgba(212, 160, 79, 0.10) 0%, rgba(10, 10, 10, 1) 100%)',
+            }}
+          >
+            <Star className="w-4 h-4 text-gold flex-shrink-0 mt-0.5 fill-current" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-gold uppercase tracking-wider">
+                Assinante · {subscription.planName}
+              </p>
+              <p className="text-[11px] text-fg-muted mt-0.5">
+                {subscription.isExpired ? (
+                  <span className="text-danger">
+                    Ciclo vencido em{' '}
+                    {new Date(subscription.periodEnd).toLocaleDateString('pt-BR')}. Lance o
+                    pagamento em Assinaturas para liberar novos usos.
+                  </span>
+                ) : (
+                  <>
+                    Usou {subscription.usedInCycle} de {subscription.includedUses} atendimentos
+                    deste ciclo · vence em{' '}
+                    {new Date(subscription.periodEnd).toLocaleDateString('pt-BR')}
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* SERVIÇOS */}
         <section className="card p-5">
           <div className="flex items-center justify-between mb-4">
@@ -455,7 +509,8 @@ export function ComandaDetail({
                     type="number"
                     step="0.01"
                     min="0"
-                    className="input text-xs"
+                    className="input text-xs disabled:opacity-50"
+                    disabled={serviceForm.use_subscription}
                     value={serviceForm.price}
                     onChange={(e) =>
                       setServiceForm({
@@ -466,6 +521,45 @@ export function ComandaDetail({
                   />
                 </div>
               </div>
+
+              {subscription && (
+                <label
+                  className={cn(
+                    'flex items-start gap-2.5 p-2.5 rounded-md border cursor-pointer transition-colors',
+                    serviceForm.use_subscription
+                      ? 'border-gold/50 bg-gold/10'
+                      : 'border-border bg-bg-elevated hover:border-gold/30',
+                    (subscription.usesLeft <= 0 || subscription.isExpired) &&
+                      'opacity-50 cursor-not-allowed'
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    className="w-3.5 h-3.5 accent-gold mt-0.5 cursor-pointer"
+                    disabled={subscription.usesLeft <= 0 || subscription.isExpired}
+                    checked={serviceForm.use_subscription}
+                    onChange={(e) =>
+                      setServiceForm({
+                        ...serviceForm,
+                        use_subscription: e.target.checked,
+                      })
+                    }
+                  />
+                  <div>
+                    <p className="text-xs text-fg font-medium">
+                      Cobrir pela assinatura (cliente não paga)
+                    </p>
+                    <p className="text-[10px] text-fg-subtle">
+                      {subscription.isExpired
+                        ? 'Ciclo vencido: lance o pagamento primeiro'
+                        : subscription.usesLeft > 0
+                          ? `Restam ${subscription.usesLeft} de ${subscription.includedUses} usos neste ciclo`
+                          : 'Sem usos restantes neste ciclo'}
+                    </p>
+                  </div>
+                </label>
+              )}
+
               <button
                 type="button"
                 onClick={handleAddService}

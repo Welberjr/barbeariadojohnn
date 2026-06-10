@@ -1,11 +1,5 @@
-import { createClient } from '@/lib/supabase/server';
-import {
-  Crown,
-  Plus,
-  Users,
-  TrendingUp,
-  CheckCircle2,
-} from 'lucide-react';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { Crown, Plus, Users, TrendingUp, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
 import { AssinaturasView } from './_components/assinaturas-view';
@@ -16,77 +10,152 @@ export const metadata = {
   title: 'Assinaturas',
 };
 
-interface Plan {
-  id: string;
-  name: string;
-  description: string | null;
-  price: number;
-  billing_cycle: string;
-  includes_services: string[] | null;
-  includes_count: number;
-  discount_percent_on_extras: number;
-  active: boolean;
-  display_order: number;
-}
+export const dynamic = 'force-dynamic';
 
-interface Subscription {
-  id: string;
-  customer_id: string;
-  plan_id: string;
-  status: string;
-  started_at: string;
-  current_period_start: string;
-  current_period_end: string;
-  cancelled_at: string | null;
-  remaining_uses: number;
-  notes: string | null;
+function monthlyEquivalent(price: number, period: string): number {
+  switch (period) {
+    case 'quarterly':
+      return price / 3;
+    case 'semiannual':
+      return price / 6;
+    case 'annual':
+      return price / 12;
+    default:
+      return price;
+  }
 }
 
 export default async function AssinaturasPage() {
-  const supabase = await createClient();
+  const admin = createAdminClient();
 
-  // Planos
-  const { data: plansRaw } = await supabase
+  // Planos (modelo normalizado)
+  const { data: plansRaw } = await admin
     .from('subscription_plans')
-    .select('*')
+    .select(
+      'id, name, description, price, period, allowed_days, included_uses, barber_share_percent, accumulate_unused, show_on_public_menu, active, display_order'
+    )
     .eq('barbershop_id', BARBERSHOP_ID)
     .order('display_order')
     .order('name');
 
-  const plans = (plansRaw ?? []) as Plan[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const plans = (plansRaw ?? []).map((p: any) => ({
+    ...p,
+    price: Number(p.price),
+    included_uses: Number(p.included_uses ?? 4),
+    barber_share_percent: Number(p.barber_share_percent ?? 50),
+    allowed_days: (p.allowed_days ?? []) as number[],
+  }));
 
-  // Assinaturas
-  const { data: subsRaw } = await supabase
-    .from('customer_subscriptions')
-    .select('*')
+  // Assinaturas com cliente + plano
+  const { data: subsRaw } = await admin
+    .from('subscriptions')
+    .select(
+      `id, status, customer_id, plan_id, started_at, cancelled_at,
+       current_period_start, current_period_end, next_billing_at, current_price, notes,
+       customer:customers (full_name, phone, photo_url),
+       plan:subscription_plans (name, price, period, allowed_days, included_uses, barber_share_percent)`
+    )
     .eq('barbershop_id', BARBERSHOP_ID)
-    .order('status')
-    .order('current_period_end', { ascending: false });
+    .order('created_at', { ascending: false });
 
-  const subs = (subsRaw ?? []) as Subscription[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const subsList = (subsRaw ?? []) as any[];
 
-  // Clientes (para mostrar nomes)
-  const customerIds = Array.from(new Set(subs.map((s) => s.customer_id)));
-  const { data: customersRaw } =
-    customerIds.length > 0
-      ? await supabase
-          .from('customers')
-          .select('id, full_name, phone')
-          .in('id', customerIds)
-      : { data: [] };
+  // Contagem de usos nao acertados (ciclo corrente) por assinatura
+  const subIds = subsList.map((s) => s.id);
+  const usageCount = new Map<string, number>();
+  if (subIds.length > 0) {
+    const { data: usages } = await admin
+      .from('subscription_usages')
+      .select('subscription_id')
+      .in('subscription_id', subIds)
+      .is('settled_payout_id', null);
+    for (const u of usages ?? []) {
+      usageCount.set(
+        u.subscription_id as string,
+        (usageCount.get(u.subscription_id as string) ?? 0) + 1
+      );
+    }
+  }
 
-  const customerMap = new Map(
-    (customersRaw ?? []).map((c) => [
-      c.id as string,
-      {
-        full_name: c.full_name as string,
-        phone: (c.phone as string) ?? null,
-      },
-    ])
-  );
+  const now = new Date();
+  const subscriptions = subsList.map((s) => {
+    const included = Number(s.plan?.included_uses ?? 4);
+    const used = usageCount.get(s.id) ?? 0;
+    const isExpired =
+      ['active', 'past_due'].includes(s.status) &&
+      now > new Date(s.current_period_end);
+    return {
+      id: s.id as string,
+      status: s.status as string,
+      customer_id: s.customer_id as string,
+      customer_name: (s.customer?.full_name as string) ?? 'Cliente removido',
+      customer_phone: (s.customer?.phone as string | null) ?? null,
+      customer_photo: (s.customer?.photo_url as string | null) ?? null,
+      plan_name: (s.plan?.name as string) ?? 'Plano removido',
+      plan_price: Number(s.current_price ?? s.plan?.price ?? 0),
+      plan_period: (s.plan?.period as string) ?? 'monthly',
+      allowed_days: (s.plan?.allowed_days ?? []) as number[],
+      included_uses: included,
+      used_in_cycle: used,
+      uses_left: Math.max(0, included - used),
+      is_expired: isExpired,
+      started_at: s.started_at as string,
+      cancelled_at: (s.cancelled_at as string | null) ?? null,
+      current_period_start: s.current_period_start as string,
+      current_period_end: s.current_period_end as string,
+      notes: (s.notes as string | null) ?? null,
+    };
+  });
 
-  // Todos os clientes (pra dropdown)
-  const { data: allCustomers } = await supabase
+  // Repasses recentes (potinho fechado)
+  const { data: payoutsRaw } = await admin
+    .from('subscription_payouts')
+    .select(
+      `id, created_at, period_start, period_end, plan_price, barber_share_percent,
+       pool_amount, total_uses,
+       subscription:subscriptions ( customer:customers (full_name) )`
+    )
+    .eq('barbershop_id', BARBERSHOP_ID)
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const payoutRows = (payoutsRaw ?? []) as any[];
+  const payoutIds = payoutRows.map((p) => p.id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let payoutItems: any[] = [];
+  if (payoutIds.length > 0) {
+    const { data: itemsRaw } = await admin
+      .from('subscription_payout_items')
+      .select('payout_id, uses_count, amount, staff:staff (display_name)')
+      .in('payout_id', payoutIds);
+    payoutItems = itemsRaw ?? [];
+  }
+
+  const payouts = payoutRows.map((p) => ({
+    id: p.id as string,
+    created_at: p.created_at as string,
+    period_start: p.period_start as string,
+    period_end: p.period_end as string,
+    plan_price: Number(p.plan_price),
+    share_percent: Number(p.barber_share_percent),
+    pool_amount: Number(p.pool_amount),
+    total_uses: Number(p.total_uses),
+    customer_name:
+      (p.subscription?.customer?.full_name as string) ?? 'Cliente',
+    items: payoutItems
+      .filter((i) => i.payout_id === p.id)
+      .map((i) => ({
+        staff_name: (i.staff?.display_name as string) ?? 'Profissional',
+        uses: Number(i.uses_count),
+        amount: Number(i.amount),
+      })),
+  }));
+
+  // Clientes ativos (dropdown de nova assinatura)
+  const { data: allCustomers } = await admin
     .from('customers')
     .select('id, full_name, phone')
     .eq('barbershop_id', BARBERSHOP_ID)
@@ -95,33 +164,14 @@ export default async function AssinaturasPage() {
     .limit(500);
 
   // KPIs
-  const activeSubs = subs.filter((s) => s.status === 'active');
-  const planMap = new Map(plans.map((p) => [p.id, p]));
-
-  let mrr = 0; // Monthly Recurring Revenue
-  for (const sub of activeSubs) {
-    const plan = planMap.get(sub.plan_id);
-    if (plan) {
-      const price = Number(plan.price);
-      if (plan.billing_cycle === 'monthly') mrr += price;
-      else if (plan.billing_cycle === 'yearly') mrr += price / 12;
-      else if (plan.billing_cycle === 'weekly') mrr += price * 4.33;
-    }
-  }
-
-  const cancelledThisMonth = (() => {
-    const firstOfMonth = new Date(
-      new Date().getFullYear(),
-      new Date().getMonth(),
-      1
-    );
-    return subs.filter(
-      (s) =>
-        s.status === 'cancelled' &&
-        s.cancelled_at &&
-        new Date(s.cancelled_at) >= firstOfMonth
-    ).length;
-  })();
+  const activeSubs = subscriptions.filter((s) =>
+    ['active', 'past_due'].includes(s.status)
+  );
+  const expiredCount = activeSubs.filter((s) => s.is_expired).length;
+  const mrr = activeSubs.reduce(
+    (sum, s) => sum + monthlyEquivalent(s.plan_price, s.plan_period),
+    0
+  );
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -129,7 +179,7 @@ export default async function AssinaturasPage() {
       <div className="flex items-end justify-between flex-wrap gap-4">
         <div>
           <p className="text-[10px] text-fg-dim tracking-[0.25em] uppercase mb-1">
-            Marketing
+            Clube de assinatura
           </p>
           <h1
             className="text-3xl text-fg font-bold"
@@ -138,7 +188,7 @@ export default async function AssinaturasPage() {
             Assinaturas
           </h1>
           <p className="text-sm text-fg-muted mt-2">
-            Planos mensais e assinantes ativos.
+            Planos, assinantes, usos por ciclo e repasse dos barbeiros.
           </p>
         </div>
 
@@ -213,43 +263,36 @@ export default async function AssinaturasPage() {
           <div className="flex items-center gap-3 mb-2">
             <div
               className={`p-2 rounded-md ${
-                cancelledThisMonth > 0
+                expiredCount > 0
                   ? 'bg-danger/10 text-danger'
                   : 'bg-info/10 text-info'
               }`}
             >
-              <CheckCircle2 className="w-4 h-4" />
+              <AlertTriangle className="w-4 h-4" />
             </div>
             <p className="text-[10px] tracking-widest uppercase text-fg-muted">
-              Churn no mês
+              Vencidas
             </p>
           </div>
           <p
             className={`text-2xl font-bold ${
-              cancelledThisMonth > 0 ? 'text-danger' : 'text-fg'
+              expiredCount > 0 ? 'text-danger' : 'text-fg'
             }`}
             style={{ fontFamily: 'var(--font-playfair), serif' }}
           >
-            {cancelledThisMonth}
+            {expiredCount}
           </p>
-          <p className="text-[10px] text-fg-subtle mt-1">cancelamentos</p>
+          <p className="text-[10px] text-fg-subtle mt-1">
+            aguardando pagamento
+          </p>
         </div>
       </div>
 
-      {/* TABS: PLANOS / ASSINANTES */}
+      {/* TABS: PLANOS / ASSINANTES / REPASSES */}
       <AssinaturasView
         plans={plans}
-        subscriptions={subs.map((s) => {
-          const c = customerMap.get(s.customer_id);
-          const p = planMap.get(s.plan_id);
-          return {
-            ...s,
-            customer_name: c?.full_name ?? 'Cliente removido',
-            customer_phone: c?.phone ?? null,
-            plan_name: p?.name ?? 'Plano removido',
-            plan_price: p ? Number(p.price) : 0,
-          };
-        })}
+        subscriptions={subscriptions}
+        payouts={payouts}
         customers={(allCustomers ?? []).map((c) => ({
           id: c.id as string,
           full_name: c.full_name as string,

@@ -1,18 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Loader2, Save, ArrowLeft, Trash2 } from 'lucide-react';
+import {
+  Loader2,
+  Save,
+  ArrowLeft,
+  Trash2,
+  Camera,
+  KeyRound,
+  ShieldCheck,
+} from 'lucide-react';
 import Link from 'next/link';
 
 import {
   createCustomer,
   updateCustomer,
   deactivateCustomer,
+  uploadCustomerPhoto,
+  createCustomerAccess,
+  resetCustomerPassword,
 } from '../actions';
 import type { CustomerFormData } from '../actions';
 
@@ -35,16 +46,35 @@ interface CustomerFormProps {
   customerId?: string;
   defaultValues?: Partial<CustomerFormData>;
   barbers?: { id: string; display_name: string }[];
+  hasAccess?: boolean;
+  accessEmail?: string | null;
 }
 
 export function CustomerForm({
   customerId,
   defaultValues,
   barbers = [],
+  hasAccess = false,
+  accessEmail = null,
 }: CustomerFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Foto
+  const [photoUrl, setPhotoUrl] = useState<string | null>(
+    defaultValues?.photo_url ?? null
+  );
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Acesso ao painel
+  const [accessForm, setAccessForm] = useState({
+    email: accessEmail ?? defaultValues?.email ?? '',
+    password: '',
+  });
+  const [accessBusy, setAccessBusy] = useState(false);
+  const [accessCreated, setAccessCreated] = useState(hasAccess);
 
   const {
     register,
@@ -66,6 +96,27 @@ export function CustomerForm({
     },
   });
 
+  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingPhoto(true);
+    try {
+      const fd = new FormData();
+      fd.append('photo', file);
+      const result = await uploadCustomerPhoto(fd);
+      if (result.ok && result.url) {
+        setPhotoUrl(result.url);
+        toast.success('Foto enviada!');
+      } else {
+        toast.error(result.error ?? 'Erro ao enviar foto');
+      }
+    } finally {
+      setUploadingPhoto(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }
+
   async function onSubmit(data: CustomerFormSchema) {
     setIsLoading(true);
     try {
@@ -80,6 +131,7 @@ export function CustomerForm({
         preferred_barber_id: data.preferred_barber_id || undefined,
         accepts_marketing: data.accepts_marketing,
         active: data.active,
+        photo_url: photoUrl,
       };
 
       const result = customerId
@@ -118,6 +170,45 @@ export function CustomerForm({
     }
   }
 
+  async function handleCreateAccess() {
+    if (!customerId) return;
+    setAccessBusy(true);
+    const result = await createCustomerAccess(
+      customerId,
+      accessForm.email,
+      accessForm.password
+    );
+    setAccessBusy(false);
+    if (result.ok) {
+      toast.success('Acesso criado! Entregue e-mail e senha ao cliente.');
+      setAccessCreated(true);
+      setAccessForm({ ...accessForm, password: '' });
+      router.refresh();
+    } else {
+      toast.error(result.error ?? 'Erro ao criar acesso');
+    }
+  }
+
+  async function handleResetPassword() {
+    if (!customerId) return;
+    setAccessBusy(true);
+    const result = await resetCustomerPassword(customerId, accessForm.password);
+    setAccessBusy(false);
+    if (result.ok) {
+      toast.success('Senha redefinida!');
+      setAccessForm({ ...accessForm, password: '' });
+    } else {
+      toast.error(result.error ?? 'Erro ao redefinir senha');
+    }
+  }
+
+  const initials = (defaultValues?.full_name ?? 'NC')
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
@@ -142,6 +233,72 @@ export function CustomerForm({
       <div className="divider-gold" />
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {/* FOTO */}
+        <section className="card p-6">
+          <h2
+            className="text-lg font-semibold text-fg mb-4"
+            style={{ fontFamily: 'var(--font-playfair), serif' }}
+          >
+            Foto do Cliente
+          </h2>
+          <div className="flex items-center gap-5 flex-wrap">
+            {photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={photoUrl}
+                alt="Foto do cliente"
+                className="w-24 h-24 rounded-full object-cover border-2 border-gold/40"
+              />
+            ) : (
+              <div
+                className="w-24 h-24 rounded-full flex items-center justify-center text-xl font-bold text-bg"
+                style={{
+                  background:
+                    'linear-gradient(135deg, #D4A04F 0%, #F5C518 100%)',
+                }}
+              >
+                {initials}
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={handlePhotoChange}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingPhoto}
+                className="btn-gold-outline text-xs flex items-center gap-2"
+              >
+                {uploadingPhoto ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Camera className="w-3.5 h-3.5" />
+                )}
+                <span>{photoUrl ? 'Trocar foto' : 'Enviar foto'}</span>
+              </button>
+              {photoUrl && (
+                <button
+                  type="button"
+                  onClick={() => setPhotoUrl(null)}
+                  className="block text-[11px] text-fg-subtle hover:text-danger transition-colors"
+                >
+                  Remover foto
+                </button>
+              )}
+              <p className="text-[11px] text-fg-subtle max-w-xs">
+                A foto aparece para a equipe e para o cliente no painel dele.
+                JPG, PNG ou WEBP até 5MB.
+              </p>
+            </div>
+          </div>
+        </section>
+
         {/* DADOS PESSOAIS */}
         <section className="card p-6 space-y-4">
           <h2
@@ -354,6 +511,122 @@ export function CustomerForm({
           </div>
         </div>
       </form>
+
+      {/* ACESSO AO PAINEL DO CLIENTE */}
+      {customerId ? (
+        <section className="card p-6 space-y-4">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-gold" />
+            <h2
+              className="text-lg font-semibold text-fg"
+              style={{ fontFamily: 'var(--font-playfair), serif' }}
+            >
+              Acesso ao Painel do Cliente
+            </h2>
+          </div>
+
+          {accessCreated ? (
+            <>
+              <p className="text-xs text-fg-muted">
+                Este cliente já tem login no painel
+                {accessEmail ? (
+                  <>
+                    {' '}
+                    com o e-mail{' '}
+                    <span className="text-fg font-medium">{accessEmail}</span>
+                  </>
+                ) : null}
+                . Ele acessa em{' '}
+                <span className="text-gold">/cliente/login</span>.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
+                <div>
+                  <label className="label">Nova senha</label>
+                  <input
+                    type="text"
+                    placeholder="Mínimo 6 caracteres"
+                    className="input"
+                    value={accessForm.password}
+                    onChange={(e) =>
+                      setAccessForm({ ...accessForm, password: e.target.value })
+                    }
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleResetPassword}
+                  disabled={accessBusy || accessForm.password.length < 6}
+                  className="btn-secondary flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {accessBusy ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <KeyRound className="w-4 h-4" />
+                  )}
+                  <span>Redefinir senha</span>
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-fg-muted">
+                Crie um login para o cliente acompanhar pontos, assinatura,
+                agendamentos e ranking pelo painel dele (
+                <span className="text-gold">/cliente</span>). Anote a senha e
+                entregue a ele.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                <div>
+                  <label className="label">E-mail de acesso</label>
+                  <input
+                    type="email"
+                    placeholder="cliente@email.com"
+                    className="input"
+                    value={accessForm.email}
+                    onChange={(e) =>
+                      setAccessForm({ ...accessForm, email: e.target.value })
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="label">Senha inicial</label>
+                  <input
+                    type="text"
+                    placeholder="Mínimo 6 caracteres"
+                    className="input"
+                    value={accessForm.password}
+                    onChange={(e) =>
+                      setAccessForm({ ...accessForm, password: e.target.value })
+                    }
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCreateAccess}
+                  disabled={
+                    accessBusy ||
+                    accessForm.password.length < 6 ||
+                    !accessForm.email.includes('@')
+                  }
+                  className="btn-gold-shimmer flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {accessBusy ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <KeyRound className="w-4 h-4" />
+                  )}
+                  <span>Criar acesso</span>
+                </button>
+              </div>
+            </>
+          )}
+        </section>
+      ) : (
+        <p className="text-[11px] text-fg-subtle">
+          Depois de cadastrar, abra o cliente para enviar foto já vinculada e
+          criar o acesso ao painel dele.
+        </p>
+      )}
     </div>
   );
 }

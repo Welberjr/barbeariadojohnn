@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { PlanForm } from '../../_components/plan-form';
 
 export const metadata = {
@@ -12,9 +12,9 @@ interface EditPlanPageProps {
 
 export default async function EditPlanPage({ params }: EditPlanPageProps) {
   const { id } = await params;
-  const supabase = await createClient();
+  const admin = createAdminClient();
 
-  const { data: plan } = await supabase
+  const { data: plan } = await admin
     .from('subscription_plans')
     .select('*')
     .eq('id', id)
@@ -29,11 +29,12 @@ export default async function EditPlanPage({ params }: EditPlanPageProps) {
         name: plan.name,
         description: plan.description ?? '',
         price: Number(plan.price ?? 0),
-        billing_cycle: plan.billing_cycle ?? 'monthly',
-        includes_count: Number(plan.includes_count ?? 0),
-        discount_percent_on_extras: Number(
-          plan.discount_percent_on_extras ?? 0
-        ),
+        period: plan.period ?? 'monthly',
+        allowed_days: (plan.allowed_days ?? [1, 2, 3, 4, 5, 6]) as number[],
+        included_uses: Number(plan.included_uses ?? 4),
+        barber_share_percent: Number(plan.barber_share_percent ?? 50),
+        accumulate_unused: plan.accumulate_unused ?? false,
+        show_on_public_menu: plan.show_on_public_menu ?? true,
         active: plan.active ?? true,
         display_order: plan.display_order ?? 0,
       }}
