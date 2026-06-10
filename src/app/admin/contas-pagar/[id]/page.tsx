@@ -1,4 +1,4 @@
-﻿import { notFound } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { BillForm } from '../_components/bill-form';
 

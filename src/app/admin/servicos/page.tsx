@@ -1,4 +1,4 @@
-﻿import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
 import { ServicesAccordion } from './_components/services-accordion';

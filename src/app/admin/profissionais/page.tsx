@@ -1,4 +1,4 @@
-﻿import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { Plus, Users } from 'lucide-react';
 import { StaffList } from './_components/staff-list';
 import Link from 'next/link';

@@ -1,4 +1,4 @@
-﻿import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { AgendaView } from './_components/agenda-view';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';

@@ -1,4 +1,4 @@
-﻿import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { BillForm } from '../_components/bill-form';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';

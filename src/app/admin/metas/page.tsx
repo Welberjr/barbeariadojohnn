@@ -1,4 +1,4 @@
-﻿import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { Target, TrendingUp, Crown } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { GoalsManager } from './_components/goals-manager';

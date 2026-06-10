@@ -1,4 +1,4 @@
-﻿import { notFound } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ServiceForm } from '../_components/service-form';
 import { ServiceStaffManager } from '../_components/service-staff-manager';

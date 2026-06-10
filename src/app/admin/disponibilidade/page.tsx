@@ -1,4 +1,4 @@
-﻿import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { Clock, CalendarOff, Plus } from 'lucide-react';
 import { BusinessHoursForm } from './_components/business-hours-form';
 import { DaysOffList } from './_components/days-off-list';

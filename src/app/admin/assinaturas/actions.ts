@@ -1,4 +1,4 @@
-﻿'use server';
+'use server';
 
 /**
  * Assinaturas (Clube) — reescrito 10/06/2026 para o modelo normalizado.

@@ -1,4 +1,4 @@
-﻿import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { Globe, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { SiteForm } from './_components/site-form';
