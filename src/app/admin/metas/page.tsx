@@ -5,6 +5,7 @@ import { GoalsManager } from './_components/goals-manager';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
+export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Metas' };
 
 type Status = 'critico' | 'ruim' | 'atencao' | 'excelente';

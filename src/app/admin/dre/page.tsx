@@ -124,10 +124,26 @@ export default async function DREPage({ searchParams }: DREPageProps) {
     .lte('paid_at', periodEnd);
 
   const bills = billsRaw ?? [];
-  const totalDespesas = bills.reduce(
+  const totalDespesasBills = bills.reduce(
     (s, b) => s + Number(b.paid_amount ?? b.amount ?? 0),
     0
   );
+
+  // 4b. Transacoes manuais do periodo (lancamentos avulsos do modulo Financeiro)
+  const { data: txRaw } = await supabase
+    .from('transactions')
+    .select('type, amount')
+    .eq('barbershop_id', BARBERSHOP_ID)
+    .in('type', ['product', 'expense', 'other'])
+    .gte('occurred_at', periodStart)
+    .lte('occurred_at', periodEnd);
+
+  const txRows = txRaw ?? [];
+  const txProdutos   = txRows.filter((t) => t.type === 'product').reduce((s, t) => s + Number(t.amount ?? 0), 0);
+  const txReceitas   = txRows.filter((t) => t.type === 'other').reduce((s, t) => s + Number(t.amount ?? 0), 0);
+  const txDespesas   = txRows.filter((t) => t.type === 'expense').reduce((s, t) => s + Number(t.amount ?? 0), 0);
+
+  const totalDespesas = totalDespesasBills + txDespesas;
 
   // Agrupa despesas por categoria
   const { data: categoriesRaw } = await supabase
@@ -164,10 +180,14 @@ export default async function DREPage({ searchParams }: DREPageProps) {
   );
 
   // 5. CÁLCULOS FINAIS DRE
-  const margemBruta = receitaLiquida - custoProdutosVendidos - totalComissoes;
+  // Inclui vendas avulsas de produto e receitas extras nas totalizacoes
+  const totalProdutosReal = totalProdutosVendidos + txProdutos;
+  const receitaBrutaTotal = receitaBruta + txProdutos + txReceitas;
+  const receitaLiquidaTotal = receitaLiquida + txProdutos + txReceitas;
+  const margemBruta = receitaLiquidaTotal - custoProdutosVendidos - totalComissoes;
   const lucroLiquido = margemBruta - totalDespesas;
   const margemLiquidaPct =
-    receitaBruta > 0 ? (lucroLiquido / receitaBruta) * 100 : 0;
+    receitaBrutaTotal > 0 ? (lucroLiquido / receitaBrutaTotal) * 100 : 0;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -273,7 +293,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
             className="text-2xl font-bold text-gold"
             style={{ fontFamily: 'var(--font-playfair), serif' }}
           >
-            {formatCurrency(receitaBruta)}
+            {formatCurrency(receitaBrutaTotal)}
           </p>
         </div>
 
@@ -342,12 +362,14 @@ export default async function DREPage({ searchParams }: DREPageProps) {
           {/* Receita Bruta */}
           <DRELine
             label="(=) Receita Bruta"
-            value={receitaBruta}
+            value={receitaBrutaTotal}
             bold
             color="gold"
           />
           <DRELineSub label="Serviços" value={totalServicos} />
-          <DRELineSub label="Produtos" value={totalProdutosVendidos} />
+          <DRELineSub label="Produtos (via comanda)" value={totalProdutosVendidos} />
+          {txProdutos > 0 && <DRELineSub label="Produtos (venda avulsa)" value={txProdutos} />}
+          {txReceitas > 0 && <DRELineSub label="Receitas extras" value={txReceitas} />}
 
           <DRESeparator />
 
@@ -360,7 +382,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
 
           <DRELine
             label="(=) Receita Líquida"
-            value={receitaLiquida}
+            value={receitaLiquidaTotal}
             bold
             color="gold"
           />
@@ -496,8 +518,8 @@ export default async function DREPage({ searchParams }: DREPageProps) {
               {formatCurrency(totalServicos)}
             </p>
             <p className="text-[11px] text-fg-subtle mt-1">
-              {receitaBruta > 0
-                ? `${((totalServicos / receitaBruta) * 100).toFixed(1)}%`
+              {receitaBrutaTotal > 0
+                ? `${((totalServicos / receitaBrutaTotal) * 100).toFixed(1)}%`
                 : '—'}{' '}
               da receita
             </p>
@@ -513,11 +535,11 @@ export default async function DREPage({ searchParams }: DREPageProps) {
               className="text-2xl font-bold text-fg"
               style={{ fontFamily: 'var(--font-playfair), serif' }}
             >
-              {formatCurrency(totalProdutosVendidos)}
+              {formatCurrency(totalProdutosReal)}
             </p>
             <p className="text-[11px] text-fg-subtle mt-1">
-              {receitaBruta > 0
-                ? `${((totalProdutosVendidos / receitaBruta) * 100).toFixed(1)}%`
+              {receitaBrutaTotal > 0
+                ? `${((totalProdutosVendidos / receitaBrutaTotal) * 100).toFixed(1)}%`
                 : '—'}{' '}
               da receita
             </p>

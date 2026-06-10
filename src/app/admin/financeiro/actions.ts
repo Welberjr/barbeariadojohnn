@@ -9,10 +9,7 @@ const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 // RECEITAS / DESPESAS MANUAIS
 // ============================================================
 
-const INCOME_CATEGORIES = ['Gorjeta', 'Serviço Extra', 'Outros'];
-const EXPENSE_CATEGORIES = ['Utilidades', 'Limpeza', 'Produtos', 'Manutenção', 'Aluguel', 'Outros'];
 
-export { INCOME_CATEGORIES, EXPENSE_CATEGORIES };
 
 export async function addIncome(data: {
   category: string;

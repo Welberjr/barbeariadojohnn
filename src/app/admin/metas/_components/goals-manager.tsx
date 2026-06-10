@@ -42,26 +42,32 @@ export function GoalsManager({ staff, currentYear, currentMonth, existingGoals }
       return;
     }
     setIsLoading(true);
-    const result = await upsertGoal({
-      staff_id: staffId || null,
-      period_type: 'month',
-      year: currentYear,
-      month: currentMonth,
-      revenue_target: numericRevenue,
-      appointments_target: apptTarget ? Number(apptTarget) : undefined,
-      avg_ticket_target: ticketTarget ? Number(ticketTarget.replace(',', '.')) : undefined,
-    });
-    if (result.ok) {
-      toast.success('Meta salva!');
-      setRevenueTarget('');
-      setApptTarget('');
-      setTicketTarget('');
-      setStaffId('');
-      router.refresh();
-    } else {
-      toast.error(result.error ?? 'Erro ao salvar.');
+    try {
+      const result = await upsertGoal({
+        staff_id: staffId || null,
+        period_type: 'month',
+        year: currentYear,
+        month: currentMonth,
+        revenue_target: numericRevenue,
+        appointments_target: apptTarget ? Number(apptTarget) : undefined,
+        avg_ticket_target: ticketTarget ? Number(ticketTarget.replace(',', '.')) : undefined,
+      });
+      if (result.ok) {
+        toast.success('Meta salva com sucesso!');
+        setRevenueTarget('');
+        setApptTarget('');
+        setTicketTarget('');
+        setStaffId('');
+        setTimeout(() => router.refresh(), 600);
+      } else {
+        toast.error(result.error ?? 'Erro ao salvar meta.');
+      }
+    } catch (err) {
+      toast.error('Erro inesperado ao salvar meta.');
+      console.error('upsertGoal error:', err);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   }
 
   async function handleDelete(goalId: string) {

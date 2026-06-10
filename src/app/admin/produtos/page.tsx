@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
 import { ProductsTable } from './_components/products-table';
 import { PeriodSelector } from './_components/period-selector';
+import { QuickSellButton } from './_components/quick-sell-button';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -96,12 +97,12 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
       {/* HEADER */}
       <div className="flex items-end justify-between flex-wrap gap-4">
         <div>
-          <p className="text-[10px] text-fg-dim tracking-[0.25em] uppercase mb-1">Operacao</p>
+          <p className="text-[10px] text-fg-dim tracking-[0.25em] uppercase mb-1">Operação</p>
           <h1
             className="text-3xl text-fg font-bold"
             style={{ fontFamily: 'var(--font-playfair), serif' }}
           >
-            Gestao de Produtos
+            Gestão de Produtos
           </h1>
           <p className="text-sm text-fg-muted mt-2">Controle de estoque e vendas</p>
         </div>
@@ -110,10 +111,7 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
             <Plus className="w-4 h-4" />
             <span>Novo Produto</span>
           </Link>
-          <Link href="/admin/produtos" className="btn-gold-shimmer flex items-center gap-2">
-            <ShoppingCart className="w-4 h-4" />
-            <span>Registrar Venda</span>
-          </Link>
+          <QuickSellButton products={tableProducts} />
         </div>
       </div>
 
@@ -139,7 +137,7 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
           <p className="text-2xl font-bold text-gold" style={{ fontFamily: 'var(--font-playfair), serif' }}>
             {formatCurrency(valorEstoque)}
           </p>
-          <p className="text-[10px] text-fg-subtle mt-1">Soma preco x estoque (ativos)</p>
+          <p className="text-[10px] text-fg-subtle mt-1">Soma preço × estoque (ativos)</p>
         </div>
         <div className="card p-5">
           <p className="text-[10px] tracking-widest uppercase text-fg-muted mb-2">Estoque baixo</p>
