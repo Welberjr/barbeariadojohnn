@@ -1,6 +1,6 @@
-'use server';
+﻿'use server';
 
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
@@ -17,7 +17,7 @@ export interface WhatsAppConfig {
 }
 
 export async function updateWhatsAppConfig(data: WhatsAppConfig) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const cleaned: any = {};

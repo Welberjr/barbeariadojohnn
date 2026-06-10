@@ -1,6 +1,6 @@
-'use server';
+﻿'use server';
 
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
@@ -26,7 +26,7 @@ export interface BusinessHours {
 }
 
 export async function updateBusinessHours(hours: BusinessHours) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   const { error } = await admin
     .from('barbershops')
@@ -53,7 +53,7 @@ export interface DayOffData {
 }
 
 export async function createDayOff(data: DayOffData) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const payload: any = {
@@ -76,7 +76,7 @@ export async function createDayOff(data: DayOffData) {
 }
 
 export async function deleteDayOff(id: string) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   const { error } = await admin.from('days_off').delete().eq('id', id);
 

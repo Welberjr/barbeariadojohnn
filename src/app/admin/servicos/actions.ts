@@ -1,6 +1,6 @@
-'use server';
+﻿'use server';
 
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
@@ -18,7 +18,7 @@ export interface ServiceFormData {
 }
 
 export async function createService(data: ServiceFormData) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   const { error } = await admin.from('services').insert({
     barbershop_id: BARBERSHOP_ID,
@@ -42,7 +42,7 @@ export async function createService(data: ServiceFormData) {
 }
 
 export async function updateService(serviceId: string, data: ServiceFormData) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   const { error } = await admin
     .from('services')
@@ -69,7 +69,7 @@ export async function updateService(serviceId: string, data: ServiceFormData) {
 }
 
 export async function deleteService(serviceId: string) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   // Soft delete: apenas desativa
   const { error } = await admin

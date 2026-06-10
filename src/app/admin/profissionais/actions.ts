@@ -1,7 +1,6 @@
-'use server';
+﻿'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
@@ -28,7 +27,7 @@ export interface StaffFormData {
  */
 export async function createStaff(data: StaffFormData) {
   const supabase = await createClient();
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   let profileId: string;
 
@@ -101,7 +100,7 @@ export async function createStaff(data: StaffFormData) {
  * Atualiza um profissional existente.
  */
 export async function updateStaff(staffId: string, data: StaffFormData) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   const { data: staff, error: staffFetchError } = await admin
     .from('staff')
@@ -153,7 +152,7 @@ export async function updateStaff(staffId: string, data: StaffFormData) {
  * Desativa um profissional (soft delete).
  */
 export async function deactivateStaff(staffId: string) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   const { error } = await admin
     .from('staff')
@@ -172,7 +171,7 @@ export async function deactivateStaff(staffId: string) {
  * Reativa um profissional.
  */
 export async function reactivateStaff(staffId: string) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   const { error } = await admin
     .from('staff')

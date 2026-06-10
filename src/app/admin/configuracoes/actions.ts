@@ -1,6 +1,6 @@
-'use server';
+﻿'use server';
 
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
@@ -28,7 +28,7 @@ function nullIfEmpty(v?: string | null) {
 }
 
 export async function updateBarbershopSettings(data: BarbershopSettings) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const payload: any = {};

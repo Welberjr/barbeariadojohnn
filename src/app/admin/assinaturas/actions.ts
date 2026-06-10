@@ -1,4 +1,4 @@
-'use server';
+﻿'use server';
 
 /**
  * Assinaturas (Clube) — reescrito 10/06/2026 para o modelo normalizado.
@@ -10,7 +10,7 @@
  * subscription_payments + subscription_payouts.
  */
 
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import {
   addBillingPeriod,
@@ -58,7 +58,7 @@ export interface PlanFormData {
 }
 
 export async function createPlan(data: PlanFormData) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   const { error } = await admin.from('subscription_plans').insert({
     barbershop_id: BARBERSHOP_ID,
@@ -82,7 +82,7 @@ export async function createPlan(data: PlanFormData) {
 }
 
 export async function updatePlan(planId: string, data: PlanFormData) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   const { error } = await admin
     .from('subscription_plans')
@@ -109,7 +109,7 @@ export async function updatePlan(planId: string, data: PlanFormData) {
 }
 
 export async function deletePlan(planId: string) {
-  const admin = createAdminClient();
+  const admin = await createClient();
   // Soft delete: preserva historico de assinaturas
   const { error } = await admin
     .from('subscription_plans')
@@ -136,7 +136,7 @@ export interface CreateSubscriptionInput {
 }
 
 export async function createSubscription(input: CreateSubscriptionInput) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   const { data: plan } = await admin
     .from('subscription_plans')
@@ -233,7 +233,7 @@ export async function createSubscription(input: CreateSubscriptionInput) {
 }
 
 export async function cancelSubscription(subscriptionId: string, reason?: string) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   const { error } = await admin
     .from('subscriptions')
@@ -251,7 +251,7 @@ export async function cancelSubscription(subscriptionId: string, reason?: string
 }
 
 export async function reactivateSubscription(subscriptionId: string) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   const { error } = await admin
     .from('subscriptions')
@@ -286,7 +286,7 @@ export interface SettlementPreview {
  * o pagamento (modal "Lançar pagamento").
  */
 export async function previewSettlement(subscriptionId: string): Promise<SettlementPreview> {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   const { data: sub } = await admin
     .from('subscriptions')
@@ -362,7 +362,7 @@ export async function registerSubscriptionPayment(
   subscriptionId: string,
   paymentMethod: string
 ) {
-  const admin = createAdminClient();
+  const admin = await createClient();
   const now = new Date();
 
   const { data: subRaw } = await admin

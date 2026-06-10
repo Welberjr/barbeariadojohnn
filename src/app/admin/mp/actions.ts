@@ -1,6 +1,6 @@
-'use server';
+﻿'use server';
 
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { createMPPreference } from '@/lib/mercadopago';
 import { revalidatePath } from 'next/cache';
 
@@ -11,7 +11,7 @@ const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
  * Retorna initPoint (URL pra abrir o checkout).
  */
 export async function generateMPCheckoutForComanda(comandaId: string) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   // Busca comanda + items + customer
   const { data: comanda } = await admin
@@ -109,7 +109,7 @@ export async function updateMPConfig(data: {
   public_key?: string;
   access_token?: string;
 }) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   const cleaned: Record<string, unknown> = {
     enabled: data.enabled,

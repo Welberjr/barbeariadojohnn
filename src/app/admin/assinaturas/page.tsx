@@ -1,4 +1,4 @@
-import { createAdminClient } from '@/lib/supabase/admin';
+﻿import { createClient } from '@/lib/supabase/server';
 import { Crown, Plus, Users, TrendingUp, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
@@ -26,7 +26,7 @@ function monthlyEquivalent(price: number, period: string): number {
 }
 
 export default async function AssinaturasPage() {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   // Planos (modelo normalizado)
   const { data: plansRaw } = await admin

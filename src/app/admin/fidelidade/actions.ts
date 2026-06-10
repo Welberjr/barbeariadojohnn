@@ -1,6 +1,6 @@
-'use server';
+﻿'use server';
 
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
@@ -13,7 +13,7 @@ export async function updateLoyaltyConfig(data: {
   loyalty_enabled: boolean;
   loyalty_points_per_brl: number;
 }) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   const { error } = await admin
     .from('barbershops')
@@ -53,7 +53,7 @@ function nullIfEmpty(v?: string | null) {
 }
 
 export async function createReward(data: RewardFormData) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   const { error } = await admin.from('loyalty_rewards').insert({
     barbershop_id: BARBERSHOP_ID,
@@ -75,7 +75,7 @@ export async function createReward(data: RewardFormData) {
 }
 
 export async function updateReward(rewardId: string, data: RewardFormData) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   const { error } = await admin
     .from('loyalty_rewards')
@@ -99,7 +99,7 @@ export async function updateReward(rewardId: string, data: RewardFormData) {
 }
 
 export async function deleteReward(rewardId: string) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   // Soft delete: desativa
   const { error } = await admin
@@ -125,7 +125,7 @@ export async function adjustCustomerPoints(
   delta: number,
   reason: string
 ) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   // Garante registro de loyalty_points
   const { data: current } = await admin
@@ -184,7 +184,7 @@ export async function adjustCustomerPoints(
  * Resgata um prêmio para um cliente (debita pontos).
  */
 export async function redeemReward(customerId: string, rewardId: string) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   // Busca prêmio
   const { data: reward } = await admin

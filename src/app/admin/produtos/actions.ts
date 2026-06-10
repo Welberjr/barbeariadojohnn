@@ -1,6 +1,6 @@
-'use server';
+﻿'use server';
 
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
@@ -29,7 +29,7 @@ function nullIfEmpty(v?: string | null) {
 }
 
 export async function createProduct(data: ProductFormData) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   const { error } = await admin.from('products').insert({
     barbershop_id: BARBERSHOP_ID,
@@ -56,7 +56,7 @@ export async function createProduct(data: ProductFormData) {
 }
 
 export async function updateProduct(productId: string, data: ProductFormData) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   const { error } = await admin
     .from('products')
@@ -86,7 +86,7 @@ export async function updateProduct(productId: string, data: ProductFormData) {
 }
 
 export async function deleteProduct(productId: string) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   // Soft delete: desativa
   const { error } = await admin
@@ -101,10 +101,10 @@ export async function deleteProduct(productId: string) {
 }
 
 /**
- * Registra venda avulsa de produto (sem comanda). Debita estoque e cria transação.
+ * Registra venda avulsa de produto (sem comanda). Debita estoque e cria transaÃ§Ã£o.
  */
 export async function registerSale(productId: string, quantity: number) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   const { data: prod } = await admin
     .from('products')
@@ -112,8 +112,8 @@ export async function registerSale(productId: string, quantity: number) {
     .eq('id', productId)
     .maybeSingle();
 
-  if (!prod) return { ok: false as const, error: 'Produto não encontrado' };
-  if (!prod.is_sellable) return { ok: false as const, error: 'Produto não disponível para venda' };
+  if (!prod) return { ok: false as const, error: 'Produto nÃ£o encontrado' };
+  if (!prod.is_sellable) return { ok: false as const, error: 'Produto nÃ£o disponÃ­vel para venda' };
   if (Number(prod.stock_current) < quantity)
     return { ok: false as const, error: `Estoque insuficiente (${prod.stock_current} em estoque)` };
 
@@ -143,10 +143,10 @@ export async function registerSale(productId: string, quantity: number) {
 }
 
 /**
- * Desativa produto (soft delete) — usado pela tabela de produtos.
+ * Desativa produto (soft delete) â€” usado pela tabela de produtos.
  */
 export async function deactivateProductAction(productId: string) {
-  const admin = createAdminClient();
+  const admin = await createClient();
   const { error } = await admin
     .from('products')
     .update({ active: false })
@@ -157,7 +157,7 @@ export async function deactivateProductAction(productId: string) {
 }
 
 /**
- * Ajusta estoque manualmente (entrada / saída / ajuste).
+ * Ajusta estoque manualmente (entrada / saÃ­da / ajuste).
  */
 export async function adjustStock(
   productId: string,
@@ -165,7 +165,7 @@ export async function adjustStock(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _reason?: string
 ) {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   // Pega estoque atual
   const { data: prod } = await admin
@@ -174,7 +174,7 @@ export async function adjustStock(
     .eq('id', productId)
     .maybeSingle();
 
-  if (!prod) return { ok: false, error: 'Produto não encontrado' };
+  if (!prod) return { ok: false, error: 'Produto nÃ£o encontrado' };
 
   const newStock = Math.max(0, Number(prod.stock_current ?? 0) + delta);
 
