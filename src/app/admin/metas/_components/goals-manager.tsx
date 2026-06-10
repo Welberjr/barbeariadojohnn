@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Loader2, Save, Plus } from 'lucide-react';
+import { Loader2, Save } from 'lucide-react';
 import { upsertGoal, deleteGoal } from '../actions';
 import { formatCurrency } from '@/lib/utils';
 
@@ -26,22 +26,19 @@ interface GoalsManagerProps {
   existingGoals: ExistingGoal[];
 }
 
-export function GoalsManager({
-  staff,
-  currentYear,
-  currentMonth,
-  existingGoals,
-}: GoalsManagerProps) {
+export function GoalsManager({ staff, currentYear, currentMonth, existingGoals }: GoalsManagerProps) {
   const router = useRouter();
-  const [staffId, setStaffId] = useState<string>('');
-  const [target, setTarget] = useState<string>('');
+  const [staffId, setStaffId] = useState('');
+  const [revenueTarget, setRevenueTarget] = useState('');
+  const [apptTarget, setApptTarget] = useState('');
+  const [ticketTarget, setTicketTarget] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   async function handleSave() {
-    const numericTarget = Number(target.replace(',', '.'));
-    if (!numericTarget || numericTarget <= 0) {
-      toast.error('Informe um valor de meta válido.');
+    const numericRevenue = Number(revenueTarget.replace(',', '.'));
+    if (!numericRevenue || numericRevenue <= 0) {
+      toast.error('Informe uma meta de faturamento válida.');
       return;
     }
     setIsLoading(true);
@@ -50,11 +47,15 @@ export function GoalsManager({
       period_type: 'month',
       year: currentYear,
       month: currentMonth,
-      revenue_target: numericTarget,
+      revenue_target: numericRevenue,
+      appointments_target: apptTarget ? Number(apptTarget) : undefined,
+      avg_ticket_target: ticketTarget ? Number(ticketTarget.replace(',', '.')) : undefined,
     });
     if (result.ok) {
       toast.success('Meta salva!');
-      setTarget('');
+      setRevenueTarget('');
+      setApptTarget('');
+      setTicketTarget('');
       setStaffId('');
       router.refresh();
     } else {
@@ -84,87 +85,74 @@ export function GoalsManager({
       >
         Definir ou Atualizar Meta
       </h2>
-
       <p className="text-[11px] text-fg-subtle">
-        Defina uma meta mensal de faturamento. Selecionar &quot;Toda a barbearia&quot;
-        cria uma meta consolidada. Selecionar um profissional cria meta
-        individual.
+        Defina uma meta mensal de faturamento. &quot;Toda a barbearia&quot; cria meta
+        consolidada. Selecionar um profissional cria meta individual.
       </p>
 
-      <div className="grid grid-cols-1 md:grid-cols-[2fr_2fr_auto] gap-3 items-end">
-        <div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="md:col-span-2">
           <label className="label">Aplica a</label>
-          <select
-            value={staffId}
-            onChange={(e) => setStaffId(e.target.value)}
-            className="input"
-          >
+          <select value={staffId} onChange={(e) => setStaffId(e.target.value)} className="input">
             <option value="">Toda a barbearia</option>
             {staff.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.display_name}
-              </option>
+              <option key={s.id} value={s.id}>{s.display_name}</option>
             ))}
           </select>
         </div>
         <div>
-          <label className="label">Meta de faturamento (R$)</label>
+          <label className="label">Meta de faturamento (R$) *</label>
           <input
-            type="number"
-            step="0.01"
-            min="0"
-            placeholder="Ex: 15000.00"
-            value={target}
-            onChange={(e) => setTarget(e.target.value)}
+            type="number" step="0.01" min="0" placeholder="Ex: 15000.00"
+            value={revenueTarget} onChange={(e) => setRevenueTarget(e.target.value)}
             className="input"
           />
         </div>
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={isLoading}
-          className="btn-gold-shimmer flex items-center gap-2"
-        >
-          {isLoading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Save className="w-4 h-4" />
-          )}
-          <span>Salvar meta</span>
-        </button>
+        <div>
+          <label className="label">Meta de atendimentos (opcional)</label>
+          <input
+            type="number" min="0" placeholder="Ex: 75"
+            value={apptTarget} onChange={(e) => setApptTarget(e.target.value)}
+            className="input"
+          />
+        </div>
+        <div>
+          <label className="label">Meta de ticket médio (opcional)</label>
+          <input
+            type="number" step="0.01" min="0" placeholder="Ex: 100.00"
+            value={ticketTarget} onChange={(e) => setTicketTarget(e.target.value)}
+            className="input"
+          />
+        </div>
+        <div className="flex items-end">
+          <button
+            type="button" onClick={handleSave} disabled={isLoading}
+            className="btn-gold-shimmer flex items-center gap-2 w-full justify-center"
+          >
+            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            <span>Salvar meta</span>
+          </button>
+        </div>
       </div>
 
       {existingGoals.length > 0 && (
         <div className="pt-4 border-t border-border/60 space-y-2">
-          <p className="text-[10px] uppercase tracking-wider text-fg-dim">
-            Metas definidas neste mês
-          </p>
+          <p className="text-[10px] uppercase tracking-wider text-fg-dim">Metas definidas neste mês</p>
           {existingGoals.map((g) => (
-            <div
-              key={g.id}
-              className="flex items-center justify-between gap-3 p-3 rounded-md bg-bg-elevated border border-border/60"
-            >
+            <div key={g.id} className="flex items-center justify-between gap-3 p-3 rounded-md bg-bg-elevated border border-border/60">
               <div>
                 <p className="text-sm text-fg">
-                  {g.staff_name ?? (
-                    <span className="text-gold">Toda a barbearia</span>
-                  )}
+                  {g.staff_name ?? <span className="text-gold">Toda a barbearia</span>}
                 </p>
                 <p className="text-xs text-fg-subtle">
                   Meta: <strong>{formatCurrency(g.revenue_target)}</strong>
                 </p>
               </div>
               <button
-                type="button"
-                onClick={() => handleDelete(g.id)}
-                disabled={deletingId === g.id}
+                type="button" onClick={() => handleDelete(g.id)} disabled={deletingId === g.id}
                 className="text-xs text-danger hover:bg-danger/10 px-3 py-1.5 rounded-md transition-colors"
               >
-                {deletingId === g.id ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                ) : (
-                  'Remover'
-                )}
+                {deletingId === g.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Remover'}
               </button>
             </div>
           ))}

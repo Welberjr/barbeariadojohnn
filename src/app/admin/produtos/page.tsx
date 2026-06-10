@@ -1,82 +1,86 @@
-import { createClient } from '@/lib/supabase/server';
-import {
-  Plus,
-  Package,
-  AlertCircle,
-  CheckCircle2,
-  ShoppingBag,
-} from 'lucide-react';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { Plus, ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
+import { ProductsTable } from './_components/products-table';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
-export const metadata = {
-  title: 'Produtos',
-};
+export const metadata = { title: 'Produtos' };
 
-interface Product {
-  id: string;
-  name: string;
-  brand: string | null;
-  sku: string | null;
-  sale_price: number;
-  cost_price: number;
-  stock_current: number;
-  stock_minimum: number;
-  is_sellable: boolean;
-  active: boolean;
-  category_id: string | null;
+interface ClientesPageProps {
+  searchParams: Promise<{ period?: string }>;
 }
 
-interface Category {
-  id: string;
-  name: string;
-}
+export default async function ProdutosPage({ searchParams }: ClientesPageProps) {
+  const { period } = await searchParams;
+  const admin = createAdminClient();
 
-export default async function ProdutosPage() {
-  const supabase = await createClient();
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const monthStr = period ?? `${year}-${String(month + 1).padStart(2, '0')}`;
+  const [y, m] = monthStr.split('-').map(Number);
+  const firstDay = new Date(y, m - 1, 1).toISOString();
+  const lastDay = new Date(y, m, 0, 23, 59, 59).toISOString();
 
-  const { data: productsRaw } = await supabase
-    .from('products')
-    .select(
-      'id, name, brand, sku, sale_price, cost_price, stock_current, stock_minimum, is_sellable, active, category_id'
-    )
-    .eq('barbershop_id', BARBERSHOP_ID)
-    .order('name');
+  const [{ data: productsRaw }, { data: categoriesRaw }, { data: salesRaw }] =
+    await Promise.all([
+      admin
+        .from('products')
+        .select('id, name, brand, sale_price, cost_price, stock_current, stock_minimum, is_sellable, active, category_id')
+        .eq('barbershop_id', BARBERSHOP_ID)
+        .order('name'),
+      admin
+        .from('product_categories')
+        .select('id, name')
+        .eq('barbershop_id', BARBERSHOP_ID)
+        .order('name'),
+      admin
+        .from('transactions')
+        .select('amount')
+        .eq('barbershop_id', BARBERSHOP_ID)
+        .eq('type', 'product')
+        .gte('occurred_at', firstDay)
+        .lte('occurred_at', lastDay),
+    ]);
 
-  const products = (productsRaw ?? []) as Product[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const products = (productsRaw ?? []) as any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const cats = (categoriesRaw ?? []) as any[];
+  const catMap = new Map(cats.map((c) => [c.id as string, c.name as string]));
 
-  // Categorias (se a tabela existir; falha silenciosamente)
-  const { data: categoriesRaw } = await supabase
-    .from('product_categories')
-    .select('id, name')
-    .eq('barbershop_id', BARBERSHOP_ID)
-    .order('name');
-
-  const categories = (categoriesRaw ?? []) as Category[];
-  const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
-
-  // Agrupar por categoria
-  const grouped = products.reduce<Record<string, Product[]>>((acc, p) => {
-    const catName = p.category_id
-      ? categoryMap.get(p.category_id) ?? 'Sem categoria'
-      : 'Sem categoria';
-    if (!acc[catName]) acc[catName] = [];
-    acc[catName].push(p);
-    return acc;
-  }, {});
-
-  // Stats
   const totalAtivos = products.filter((p) => p.active).length;
-  const estoqueBaixo = products.filter(
-    (p) => p.active && p.stock_current <= p.stock_minimum
-  ).length;
   const valorEstoque = products.reduce(
-    (sum, p) =>
-      sum + (p.active ? Number(p.cost_price) * p.stock_current : 0),
+    (s, p) => s + (p.active ? Number(p.cost_price ?? 0) * Number(p.stock_current ?? 0) : 0),
     0
   );
+  const estoqueBaixo = products.filter(
+    (p) => p.active && Number(p.stock_current) <= Number(p.stock_minimum)
+  ).length;
+  const vendasMes = (salesRaw ?? []).reduce((s, t) => s + Number(t.amount ?? 0), 0);
+  const custoProdutosVendidos = 0; // pode ser calculado com comanda_items futuramente
+  const lucroMes = vendasMes - custoProdutosVendidos;
+
+  const allCategoryNames = Array.from(new Set(
+    products.map((p) => (p.category_id ? catMap.get(p.category_id) ?? 'Sem categoria' : 'Sem categoria'))
+  )).sort();
+
+  const tableProducts = products.map((p) => ({
+    id: p.id,
+    name: p.name,
+    brand: p.brand ?? null,
+    category_name: p.category_id ? catMap.get(p.category_id) ?? 'Sem categoria' : 'Sem categoria',
+    sale_price: Number(p.sale_price ?? 0),
+    cost_price: Number(p.cost_price ?? 0),
+    stock_current: Number(p.stock_current ?? 0),
+    stock_minimum: Number(p.stock_minimum ?? 0),
+    active: p.active,
+    is_sellable: p.is_sellable,
+  }));
+
+  const monthLabel = new Date(y, m - 1).toLocaleString('pt-BR', { month: 'short', year: 'numeric' });
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -90,212 +94,108 @@ export default async function ProdutosPage() {
             className="text-3xl text-fg font-bold"
             style={{ fontFamily: 'var(--font-playfair), serif' }}
           >
-            Produtos
+            Gestão de Produtos
           </h1>
-          <p className="text-sm text-fg-muted mt-2">
-            Catálogo de produtos para venda e controle de estoque.
-          </p>
+          <p className="text-sm text-fg-muted mt-2">Controle de estoque e vendas</p>
         </div>
-
-        <Link
-          href="/admin/produtos/novo"
-          className="btn-gold-shimmer flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Adicionar produto</span>
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/produtos/novo"
+            className="btn-secondary flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Novo Produto</span>
+          </Link>
+          <Link
+            href="/admin/produtos"
+            className="btn-gold-shimmer flex items-center gap-2"
+          >
+            <ShoppingCart className="w-4 h-4" />
+            <span>Registrar Venda</span>
+          </Link>
+        </div>
       </div>
 
       <div className="divider-gold" />
 
-      {/* STATS */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="card p-5">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-md bg-gold/10 text-gold">
-              <Package className="w-4 h-4" />
-            </div>
-            <p className="text-[10px] tracking-widest uppercase text-fg-muted">
-              Total
-            </p>
-          </div>
-          <p
-            className="text-3xl font-bold text-fg"
-            style={{ fontFamily: 'var(--font-playfair), serif' }}
-          >
-            {products.length}
-          </p>
-        </div>
+      {/* PERÍODO */}
+      <div className="flex items-center gap-2">
+        <p className="text-xs text-fg-muted uppercase tracking-wider">Período:</p>
+        <select
+          className="input text-sm py-1.5 w-40"
+          defaultValue={monthStr}
+          onChange={(e) => {
+            window.location.href = `/admin/produtos?period=${e.target.value}`;
+          }}
+        >
+          {Array.from({ length: 6 }).map((_, i) => {
+            const d = new Date(year, month - i, 1);
+            const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            const label = d.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+            return <option key={val} value={val}>{label}</option>;
+          })}
+        </select>
+      </div>
 
+      {/* KPIs */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="card p-5">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-md bg-success/10 text-success">
-              <CheckCircle2 className="w-4 h-4" />
-            </div>
-            <p className="text-[10px] tracking-widest uppercase text-fg-muted">
-              Ativos
-            </p>
-          </div>
-          <p
-            className="text-3xl font-bold text-success"
-            style={{ fontFamily: 'var(--font-playfair), serif' }}
-          >
+          <p className="text-[10px] tracking-widest uppercase text-fg-muted mb-2 flex items-center gap-1.5">
+            Produtos ativos
+          </p>
+          <p className="text-3xl font-bold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>
             {totalAtivos}
           </p>
+          <p className="text-[10px] text-fg-subtle mt-1">{products.length} cadastrados no total</p>
         </div>
-
         <div className="card p-5">
-          <div className="flex items-center gap-3 mb-2">
-            <div
-              className={`p-2 rounded-md ${
-                estoqueBaixo > 0
-                  ? 'bg-danger/10 text-danger'
-                  : 'bg-info/10 text-info'
-              }`}
-            >
-              <AlertCircle className="w-4 h-4" />
-            </div>
-            <p className="text-[10px] tracking-widest uppercase text-fg-muted">
-              Estoque baixo
-            </p>
-          </div>
-          <p
-            className={`text-3xl font-bold ${
-              estoqueBaixo > 0 ? 'text-danger' : 'text-fg'
-            }`}
-            style={{ fontFamily: 'var(--font-playfair), serif' }}
-          >
-            {estoqueBaixo}
-          </p>
-        </div>
-
-        <div className="card p-5">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-md bg-info/10 text-info">
-              <ShoppingBag className="w-4 h-4" />
-            </div>
-            <p className="text-[10px] tracking-widest uppercase text-fg-muted">
-              Valor em estoque
-            </p>
-          </div>
-          <p
-            className="text-2xl font-bold text-fg"
-            style={{ fontFamily: 'var(--font-playfair), serif' }}
-          >
+          <p className="text-[10px] tracking-widest uppercase text-fg-muted mb-2">Valor em estoque</p>
+          <p className="text-2xl font-bold text-gold" style={{ fontFamily: 'var(--font-playfair), serif' }}>
             {formatCurrency(valorEstoque)}
           </p>
+          <p className="text-[10px] text-fg-subtle mt-1">Soma preço × estoque (ativos)</p>
+        </div>
+        <div className="card p-5">
+          <p className="text-[10px] tracking-widest uppercase text-fg-muted mb-2">Estoque baixo</p>
+          <p className={`text-3xl font-bold ${estoqueBaixo > 0 ? 'text-danger' : 'text-fg'}`}
+            style={{ fontFamily: 'var(--font-playfair), serif' }}>
+            {estoqueBaixo}
+          </p>
+          <p className="text-[10px] text-fg-subtle mt-1">
+            {estoqueBaixo > 0 ? 'Produtos abaixo do mínimo' : 'Tudo em estoque'}
+          </p>
+        </div>
+        <div className="card p-5">
+          <p className="text-[10px] tracking-widest uppercase text-fg-muted mb-2">
+            Vendas {monthLabel}
+          </p>
+          <p className="text-2xl font-bold text-info" style={{ fontFamily: 'var(--font-playfair), serif' }}>
+            {formatCurrency(vendasMes)}
+          </p>
+          <p className="text-[10px] text-fg-subtle mt-1">Faturamento em produtos</p>
+        </div>
+        <div className="card p-5">
+          <p className="text-[10px] tracking-widest uppercase text-fg-muted mb-2">
+            Lucro {monthLabel}
+          </p>
+          <p className="text-2xl font-bold text-success" style={{ fontFamily: 'var(--font-playfair), serif' }}>
+            {formatCurrency(lucroMes)}
+          </p>
+          <p className="text-[10px] text-fg-subtle mt-1">Vendas − custo dos produtos</p>
         </div>
       </div>
 
-      {/* LISTA POR CATEGORIA */}
+      {/* TABELA DE PRODUTOS */}
       {products.length === 0 ? (
         <div className="card p-12 text-center">
-          <div className="inline-flex p-3 rounded-full bg-gold/10 text-gold mb-4">
-            <Package className="w-6 h-6" />
-          </div>
-          <h2
-            className="text-xl font-bold text-fg mb-2"
-            style={{ fontFamily: 'var(--font-playfair), serif' }}
-          >
-            Nenhum produto cadastrado
-          </h2>
-          <p className="text-sm text-fg-muted mb-6 max-w-md mx-auto">
-            Cadastre produtos como pomadas, gel, shampoo e outros itens para venda.
-          </p>
-          <Link
-            href="/admin/produtos/novo"
-            className="btn-gold-shimmer inline-flex items-center gap-2"
-          >
+          <p className="text-fg-muted text-sm mb-4">Nenhum produto cadastrado.</p>
+          <Link href="/admin/produtos/novo" className="btn-gold-shimmer inline-flex items-center gap-2">
             <Plus className="w-4 h-4" />
             <span>Adicionar primeiro produto</span>
           </Link>
         </div>
       ) : (
-        <div className="space-y-8">
-          {Object.entries(grouped).map(([categoryName, items]) => (
-            <section key={categoryName}>
-              <h2 className="text-sm font-semibold text-gold tracking-wider uppercase mb-3 flex items-center gap-2">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-gold" />
-                {categoryName}
-                <span className="text-fg-dim font-normal normal-case ml-1">
-                  ({items.length})
-                </span>
-              </h2>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {items.map((p) => {
-                  const baixo =
-                    p.active && p.stock_current <= p.stock_minimum;
-                  const semEstoque = p.active && p.stock_current === 0;
-                  return (
-                    <Link
-                      key={p.id}
-                      href={`/admin/produtos/${p.id}`}
-                      className={`card card-hover p-4 group ${
-                        !p.active ? 'opacity-50' : ''
-                      }`}
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className="w-10 h-10 rounded-md bg-gold/10 text-gold flex items-center justify-center flex-shrink-0">
-                            <Package className="w-4 h-4" />
-                          </div>
-                          <div className="min-w-0">
-                            <h3 className="text-sm font-semibold text-fg truncate">
-                              {p.name}
-                            </h3>
-                            {p.brand && (
-                              <p className="text-[11px] text-fg-subtle truncate">
-                                {p.brand}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/60 gap-2">
-                        <div className="min-w-0">
-                          <p className="text-[9px] uppercase tracking-wider text-fg-dim">
-                            Preço
-                          </p>
-                          <p
-                            className="text-lg font-bold text-gold leading-none"
-                            style={{
-                              fontFamily: 'var(--font-playfair), serif',
-                            }}
-                          >
-                            {formatCurrency(Number(p.sale_price))}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-[9px] uppercase tracking-wider text-fg-dim">
-                            Estoque
-                          </p>
-                          <p
-                            className={`text-sm font-semibold ${
-                              semEstoque
-                                ? 'text-danger'
-                                : baixo
-                                ? 'text-warning'
-                                : 'text-fg'
-                            }`}
-                          >
-                            {p.stock_current}
-                            {baixo && (
-                              <span className="ml-1 text-[10px] uppercase">
-                                {semEstoque ? 'Esgotado' : 'Baixo'}
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
-        </div>
+        <ProductsTable products={tableProducts} categories={allCategoryNames} />
       )}
     </div>
   );

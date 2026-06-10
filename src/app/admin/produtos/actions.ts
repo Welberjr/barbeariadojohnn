@@ -101,6 +101,62 @@ export async function deleteProduct(productId: string) {
 }
 
 /**
+ * Registra venda avulsa de produto (sem comanda). Debita estoque e cria transação.
+ */
+export async function registerSale(productId: string, quantity: number) {
+  const admin = createAdminClient();
+
+  const { data: prod } = await admin
+    .from('products')
+    .select('name, stock_current, sale_price, is_sellable')
+    .eq('id', productId)
+    .maybeSingle();
+
+  if (!prod) return { ok: false as const, error: 'Produto não encontrado' };
+  if (!prod.is_sellable) return { ok: false as const, error: 'Produto não disponível para venda' };
+  if (Number(prod.stock_current) < quantity)
+    return { ok: false as const, error: `Estoque insuficiente (${prod.stock_current} em estoque)` };
+
+  const newStock = Number(prod.stock_current) - quantity;
+  const totalValue = Number(prod.sale_price) * quantity;
+
+  const [{ error: errStock }] = await Promise.all([
+    admin
+      .from('products')
+      .update({ stock_current: newStock })
+      .eq('id', productId),
+    admin.from('transactions').insert({
+      barbershop_id: BARBERSHOP_ID,
+      type: 'product',
+      amount: totalValue,
+      description: `Venda avulsa: ${prod.name} (${quantity}x)`,
+      category: 'Produtos',
+      occurred_at: new Date().toISOString(),
+    }),
+  ]);
+
+  if (errStock) return { ok: false as const, error: errStock.message };
+
+  revalidatePath('/admin/produtos');
+  revalidatePath('/admin/financeiro');
+  return { ok: true as const, new_stock: newStock };
+}
+
+/**
+ * Desativa produto (soft delete) — usado pela tabela de produtos.
+ */
+export async function deactivateProductAction(productId: string) {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('products')
+    .update({ active: false })
+    .eq('id', productId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/admin/produtos');
+  return { ok: true };
+}
+
+/**
  * Ajusta estoque manualmente (entrada / saída / ajuste).
  */
 export async function adjustStock(

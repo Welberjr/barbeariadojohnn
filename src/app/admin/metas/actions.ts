@@ -6,12 +6,14 @@ import { revalidatePath } from 'next/cache';
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
 export interface GoalFormData {
-  staff_id?: string | null; // null = meta da barbearia
+  staff_id?: string | null;
   period_type: 'month' | 'week' | 'year';
   year: number;
   month?: number | null;
   week?: number | null;
   revenue_target: number;
+  appointments_target?: number | null;
+  avg_ticket_target?: number | null;
 }
 
 export async function upsertGoal(data: GoalFormData) {
@@ -25,6 +27,8 @@ export async function upsertGoal(data: GoalFormData) {
     period_type: data.period_type,
     year: data.year,
     revenue_target: data.revenue_target,
+    appointments_target: data.appointments_target ?? null,
+    avg_ticket_target: data.avg_ticket_target ?? null,
   };
 
   if (data.period_type === 'month') payload.month = data.month ?? null;
