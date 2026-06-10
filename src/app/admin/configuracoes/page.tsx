@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+﻿import { createAdminClient } from '@/lib/supabase/admin';
 import { ConfiguracoesForm } from './_components/configuracoes-form';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
@@ -8,7 +8,7 @@ export const metadata = {
 };
 
 export default async function ConfiguracoesPage() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data: barbershop } = await supabase
     .from('barbershops')

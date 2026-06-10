@@ -1,6 +1,6 @@
 ﻿'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
@@ -21,7 +21,7 @@ export interface CustomerFormData {
 }
 
 export async function createCustomer(data: CustomerFormData) {
-  const admin = await createClient();
+  const admin = createAdminClient();
 
   const { data: created, error } = await admin
     .from('customers')
@@ -49,7 +49,7 @@ export async function createCustomer(data: CustomerFormData) {
 }
 
 export async function updateCustomer(id: string, data: CustomerFormData) {
-  const admin = await createClient();
+  const admin = createAdminClient();
 
   const { error } = await admin
     .from('customers')
@@ -76,7 +76,7 @@ export async function updateCustomer(id: string, data: CustomerFormData) {
 }
 
 export async function deactivateCustomer(id: string) {
-  const admin = await createClient();
+  const admin = createAdminClient();
   const { error } = await admin
     .from('customers')
     .update({ active: false })
@@ -117,7 +117,7 @@ export async function uploadCustomerPhoto(formData: FormData) {
     return { ok: false as const, error: 'Arquivo muito grande (máximo 5MB)' };
   }
 
-  const admin = await createClient();
+  const admin = createAdminClient();
   const path = `${crypto.randomUUID()}.${ext}`;
   const bytes = await file.arrayBuffer();
 
@@ -152,7 +152,7 @@ export async function createCustomerAccess(
     return { ok: false, error: 'A senha precisa ter no mínimo 6 caracteres' };
   }
 
-  const admin = await createClient();
+  const admin = createAdminClient();
 
   const { data: customer } = await admin
     .from('customers')
@@ -212,7 +212,7 @@ export async function resetCustomerPassword(
     return { ok: false, error: 'A senha precisa ter no mínimo 6 caracteres' };
   }
 
-  const admin = await createClient();
+  const admin = createAdminClient();
 
   const { data: customer } = await admin
     .from('customers')

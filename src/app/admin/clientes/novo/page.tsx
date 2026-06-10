@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+﻿import { createAdminClient } from '@/lib/supabase/admin';
 import { CustomerForm } from '../_components/customer-form';
 
 export const metadata = {
@@ -6,7 +6,7 @@ export const metadata = {
 };
 
 export default async function NovoClientePage() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // Buscar barbeiros ativos pra dropdown de "profissional preferido"
   const { data: barbers } = await supabase

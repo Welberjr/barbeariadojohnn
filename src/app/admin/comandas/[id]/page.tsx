@@ -1,7 +1,7 @@
-import { notFound } from 'next/navigation';
+﻿import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getActiveSubscription } from '@/lib/subscriptions';
 import { ComandaDetail } from '../_components/comanda-detail';
@@ -14,7 +14,7 @@ const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
 export default async function ComandaPage({ params }: ComandaPageProps) {
   const { id } = await params;
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // 1. Comanda + relações
   const { data: comandaRaw } = await supabase

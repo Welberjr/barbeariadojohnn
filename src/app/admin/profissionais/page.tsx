@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+﻿import { createAdminClient } from '@/lib/supabase/admin';
 import { Plus, Users } from 'lucide-react';
 import { StaffList } from './_components/staff-list';
 import Link from 'next/link';
@@ -8,7 +8,7 @@ export const metadata = {
 };
 
 export default async function ProfissionaisPage() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // Buscar staff com profile vinculado
   const { data: staff, error } = await supabase

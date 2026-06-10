@@ -12,7 +12,7 @@
   Activity,
   Crown,
 } from 'lucide-react';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { formatCurrency } from '@/lib/utils';
 import { DashboardCharts } from './_components/dashboard-charts';
 
@@ -87,7 +87,7 @@ function getInsights(data: {
 const DAY_NAMES = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
 export default async function DashboardPage() {
-  const admin = await createClient();
+  const admin = createAdminClient();
 
   const now = new Date();
   const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(now);

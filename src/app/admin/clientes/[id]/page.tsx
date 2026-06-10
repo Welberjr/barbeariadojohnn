@@ -1,5 +1,5 @@
-import { notFound } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+﻿import { notFound } from 'next/navigation';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { CustomerForm } from '../_components/customer-form';
 
 export const metadata = {
@@ -14,7 +14,7 @@ export default async function EditCustomerPage({
   params,
 }: EditCustomerPageProps) {
   const { id } = await params;
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data: customer } = await supabase
     .from('customers')

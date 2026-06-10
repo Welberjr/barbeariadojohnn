@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+﻿import { createAdminClient } from '@/lib/supabase/admin';
 import {
   CreditCard,
   CheckCircle2,
@@ -14,7 +14,7 @@ export const metadata = {
 };
 
 export default async function MercadoPagoPage() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data: bs } = await supabase
     .from('barbershops')

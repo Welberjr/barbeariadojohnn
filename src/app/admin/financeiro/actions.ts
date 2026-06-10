@@ -1,6 +1,6 @@
-'use server';
+﻿'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
@@ -21,7 +21,7 @@ export async function addIncome(data: {
   amount: number;
   occurred_at: string;
 }) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from('transactions').insert({
     barbershop_id: BARBERSHOP_ID,
     type: 'other',
@@ -43,7 +43,7 @@ export async function addExpense(data: {
   amount: number;
   occurred_at: string;
 }) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from('transactions').insert({
     barbershop_id: BARBERSHOP_ID,
     type: 'expense',
@@ -68,7 +68,7 @@ export async function createAllowance(data: {
   reason: string;
   reference_month: string; // yyyy-mm
 }) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from('allowances').insert({
     barbershop_id: BARBERSHOP_ID,
     staff_id: data.staff_id,
@@ -83,7 +83,7 @@ export async function createAllowance(data: {
 }
 
 export async function approveAllowance(id: string) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase
     .from('allowances')
     .update({ status: 'approved', reviewed_at: new Date().toISOString() })
@@ -94,7 +94,7 @@ export async function approveAllowance(id: string) {
 }
 
 export async function rejectAllowance(id: string) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase
     .from('allowances')
     .update({ status: 'rejected', reviewed_at: new Date().toISOString() })
@@ -105,7 +105,7 @@ export async function rejectAllowance(id: string) {
 }
 
 export async function deleteAllowance(id: string) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from('allowances').delete().eq('id', id);
   if (error) return { ok: false, error: error.message };
   revalidatePath('/admin/financeiro');
@@ -123,7 +123,7 @@ export async function payCommission(opts: {
   periodEnd: string;
   method: string;
 }) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const today = new Date().toISOString().split('T')[0];
   const { error } = await supabase.from('commission_payouts').insert({
     barbershop_id: BARBERSHOP_ID,

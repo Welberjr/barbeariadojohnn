@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+﻿import { createAdminClient } from '@/lib/supabase/admin';
 import {
   Plus,
   Receipt,
@@ -49,7 +49,7 @@ export default async function ContasPagarPage({
   searchParams,
 }: ContasPagarPageProps) {
   const { status: statusParam, category: categoryParam } = await searchParams;
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // Buscar bills
   let query = supabase

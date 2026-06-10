@@ -1,6 +1,6 @@
 ﻿'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
@@ -21,7 +21,7 @@ export interface SiteConfig {
 }
 
 export async function updateSiteConfig(data: SiteConfig) {
-  const admin = await createClient();
+  const admin = createAdminClient();
 
   // Limpa strings vazias
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

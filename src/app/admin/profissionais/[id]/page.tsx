@@ -1,5 +1,5 @@
-import { notFound } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+﻿import { notFound } from 'next/navigation';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { StaffForm } from '../_components/staff-form';
 
 export const metadata = {
@@ -12,7 +12,7 @@ interface EditStaffPageProps {
 
 export default async function EditStaffPage({ params }: EditStaffPageProps) {
   const { id } = await params;
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data: staff } = await supabase
     .from('staff')

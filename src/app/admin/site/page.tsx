@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+﻿import { createAdminClient } from '@/lib/supabase/admin';
 import { Globe, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { SiteForm } from './_components/site-form';
@@ -10,7 +10,7 @@ export const metadata = {
 };
 
 export default async function SitePage() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data: bs } = await supabase
     .from('barbershops')

@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+﻿import { createAdminClient } from '@/lib/supabase/admin';
 import { Target, TrendingUp, Crown } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { GoalsManager } from './_components/goals-manager';
@@ -96,7 +96,7 @@ interface PageProps {
 export default async function MetasPage({ searchParams }: PageProps) {
   const { tab: tabParam } = await searchParams;
   void tabParam;
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const now = new Date();
   const currentYear = now.getFullYear();

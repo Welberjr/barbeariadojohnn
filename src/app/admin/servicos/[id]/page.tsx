@@ -1,5 +1,5 @@
-import { notFound } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+﻿import { notFound } from 'next/navigation';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { ServiceForm } from '../_components/service-form';
 import { ServiceStaffManager } from '../_components/service-staff-manager';
 
@@ -13,7 +13,7 @@ interface EditServicePageProps {
 
 export default async function EditServicePage({ params }: EditServicePageProps) {
   const { id } = await params;
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data: service } = await supabase
     .from('services')

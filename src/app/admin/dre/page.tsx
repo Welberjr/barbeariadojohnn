@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+﻿import { createAdminClient } from '@/lib/supabase/admin';
 import {
   FileText,
   TrendingUp,
@@ -23,7 +23,7 @@ interface DREPageProps {
 
 export default async function DREPage({ searchParams }: DREPageProps) {
   const { from: fromParam, to: toParam } = await searchParams;
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // Período default: mês corrente
   const now = new Date();

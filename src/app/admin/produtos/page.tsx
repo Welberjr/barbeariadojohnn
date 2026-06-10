@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+﻿import { createAdminClient } from '@/lib/supabase/admin';
 import { Plus, ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
@@ -14,7 +14,7 @@ interface ProdutosPageProps {
 
 export default async function ProdutosPage({ searchParams }: ProdutosPageProps) {
   const { period } = await searchParams;
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const now = new Date();
   const year = now.getFullYear();

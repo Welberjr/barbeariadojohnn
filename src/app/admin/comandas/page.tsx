@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+﻿import { createAdminClient } from '@/lib/supabase/admin';
 import { ComandasView } from './_components/comandas-view';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
@@ -8,7 +8,7 @@ export const metadata = {
 };
 
 export default async function ComandasPage() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // Comandas abertas
   const { data: openComandasRaw } = await supabase

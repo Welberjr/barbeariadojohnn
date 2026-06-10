@@ -1,5 +1,5 @@
-import { notFound } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+﻿import { notFound } from 'next/navigation';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { ProductForm } from '../_components/produto-form';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
@@ -16,7 +16,7 @@ export default async function EditProductPage({
   params,
 }: EditProductPageProps) {
   const { id } = await params;
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data: product } = await supabase
     .from('products')

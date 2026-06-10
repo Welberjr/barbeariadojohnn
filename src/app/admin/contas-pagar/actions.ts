@@ -1,6 +1,6 @@
 ﻿'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
@@ -25,7 +25,7 @@ function nullIfEmpty(v?: string | null) {
 }
 
 export async function createBill(data: BillFormData) {
-  const admin = await createClient();
+  const admin = createAdminClient();
 
   const { error } = await admin.from('bills').insert({
     barbershop_id: BARBERSHOP_ID,
@@ -49,7 +49,7 @@ export async function createBill(data: BillFormData) {
 }
 
 export async function updateBill(billId: string, data: BillFormData) {
-  const admin = await createClient();
+  const admin = createAdminClient();
 
   const { error } = await admin
     .from('bills')
@@ -76,7 +76,7 @@ export async function updateBill(billId: string, data: BillFormData) {
 }
 
 export async function deleteBill(billId: string) {
-  const admin = await createClient();
+  const admin = createAdminClient();
 
   const { error } = await admin.from('bills').delete().eq('id', billId);
   if (error) return { ok: false, error: error.message };
@@ -94,7 +94,7 @@ export async function markBillAsPaid(
   paymentMethod: string,
   paidAmount?: number
 ) {
-  const admin = await createClient();
+  const admin = createAdminClient();
 
   // Buscar amount original se paidAmount não foi informado
   let finalPaidAmount = paidAmount;
@@ -128,7 +128,7 @@ export async function markBillAsPaid(
  * Reabre uma conta paga (volta para pending).
  */
 export async function reopenBill(billId: string) {
-  const admin = await createClient();
+  const admin = createAdminClient();
 
   const { error } = await admin
     .from('bills')
@@ -151,7 +151,7 @@ export async function reopenBill(billId: string) {
  * Cria a próxima ocorrência de uma conta recorrente.
  */
 export async function generateNextRecurrence(billId: string) {
-  const admin = await createClient();
+  const admin = createAdminClient();
 
   const { data: bill } = await admin
     .from('bills')

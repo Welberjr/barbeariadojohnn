@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+﻿import { createAdminClient } from '@/lib/supabase/admin';
 import { Clock, CalendarOff, Plus } from 'lucide-react';
 import { BusinessHoursForm } from './_components/business-hours-form';
 import { DaysOffList } from './_components/days-off-list';
@@ -20,7 +20,7 @@ const DEFAULT_HOURS = {
 };
 
 export default async function DisponibilidadePage() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // Buscar configuração de horários da barbearia
   const { data: barbershop } = await supabase

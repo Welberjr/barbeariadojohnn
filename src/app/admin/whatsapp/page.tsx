@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+﻿import { createAdminClient } from '@/lib/supabase/admin';
 import {
   MessageSquare,
   AlertTriangle,
@@ -15,7 +15,7 @@ export const metadata = {
 };
 
 export default async function WhatsAppPage() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data: bs } = await supabase
     .from('barbershops')

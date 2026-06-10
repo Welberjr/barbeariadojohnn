@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+﻿import { createAdminClient } from '@/lib/supabase/admin';
 import {
   Trophy,
   Users,
@@ -44,7 +44,7 @@ interface Transaction {
 }
 
 export default async function FidelidadePage() {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // Config da barbearia
   const { data: bs } = await supabase

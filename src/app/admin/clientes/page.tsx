@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+﻿import { createAdminClient } from '@/lib/supabase/admin';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { Plus, Users, Crown, TrendingUp, Heart, Trophy } from 'lucide-react';
 import Link from 'next/link';
@@ -17,7 +17,7 @@ interface ClientesPageProps {
 
 export default async function ClientesPage({ searchParams }: ClientesPageProps) {
   const { q, tier, page: pageParam } = await searchParams;
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const page = Math.max(1, parseInt(pageParam ?? '1', 10) || 1);
   const from = (page - 1) * PAGE_SIZE;
