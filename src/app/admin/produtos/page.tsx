@@ -1,4 +1,4 @@
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { Plus, ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
@@ -8,13 +8,13 @@ const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
 export const metadata = { title: 'Produtos' };
 
-interface ClientesPageProps {
+interface ProdutosPageProps {
   searchParams: Promise<{ period?: string }>;
 }
 
-export default async function ProdutosPage({ searchParams }: ClientesPageProps) {
+export default async function ProdutosPage({ searchParams }: ProdutosPageProps) {
   const { period } = await searchParams;
-  const admin = createAdminClient();
+  const supabase = await createClient();
 
   const now = new Date();
   const year = now.getFullYear();
@@ -26,17 +26,17 @@ export default async function ProdutosPage({ searchParams }: ClientesPageProps) 
 
   const [{ data: productsRaw }, { data: categoriesRaw }, { data: salesRaw }] =
     await Promise.all([
-      admin
+      supabase
         .from('products')
         .select('id, name, brand, sale_price, cost_price, stock_current, stock_minimum, is_sellable, active, category_id')
         .eq('barbershop_id', BARBERSHOP_ID)
         .order('name'),
-      admin
+      supabase
         .from('product_categories')
         .select('id, name')
         .eq('barbershop_id', BARBERSHOP_ID)
         .order('name'),
-      admin
+      supabase
         .from('transactions')
         .select('amount')
         .eq('barbershop_id', BARBERSHOP_ID)
@@ -60,18 +60,23 @@ export default async function ProdutosPage({ searchParams }: ClientesPageProps) 
     (p) => p.active && Number(p.stock_current) <= Number(p.stock_minimum)
   ).length;
   const vendasMes = (salesRaw ?? []).reduce((s, t) => s + Number(t.amount ?? 0), 0);
-  const custoProdutosVendidos = 0; // pode ser calculado com comanda_items futuramente
-  const lucroMes = vendasMes - custoProdutosVendidos;
+  const lucroMes = vendasMes; // custo pode ser adicionado futuramente
 
-  const allCategoryNames = Array.from(new Set(
-    products.map((p) => (p.category_id ? catMap.get(p.category_id) ?? 'Sem categoria' : 'Sem categoria'))
-  )).sort();
+  const allCategoryNames = Array.from(
+    new Set(
+      products.map((p) =>
+        p.category_id ? catMap.get(p.category_id) ?? 'Sem categoria' : 'Sem categoria'
+      )
+    )
+  ).sort();
 
   const tableProducts = products.map((p) => ({
     id: p.id,
     name: p.name,
     brand: p.brand ?? null,
-    category_name: p.category_id ? catMap.get(p.category_id) ?? 'Sem categoria' : 'Sem categoria',
+    category_name: p.category_id
+      ? catMap.get(p.category_id) ?? 'Sem categoria'
+      : 'Sem categoria',
     sale_price: Number(p.sale_price ?? 0),
     cost_price: Number(p.cost_price ?? 0),
     stock_current: Number(p.stock_current ?? 0),
@@ -80,7 +85,10 @@ export default async function ProdutosPage({ searchParams }: ClientesPageProps) 
     is_sellable: p.is_sellable,
   }));
 
-  const monthLabel = new Date(y, m - 1).toLocaleString('pt-BR', { month: 'short', year: 'numeric' });
+  const monthLabel = new Date(y, m - 1).toLocaleString('pt-BR', {
+    month: 'short',
+    year: 'numeric',
+  });
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -99,17 +107,11 @@ export default async function ProdutosPage({ searchParams }: ClientesPageProps) 
           <p className="text-sm text-fg-muted mt-2">Controle de estoque e vendas</p>
         </div>
         <div className="flex items-center gap-3">
-          <Link
-            href="/admin/produtos/novo"
-            className="btn-secondary flex items-center gap-2"
-          >
+          <Link href="/admin/produtos/novo" className="btn-secondary flex items-center gap-2">
             <Plus className="w-4 h-4" />
             <span>Novo Produto</span>
           </Link>
-          <Link
-            href="/admin/produtos"
-            className="btn-gold-shimmer flex items-center gap-2"
-          >
+          <Link href="/admin/produtos" className="btn-gold-shimmer flex items-center gap-2">
             <ShoppingCart className="w-4 h-4" />
             <span>Registrar Venda</span>
           </Link>
@@ -132,7 +134,11 @@ export default async function ProdutosPage({ searchParams }: ClientesPageProps) 
             const d = new Date(year, month - i, 1);
             const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
             const label = d.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
-            return <option key={val} value={val}>{label}</option>;
+            return (
+              <option key={val} value={val}>
+                {label}
+              </option>
+            );
           })}
         </select>
       </div>
@@ -140,25 +146,39 @@ export default async function ProdutosPage({ searchParams }: ClientesPageProps) 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="card p-5">
-          <p className="text-[10px] tracking-widest uppercase text-fg-muted mb-2 flex items-center gap-1.5">
+          <p className="text-[10px] tracking-widest uppercase text-fg-muted mb-2">
             Produtos ativos
           </p>
-          <p className="text-3xl font-bold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>
+          <p
+            className="text-3xl font-bold text-fg"
+            style={{ fontFamily: 'var(--font-playfair), serif' }}
+          >
             {totalAtivos}
           </p>
-          <p className="text-[10px] text-fg-subtle mt-1">{products.length} cadastrados no total</p>
+          <p className="text-[10px] text-fg-subtle mt-1">
+            {products.length} cadastrados no total
+          </p>
         </div>
         <div className="card p-5">
-          <p className="text-[10px] tracking-widest uppercase text-fg-muted mb-2">Valor em estoque</p>
-          <p className="text-2xl font-bold text-gold" style={{ fontFamily: 'var(--font-playfair), serif' }}>
+          <p className="text-[10px] tracking-widest uppercase text-fg-muted mb-2">
+            Valor em estoque
+          </p>
+          <p
+            className="text-2xl font-bold text-gold"
+            style={{ fontFamily: 'var(--font-playfair), serif' }}
+          >
             {formatCurrency(valorEstoque)}
           </p>
           <p className="text-[10px] text-fg-subtle mt-1">Soma preço × estoque (ativos)</p>
         </div>
         <div className="card p-5">
-          <p className="text-[10px] tracking-widest uppercase text-fg-muted mb-2">Estoque baixo</p>
-          <p className={`text-3xl font-bold ${estoqueBaixo > 0 ? 'text-danger' : 'text-fg'}`}
-            style={{ fontFamily: 'var(--font-playfair), serif' }}>
+          <p className="text-[10px] tracking-widest uppercase text-fg-muted mb-2">
+            Estoque baixo
+          </p>
+          <p
+            className={`text-3xl font-bold ${estoqueBaixo > 0 ? 'text-danger' : 'text-fg'}`}
+            style={{ fontFamily: 'var(--font-playfair), serif' }}
+          >
             {estoqueBaixo}
           </p>
           <p className="text-[10px] text-fg-subtle mt-1">
@@ -169,7 +189,10 @@ export default async function ProdutosPage({ searchParams }: ClientesPageProps) 
           <p className="text-[10px] tracking-widest uppercase text-fg-muted mb-2">
             Vendas {monthLabel}
           </p>
-          <p className="text-2xl font-bold text-info" style={{ fontFamily: 'var(--font-playfair), serif' }}>
+          <p
+            className="text-2xl font-bold text-info"
+            style={{ fontFamily: 'var(--font-playfair), serif' }}
+          >
             {formatCurrency(vendasMes)}
           </p>
           <p className="text-[10px] text-fg-subtle mt-1">Faturamento em produtos</p>
@@ -178,18 +201,24 @@ export default async function ProdutosPage({ searchParams }: ClientesPageProps) 
           <p className="text-[10px] tracking-widest uppercase text-fg-muted mb-2">
             Lucro {monthLabel}
           </p>
-          <p className="text-2xl font-bold text-success" style={{ fontFamily: 'var(--font-playfair), serif' }}>
+          <p
+            className="text-2xl font-bold text-success"
+            style={{ fontFamily: 'var(--font-playfair), serif' }}
+          >
             {formatCurrency(lucroMes)}
           </p>
           <p className="text-[10px] text-fg-subtle mt-1">Vendas − custo dos produtos</p>
         </div>
       </div>
 
-      {/* TABELA DE PRODUTOS */}
+      {/* TABELA */}
       {products.length === 0 ? (
         <div className="card p-12 text-center">
           <p className="text-fg-muted text-sm mb-4">Nenhum produto cadastrado.</p>
-          <Link href="/admin/produtos/novo" className="btn-gold-shimmer inline-flex items-center gap-2">
+          <Link
+            href="/admin/produtos/novo"
+            className="btn-gold-shimmer inline-flex items-center gap-2"
+          >
             <Plus className="w-4 h-4" />
             <span>Adicionar primeiro produto</span>
           </Link>

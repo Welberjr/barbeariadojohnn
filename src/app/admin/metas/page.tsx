@@ -1,4 +1,4 @@
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { Target, TrendingUp, Crown } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { GoalsManager } from './_components/goals-manager';
@@ -95,7 +95,8 @@ interface PageProps {
 
 export default async function MetasPage({ searchParams }: PageProps) {
   const { tab: tabParam } = await searchParams;
-  const admin = createAdminClient();
+  void tabParam;
+  const supabase = await createClient();
 
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -105,20 +106,20 @@ export default async function MetasPage({ searchParams }: PageProps) {
   const lastDay = new Date(currentYear, currentMonth, 0).toISOString().split('T')[0];
 
   const [{ data: goalsRaw }, { data: staffRaw }, { data: comandasMonth }] = await Promise.all([
-    admin
+    supabase
       .from('goals')
       .select('id, staff_id, period_type, year, month, week, revenue_target, appointments_target, avg_ticket_target')
       .eq('barbershop_id', BARBERSHOP_ID)
       .in('period_type', ['month'])
       .eq('year', currentYear)
       .eq('month', currentMonth),
-    admin
+    supabase
       .from('staff')
       .select('id, display_name, role')
       .eq('active', true)
       .in('role', ['barber', 'owner', 'manager'])
       .order('display_name'),
-    admin
+    supabase
       .from('comandas')
       .select('id, total, staff_id')
       .eq('barbershop_id', BARBERSHOP_ID)

@@ -1,4 +1,4 @@
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import {
   CircleDollarSign,
   TrendingUp,
@@ -22,7 +22,7 @@ interface FinanceiroPageProps {
 
 export default async function FinanceiroPage({ searchParams }: FinanceiroPageProps) {
   const { from: fromParam, to: toParam } = await searchParams;
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   const now = new Date();
   const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);

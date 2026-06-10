@@ -1,4 +1,4 @@
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
 import { ServicesAccordion } from './_components/services-accordion';
@@ -8,7 +8,7 @@ const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 export const metadata = { title: 'Serviços' };
 
 export default async function ServicosPage() {
-  const admin = createAdminClient();
+  const admin = await createClient();
 
   const [{ data: servicesRaw }, { data: staffRaw }, { data: staffServicesRaw }, { data: promosRaw }] =
     await Promise.all([
