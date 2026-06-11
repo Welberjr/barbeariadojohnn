@@ -23,7 +23,7 @@ import {
   Ban,
   Scissors,
 } from 'lucide-react';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency, formatPhone } from '@/lib/utils';
 import { formatAllowedDays } from '@/lib/subscriptions';
 import {
   createSubscription,
@@ -664,7 +664,7 @@ export function AssinaturasView({
                 {customers.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.full_name}
-                    {c.phone ? ` · ${c.phone}` : ''}
+                    {c.phone ? ` · ${formatPhone(c.phone)}` : ''}
                   </option>
                 ))}
               </select>

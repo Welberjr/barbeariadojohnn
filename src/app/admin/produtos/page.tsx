@@ -26,7 +26,7 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
   const firstDay = new Date(y, m - 1, 1).toISOString();
   const lastDay = new Date(y, m, 0, 23, 59, 59).toISOString();
 
-  const [{ data: productsRaw }, { data: categoriesRaw }, { data: salesRaw }] =
+  const [{ data: productsRaw }, { data: categoriesRaw }] =
     await Promise.all([
       supabase
         .from('products')
@@ -38,14 +38,33 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
         .select('id, name')
         .eq('barbershop_id', BARBERSHOP_ID)
         .order('name'),
-      supabase
+    ]);
+
+  // Vendas avulsas do mes. Tenta ler cost_amount (custo registrado na venda);
+  // se a coluna ainda nao existir no banco, cai para o select basico.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let salesRaw: any[] = [];
+  {
+    const attempt = await supabase
+      .from('transactions')
+      .select('amount, cost_amount')
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('type', 'product')
+      .gte('occurred_at', firstDay)
+      .lte('occurred_at', lastDay);
+    if (attempt.error) {
+      const fallback = await supabase
         .from('transactions')
         .select('amount')
         .eq('barbershop_id', BARBERSHOP_ID)
         .eq('type', 'product')
         .gte('occurred_at', firstDay)
-        .lte('occurred_at', lastDay),
-    ]);
+        .lte('occurred_at', lastDay);
+      salesRaw = fallback.data ?? [];
+    } else {
+      salesRaw = attempt.data ?? [];
+    }
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const products = (productsRaw ?? []) as any[];
@@ -55,14 +74,15 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
 
   const totalAtivos = products.filter((p) => p.active).length;
   const valorEstoque = products.reduce(
-    (s, p) => s + (p.active ? Number(p.cost_price ?? 0) * Number(p.stock_current ?? 0) : 0),
+    (s, p) => s + (p.active ? Number(p.sale_price ?? 0) * Number(p.stock_current ?? 0) : 0),
     0
   );
   const estoqueBaixo = products.filter(
     (p) => p.active && Number(p.stock_current) <= Number(p.stock_minimum)
   ).length;
   const vendasMes = (salesRaw ?? []).reduce((s, t) => s + Number(t.amount ?? 0), 0);
-  const lucroMes = vendasMes;
+  const custoVendasMes = (salesRaw ?? []).reduce((s, t) => s + Number(t.cost_amount ?? 0), 0);
+  const lucroMes = vendasMes - custoVendasMes;
 
   const allCategoryNames = Array.from(
     new Set(
@@ -137,7 +157,7 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
           <p className="text-2xl font-bold text-gold" style={{ fontFamily: 'var(--font-playfair), serif' }}>
             {formatCurrency(valorEstoque)}
           </p>
-          <p className="text-[10px] text-fg-subtle mt-1">Soma preço × estoque (ativos)</p>
+          <p className="text-[10px] text-fg-subtle mt-1">Soma preço de venda × estoque (ativos)</p>
         </div>
         <div className="card p-5">
           <p className="text-[10px] tracking-widest uppercase text-fg-muted mb-2">Estoque baixo</p>

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Edit2, MoreVertical, Mail, Phone, Briefcase } from 'lucide-react';
 import { useState } from 'react';
-import { cn } from '@/lib/utils';
+import { cn, formatPhone } from '@/lib/utils';
 
 interface StaffMember {
   id: string;
@@ -152,7 +152,7 @@ export function StaffList({ staff }: { staff: StaffMember[] }) {
               {member.profile?.phone && (
                 <div className="flex items-center gap-2 text-[11px] text-fg-subtle">
                   <Phone className="w-3 h-3 flex-shrink-0" />
-                  <span>{member.profile.phone}</span>
+                  <span>{formatPhone(member.profile.phone)}</span>
                 </div>
               )}
               {member.specialties && member.specialties.length > 0 && (

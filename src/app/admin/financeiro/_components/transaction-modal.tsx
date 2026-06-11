@@ -31,11 +31,20 @@ export function TransactionModal({ type, staff, onClose }: TransactionModalProps
     occurred_at: today,
   });
   const [busy, setBusy] = useState(false);
+  const [errors, setErrors] = useState<{ category?: string; description?: string; amount?: string }>({});
 
   async function handleSubmit() {
-    if (!form.category) { toast.error('Selecione uma categoria'); return; }
+    const newErrors: { category?: string; description?: string; amount?: string } = {};
+    if (!form.category) newErrors.category = 'Selecione uma categoria';
+    if (!form.description.trim()) newErrors.description = 'Descreva o lançamento';
     const amount = parseFloat(form.amount.replace(',', '.'));
-    if (!amount || amount <= 0) { toast.error('Informe um valor válido'); return; }
+    if (!form.amount || !amount || amount <= 0) newErrors.amount = 'Informe um valor maior que zero';
+
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      toast.error('Confira os campos destacados');
+      return;
+    }
 
     setBusy(true);
     const payload = {
@@ -84,15 +93,21 @@ export function TransactionModal({ type, staff, onClose }: TransactionModalProps
         <div>
           <label className="label text-[10px] uppercase tracking-widest">Categoria</label>
           <select
-            className="input"
+            className={cn('input', errors.category && 'border-danger focus:border-danger')}
             value={form.category}
-            onChange={(e) => setForm({ ...form, category: e.target.value })}
+            onChange={(e) => {
+              setForm({ ...form, category: e.target.value });
+              if (errors.category) setErrors({ ...errors, category: undefined });
+            }}
           >
             <option value="">Selecione uma categoria</option>
             {categories.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
+          {errors.category && (
+            <p className="text-xs text-danger mt-1">{errors.category}</p>
+          )}
         </div>
 
         {/* Profissional */}
@@ -127,10 +142,16 @@ export function TransactionModal({ type, staff, onClose }: TransactionModalProps
           <textarea
             rows={3}
             placeholder={isIncome ? 'Descreva a receita...' : 'Descreva a despesa...'}
-            className="input resize-none"
+            className={cn('input resize-none', errors.description && 'border-danger focus:border-danger')}
             value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            onChange={(e) => {
+              setForm({ ...form, description: e.target.value });
+              if (errors.description) setErrors({ ...errors, description: undefined });
+            }}
           />
+          {errors.description && (
+            <p className="text-xs text-danger mt-1">{errors.description}</p>
+          )}
         </div>
 
         {/* Valor */}
@@ -141,10 +162,16 @@ export function TransactionModal({ type, staff, onClose }: TransactionModalProps
             step="0.01"
             min="0"
             placeholder="0,00"
-            className="input"
+            className={cn('input', errors.amount && 'border-danger focus:border-danger')}
             value={form.amount}
-            onChange={(e) => setForm({ ...form, amount: e.target.value })}
+            onChange={(e) => {
+              setForm({ ...form, amount: e.target.value });
+              if (errors.amount) setErrors({ ...errors, amount: undefined });
+            }}
           />
+          {errors.amount && (
+            <p className="text-xs text-danger mt-1">{errors.amount}</p>
+          )}
         </div>
 
         {/* Data */}

@@ -108,7 +108,7 @@ export async function registerSale(productId: string, quantity: number) {
 
   const { data: prod } = await admin
     .from('products')
-    .select('name, stock_current, sale_price, is_sellable')
+    .select('name, stock_current, sale_price, cost_price, is_sellable')
     .eq('id', productId)
     .maybeSingle();
 
@@ -119,26 +119,38 @@ export async function registerSale(productId: string, quantity: number) {
 
   const newStock = Number(prod.stock_current) - quantity;
   const totalValue = Number(prod.sale_price) * quantity;
+  const totalCost = Number(prod.cost_price ?? 0) * quantity;
 
-  const [{ error: errStock }] = await Promise.all([
-    admin
-      .from('products')
-      .update({ stock_current: newStock })
-      .eq('id', productId),
-    admin.from('transactions').insert({
-      barbershop_id: BARBERSHOP_ID,
-      type: 'product',
-      amount: totalValue,
-      description: `Venda avulsa: ${prod.name} (${quantity}x)`,
-      category: 'Produtos',
-      occurred_at: new Date().toISOString(),
-    }),
-  ]);
+  // Registra a transacao guardando tambem o custo (cost_amount) para DRE/lucro.
+  // Se a coluna cost_amount ainda nao existir no banco, insere sem ela.
+  const txPayload = {
+    barbershop_id: BARBERSHOP_ID,
+    type: 'product',
+    amount: totalValue,
+    cost_amount: totalCost,
+    description: `Venda avulsa: ${prod.name} (${quantity}x)`,
+    category: 'Produtos',
+    occurred_at: new Date().toISOString(),
+  };
+  let { error: errTx } = await admin.from('transactions').insert(txPayload);
+  if (errTx && String(errTx.message ?? '').includes('cost_amount')) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { cost_amount: _omit, ...legacyPayload } = txPayload;
+    const retry = await admin.from('transactions').insert(legacyPayload);
+    errTx = retry.error;
+  }
+  if (errTx) return { ok: false as const, error: errTx.message };
+
+  const { error: errStock } = await admin
+    .from('products')
+    .update({ stock_current: newStock })
+    .eq('id', productId);
 
   if (errStock) return { ok: false as const, error: errStock.message };
 
   revalidatePath('/admin/produtos');
   revalidatePath('/admin/financeiro');
+  revalidatePath('/admin/dre');
   return { ok: true as const, new_stock: newStock };
 }
 

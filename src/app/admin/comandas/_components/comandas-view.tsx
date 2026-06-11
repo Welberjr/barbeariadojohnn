@@ -7,6 +7,7 @@ import {
   Plus,
   Receipt,
   ClipboardList,
+  AlertTriangle,
   CheckCircle2,
   Loader2,
   X,
@@ -14,7 +15,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency, formatPhone } from '@/lib/utils';
 import { createComanda } from '../actions';
 
 interface Customer {
@@ -98,6 +99,10 @@ export function ComandasView({
   // Estatísticas do dia
   const totalToday = closedToday.reduce((sum, c) => sum + Number(c.total), 0);
   const totalOpen = openComandas.reduce((sum, c) => sum + Number(c.total), 0);
+  const STALE_MIN = 240; // 4 horas
+  const staleCount = openComandas.filter(
+    (c) => (Date.now() - new Date(c.opened_at).getTime()) / 60000 > STALE_MIN
+  ).length;
 
   // Filtrar clientes na busca
   const filteredCustomers = customerSearch.trim()
@@ -211,6 +216,18 @@ export function ComandasView({
           Em curso ({openComandas.length})
         </h2>
 
+        {staleCount > 0 && (
+          <div className="mb-4 flex items-start gap-2.5 p-3 rounded-md border border-danger/40 bg-danger/10">
+            <AlertTriangle className="w-4 h-4 text-danger flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-danger">
+              <span className="font-semibold">
+                {staleCount} {staleCount === 1 ? 'comanda aberta' : 'comandas abertas'} há mais de 4 horas.
+              </span>{' '}
+              Revise se o atendimento já foi concluído e feche a comanda.
+            </p>
+          </div>
+        )}
+
         {openComandas.length === 0 ? (
           <div className="text-center py-12 text-fg-subtle">
             <ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-30" />
@@ -230,12 +247,24 @@ export function ComandasView({
                 hour: '2-digit',
                 minute: '2-digit',
               });
+              const isStale = elapsed > STALE_MIN;
+              const elapsedLabel =
+                elapsed < 60
+                  ? `${elapsed} min`
+                  : `${Math.floor(elapsed / 60)}h${
+                      elapsed % 60 > 0 ? String(elapsed % 60).padStart(2, '0') : ''
+                    }`;
 
               return (
                 <Link
                   key={c.id}
                   href={`/admin/comandas/${c.id}`}
-                  className="card-premium p-4 hover:border-gold/40 transition-all group"
+                  className={cn(
+                    'card-premium p-4 transition-all group',
+                    isStale
+                      ? 'border-danger/50 hover:border-danger'
+                      : 'hover:border-gold/40'
+                  )}
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div
@@ -245,17 +274,24 @@ export function ComandasView({
                           'linear-gradient(135deg, #D4A04F 0%, #F5C518 100%)',
                       }}
                     >
-                      {c.customers?.full_name
-                        .split(' ')
-                        .map((n) => n[0])
+                      {(c.customers?.full_name ?? '?')
+                        .trim()
+                        .split(/\s+/)
+                        .map((n) => n[0] ?? '')
                         .join('')
                         .slice(0, 2)
-                        .toUpperCase() ?? '??'}
+                        .toUpperCase() || '?'}
                     </div>
 
                     <div className="text-right">
-                      <p className="text-[10px] uppercase tracking-wider text-fg-dim">
-                        {elapsed} min
+                      <p
+                        className={cn(
+                          'text-[10px] uppercase tracking-wider flex items-center justify-end gap-1',
+                          isStale ? 'text-danger font-semibold' : 'text-fg-dim'
+                        )}
+                      >
+                        {isStale && <AlertTriangle className="w-3 h-3" />}
+                        {elapsedLabel}
                       </p>
                       <p className="text-[10px] text-fg-subtle font-mono">
                         {openedTime}
@@ -390,7 +426,7 @@ export function ComandasView({
                       </p>
                       {selectedCustomer.phone && (
                         <p className="text-xs text-fg-muted">
-                          {selectedCustomer.phone}
+                          {formatPhone(selectedCustomer.phone)}
                         </p>
                       )}
                     </div>
@@ -432,7 +468,7 @@ export function ComandasView({
                               <p className="text-sm text-fg">{c.full_name}</p>
                               {c.phone && (
                                 <p className="text-[11px] text-fg-muted">
-                                  {c.phone}
+                                  {formatPhone(c.phone)}
                                 </p>
                               )}
                             </button>

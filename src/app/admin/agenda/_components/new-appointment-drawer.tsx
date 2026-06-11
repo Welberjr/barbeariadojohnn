@@ -4,7 +4,7 @@ import { useState, useTransition, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, Plus, Loader2, Search } from 'lucide-react';
 import { toast } from 'sonner';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatPhone } from '@/lib/utils';
 import { createAppointment } from '../actions';
 
 interface Staff {
@@ -50,6 +50,7 @@ export function NewAppointmentDrawer({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [customerSearch, setCustomerSearch] = useState('');
+  const [showErrors, setShowErrors] = useState(false);
 
   const [form, setForm] = useState({
     customer_id: '',
@@ -94,8 +95,9 @@ export function NewAppointmentDrawer({
   }, [form.start_time, form.duration]);
 
   async function handleSubmit() {
+    setShowErrors(true);
     if (!form.customer_id) {
-      toast.error('Selecione um cliente');
+      toast.error('Selecione um cliente para criar o agendamento');
       return;
     }
     if (!form.staff_id) {
@@ -186,7 +188,7 @@ export function NewAppointmentDrawer({
                   </p>
                   {selectedCustomer.phone && (
                     <p className="text-xs text-fg-muted">
-                      {selectedCustomer.phone}
+                      {formatPhone(selectedCustomer.phone)}
                     </p>
                   )}
                 </div>
@@ -232,13 +234,18 @@ export function NewAppointmentDrawer({
                           <p className="text-sm text-fg">{c.full_name}</p>
                           {c.phone && (
                             <p className="text-[11px] text-fg-muted">
-                              {c.phone}
+                              {formatPhone(c.phone)}
                             </p>
                           )}
                         </button>
                       ))
                     )}
                   </div>
+                )}
+                {showErrors && !form.customer_id && (
+                  <p className="text-xs text-danger mt-2">
+                    Selecione um cliente para criar o agendamento.
+                  </p>
                 )}
               </>
             )}
@@ -352,7 +359,7 @@ export function NewAppointmentDrawer({
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={isPending || !form.customer_id}
+              disabled={isPending}
               className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5"
             >
               {isPending ? (

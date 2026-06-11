@@ -31,7 +31,7 @@ const billSchema = z.object({
   description: z.string().min(2, 'Descrição obrigatória'),
   amount: z.number().min(0, 'Valor >= 0'),
   due_date: z.string().min(8, 'Data obrigatória'),
-  category_id: z.string().optional().nullable(),
+  category_id: z.string().min(1, 'Selecione a categoria'),
   supplier: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   is_recurring: z.boolean(),
@@ -321,13 +321,18 @@ export function BillForm({
             <div>
               <label className="label">Categoria</label>
               <select className="input" {...register('category_id')}>
-                <option value="">Sem categoria</option>
+                <option value="">Selecione a categoria</option>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                   </option>
                 ))}
               </select>
+              {errors.category_id && (
+                <p className="text-xs text-danger mt-1">
+                  {errors.category_id.message}
+                </p>
+              )}
             </div>
 
             <div>

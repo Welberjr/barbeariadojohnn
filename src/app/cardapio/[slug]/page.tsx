@@ -11,7 +11,7 @@ import {
   AtSign,
   Link2,
 } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatPhone } from '@/lib/utils';
 
 interface CardapioPageProps {
   params: Promise<{ slug: string }>;
@@ -49,7 +49,8 @@ export async function generateMetadata({ params }: CardapioPageProps) {
     : `Cardápio | ${barbershop.name}`;
 
   return {
-    title,
+    // absolute: evita duplicar o sufixo do template do layout raiz
+    title: { absolute: title },
     description:
       cfg.hero_subtitle ??
       `Serviços e preços da ${barbershop.name} em ${barbershop.address_city}. Cabelo, barba e visagismo com padrão premium.`,
@@ -422,7 +423,7 @@ export default async function CardapioPage({ params }: CardapioPageProps) {
               {barbershop.phone && (
                 <p className="flex items-center justify-center gap-1.5">
                   <Phone className="w-3 h-3 text-gold" />
-                  {barbershop.phone}
+                  {formatPhone(barbershop.phone)}
                 </p>
               )}
             </div>

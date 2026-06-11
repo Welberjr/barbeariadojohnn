@@ -130,18 +130,37 @@ export default async function DREPage({ searchParams }: DREPageProps) {
   );
 
   // 4b. Transacoes manuais do periodo (lancamentos avulsos do modulo Financeiro)
-  const { data: txRaw } = await supabase
-    .from('transactions')
-    .select('type, amount')
-    .eq('barbershop_id', BARBERSHOP_ID)
-    .in('type', ['product', 'expense', 'other'])
-    .gte('occurred_at', periodStart)
-    .lte('occurred_at', periodEnd);
-
-  const txRows = txRaw ?? [];
+  // Tenta ler cost_amount (custo das vendas avulsas); se a coluna nao existir, select basico.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let txRows: any[] = [];
+  {
+    const attempt = await supabase
+      .from('transactions')
+      .select('type, amount, cost_amount')
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .in('type', ['product', 'expense', 'other'])
+      .gte('occurred_at', periodStart)
+      .lte('occurred_at', periodEnd);
+    if (attempt.error) {
+      const fallback = await supabase
+        .from('transactions')
+        .select('type, amount')
+        .eq('barbershop_id', BARBERSHOP_ID)
+        .in('type', ['product', 'expense', 'other'])
+        .gte('occurred_at', periodStart)
+        .lte('occurred_at', periodEnd);
+      txRows = fallback.data ?? [];
+    } else {
+      txRows = attempt.data ?? [];
+    }
+  }
   const txProdutos   = txRows.filter((t) => t.type === 'product').reduce((s, t) => s + Number(t.amount ?? 0), 0);
   const txReceitas   = txRows.filter((t) => t.type === 'other').reduce((s, t) => s + Number(t.amount ?? 0), 0);
   const txDespesas   = txRows.filter((t) => t.type === 'expense').reduce((s, t) => s + Number(t.amount ?? 0), 0);
+  const txCustoProdutos = txRows.filter((t) => t.type === 'product').reduce((s, t) => s + Number(t.cost_amount ?? 0), 0);
+
+  // CPV total = custo via comandas + custo das vendas avulsas
+  custoProdutosVendidos += txCustoProdutos;
 
   const totalDespesas = totalDespesasBills + txDespesas;
 
@@ -539,7 +558,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
             </p>
             <p className="text-[11px] text-fg-subtle mt-1">
               {receitaBrutaTotal > 0
-                ? `${((totalProdutosVendidos / receitaBrutaTotal) * 100).toFixed(1)}%`
+                ? `${((totalProdutosReal / receitaBrutaTotal) * 100).toFixed(1)}%`
                 : '—'}{' '}
               da receita
             </p>

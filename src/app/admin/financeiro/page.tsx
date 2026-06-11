@@ -76,7 +76,7 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
       .from('transactions')
       .select('type, amount, occurred_at, category')
       .eq('barbershop_id', BARBERSHOP_ID)
-      .in('type', ['other', 'expense'])
+      .in('type', ['other', 'expense', 'product'])
       .gte('occurred_at', periodStart)
       .lte('occurred_at', periodEnd),
   ]);
@@ -115,6 +115,11 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
   const manualTx = manualTxRaw ?? [];
   const totalDespesasManuais = manualTx.filter((t) => t.type === 'expense').reduce((s, t) => s + Number(t.amount ?? 0), 0);
   const totalReceitasExtras = manualTx.filter((t) => t.type === 'other').reduce((s, t) => s + Number(t.amount ?? 0), 0);
+  const totalVendasAvulsas = manualTx.filter((t) => t.type === 'product').reduce((s, t) => s + Number(t.amount ?? 0), 0);
+
+  // Mix de vendas considera tambem as vendas avulsas de produto (transactions type=product)
+  const totalProdutosMix = totalProdutos + totalVendasAvulsas;
+  const mixBase = totalServicos + totalProdutosMix;
   const totalDespesas = totalDespesasManuais;
 
   const staffMap = new Map((staffRaw ?? []).map((s) => [s.id as string, s.display_name as string]));
@@ -278,11 +283,11 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
-          { label: 'Receita real', value: formatCurrency(faturamentoBruto + totalReceitasExtras), sub: `Prevista: ${formatCurrency((faturamentoBruto + totalReceitasExtras) * 1.1)}`, icon: CircleDollarSign, cls: 'text-gold' },
+          { label: 'Receita real', value: formatCurrency(faturamentoBruto + totalReceitasExtras + totalVendasAvulsas), sub: `Prevista: ${formatCurrency((faturamentoBruto + totalReceitasExtras + totalVendasAvulsas) * 1.1)}`, icon: CircleDollarSign, cls: 'text-gold' },
           { label: 'Despesas', value: formatCurrency(totalDespesas), sub: 'Total no período', icon: Receipt, cls: 'text-danger' },
           { label: 'Comissões reais', value: formatCurrency(totalComissoes), sub: `Prevista: ${formatCurrency(totalComissoes * 1.1)}`, icon: Users, cls: 'text-fg' },
           { label: 'Ticket médio', value: formatCurrency(ticketMedio), sub: `${clientesUnicos} clientes únicos`, icon: TrendingUp, cls: 'text-fg' },
-          { label: 'Lucro líquido', value: formatCurrency(faturamentoBruto + totalReceitasExtras - totalComissoes - totalDespesas), sub: 'Receitas − Comissões − Despesas', icon: Wallet, cls: 'text-success' },
+          { label: 'Lucro líquido', value: formatCurrency(faturamentoBruto + totalReceitasExtras + totalVendasAvulsas - totalComissoes - totalDespesas), sub: 'Receitas − Comissões − Despesas', icon: Wallet, cls: 'text-success' },
         ].map((k) => {
           const Icon = k.icon;
           return (
@@ -457,16 +462,16 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
                 {formatCurrency(totalServicos)}
               </p>
               <p className="text-[11px] text-fg-subtle mt-1">
-                {faturamentoBruto > 0 ? `${((totalServicos / faturamentoBruto) * 100).toFixed(1)}% do mix` : '—'}
+                {mixBase > 0 ? `${((totalServicos / mixBase) * 100).toFixed(1)}% do mix` : '—'}
               </p>
             </div>
             <div className="p-4 rounded-md bg-bg-elevated border border-border/60">
               <p className="text-[10px] uppercase tracking-wider text-fg-dim">Produtos</p>
               <p className="text-2xl font-bold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>
-                {formatCurrency(totalProdutos)}
+                {formatCurrency(totalProdutosMix)}
               </p>
               <p className="text-[11px] text-fg-subtle mt-1">
-                {faturamentoBruto > 0 ? `${((totalProdutos / faturamentoBruto) * 100).toFixed(1)}% do mix` : '—'}
+                {mixBase > 0 ? `${((totalProdutosMix / mixBase) * 100).toFixed(1)}% do mix` : '—'}
               </p>
             </div>
           </div>

@@ -15,7 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency, formatPhone } from '@/lib/utils';
 
 interface Customer {
   id: string;
@@ -24,8 +24,8 @@ interface Customer {
   email: string | null;
   cpf: string | null;
   birth_date: string | null;
-  tier: 'new' | 'regular' | 'vip' | 'inactive' | 'churned';
-  loyalty_tier: 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond';
+  tier: 'new' | 'regular' | 'active' | 'vip' | 'inactive' | 'churned';
+  loyalty_tier: 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond' | null;
   loyalty_points: number;
   total_appointments: number;
   total_spent: number;
@@ -41,12 +41,16 @@ const tierConfig: Record<
 > = {
   new: { label: 'Novo', color: 'bg-success/10 text-success border-success/30', icon: Heart },
   regular: { label: 'Recorrente', color: 'bg-info/10 text-info border-info/30', icon: TrendingUp },
+  active: { label: 'Recorrente', color: 'bg-info/10 text-info border-info/30', icon: TrendingUp },
   vip: { label: 'VIP', color: 'bg-gold/10 text-gold border-gold/30', icon: Crown },
   inactive: { label: 'Inativo', color: 'bg-fg-dim/10 text-fg-subtle border-border-strong', icon: Heart },
   churned: { label: 'Perdido', color: 'bg-danger/10 text-danger border-danger/30', icon: Heart },
 };
 
-const loyaltyTierConfig: Record<Customer['loyalty_tier'], string> = {
+// Fallback para tiers desconhecidos vindos do banco (evita crash de undefined.icon)
+const tierFallback = { label: 'Cliente', color: 'bg-fg-dim/10 text-fg-subtle border-border-strong', icon: Heart };
+
+const loyaltyTierConfig: Record<string, string> = {
   bronze: 'text-amber-700',
   silver: 'text-gray-300',
   gold: 'text-gold',
@@ -121,7 +125,7 @@ export function CustomersList({
           {[
             { v: 'all', label: 'Todos' },
             { v: 'new', label: 'Novos' },
-            { v: 'regular', label: 'Recorrentes' },
+            { v: 'active', label: 'Recorrentes' },
             { v: 'vip', label: 'VIPs' },
             { v: 'inactive', label: 'Inativos' },
           ].map((opt) => (
@@ -159,14 +163,16 @@ export function CustomersList({
       {/* CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {customers.map((c) => {
-          const tierData = tierConfig[c.tier];
+          const tierData = tierConfig[c.tier] ?? tierFallback;
           const TierIcon = tierData.icon;
-          const initials = c.full_name
-            .split(' ')
-            .map((n) => n[0])
-            .join('')
-            .slice(0, 2)
-            .toUpperCase();
+          const initials =
+            (c.full_name ?? '')
+              .trim()
+              .split(/\s+/)
+              .map((n) => n[0] ?? '')
+              .join('')
+              .slice(0, 2)
+              .toUpperCase() || '?';
 
           return (
             <Link
@@ -183,7 +189,7 @@ export function CustomersList({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={c.photo_url}
-                    alt={c.full_name}
+                    alt={c.full_name ?? 'Cliente'}
                     className="w-12 h-12 rounded-full object-cover border-2 border-gold/30"
                   />
                 ) : (
@@ -202,7 +208,7 @@ export function CustomersList({
                     className="text-base font-bold text-fg leading-tight truncate"
                     style={{ fontFamily: 'var(--font-playfair), serif' }}
                   >
-                    {c.full_name}
+                    {c.full_name ?? 'Sem nome'}
                   </h3>
                   <div className="flex items-center gap-1.5 mt-1.5">
                     <span
@@ -217,11 +223,11 @@ export function CustomersList({
                     <span
                       className={cn(
                         'inline-flex items-center gap-1 text-[9px] uppercase tracking-wider',
-                        loyaltyTierConfig[c.loyalty_tier]
+                        loyaltyTierConfig[c.loyalty_tier ?? 'bronze'] ?? 'text-fg-subtle'
                       )}
                     >
                       <Star className="w-2.5 h-2.5 fill-current" />
-                      {c.loyalty_tier}
+                      {c.loyalty_tier ?? 'bronze'}
                     </span>
                   </div>
                 </div>
@@ -232,7 +238,7 @@ export function CustomersList({
                 {c.phone && (
                   <div className="flex items-center gap-2 text-[11px] text-fg-subtle">
                     <Phone className="w-3 h-3" />
-                    <span>{c.phone}</span>
+                    <span>{formatPhone(c.phone)}</span>
                   </div>
                 )}
                 {c.email && (

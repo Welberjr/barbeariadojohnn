@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 import {
   LayoutDashboard,
   Calendar,
@@ -74,15 +73,6 @@ export function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
 
-  // Prefetch agressivo de todas as rotas no mount
-  // Faz o Next.js carregar o JS/RSC de cada página em background,
-  // tornando a navegação instantânea após o primeiro segundo na tela.
-  useEffect(() => {
-    menuItems.forEach((item) => {
-      router.prefetch(item.href);
-    });
-  }, [router]);
-
   return (
     <aside
       className="w-72 bg-bg-surface border-r border-border flex flex-col flex-shrink-0 relative"
@@ -121,7 +111,7 @@ export function AdminSidebar() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  prefetch={true}
+                  prefetch={false}
                   onMouseEnter={() => router.prefetch(item.href)}
                   className={cn(
                     'group flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all relative overflow-hidden',
