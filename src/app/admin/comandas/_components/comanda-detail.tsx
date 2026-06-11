@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Plus,
@@ -705,12 +706,12 @@ export function ComandaDetail({
           {products.length === 0 ? (
             <p className="text-center text-fg-subtle text-xs py-4">
               Nenhum produto cadastrado.{' '}
-              <a
+              <Link
                 href="/admin/produtos"
                 className="text-gold hover:underline"
               >
                 Cadastrar produto
-              </a>
+              </Link>
             </p>
           ) : comandaProducts.length === 0 ? (
             <p className="text-center text-fg-subtle text-xs py-4">

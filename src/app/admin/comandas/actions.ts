@@ -70,7 +70,7 @@ export async function createComanda(data: CreateComandaData) {
       .in('status', ['scheduled']);
   }
 
-  revalidatePath('/admin/comandas');
+  revalidatePath('/admin/comandas', 'layout');
   revalidatePath('/admin/agenda');
   return { ok: true, comanda: created };
 }
@@ -131,7 +131,7 @@ export async function populateComandaFromAppointment(
 
   await recalculateComandaTotal(comandaId);
 
-  revalidatePath('/admin/comandas');
+  revalidatePath('/admin/comandas', 'layout');
   return { ok: true, added: itemsToInsert.length };
 }
 
@@ -284,7 +284,7 @@ export async function addServiceToComanda(
       metadata: { comanda_id: comandaId, subscription_id: sub.id },
     });
 
-    revalidatePath('/admin/comandas');
+    revalidatePath('/admin/comandas', 'layout');
     return { ok: true, covered: true, usedNow, includedUses: sub.plan.included_uses };
   }
 
@@ -313,7 +313,7 @@ export async function addServiceToComanda(
 
   await recalculateComandaTotal(comandaId);
 
-  revalidatePath('/admin/comandas');
+  revalidatePath('/admin/comandas', 'layout');
   return { ok: true };
 }
 
@@ -371,7 +371,7 @@ export async function addProductToComanda(
 
   await recalculateComandaTotal(comandaId);
 
-  revalidatePath('/admin/comandas');
+  revalidatePath('/admin/comandas', 'layout');
   revalidatePath('/admin/produtos');
   return { ok: true };
 }
@@ -424,7 +424,7 @@ export async function removeComandaItem(
 
   await recalculateComandaTotal(comandaId);
 
-  revalidatePath('/admin/comandas');
+  revalidatePath('/admin/comandas', 'layout');
   revalidatePath('/admin/produtos');
   return { ok: true };
 }
@@ -558,10 +558,11 @@ export async function closeComanda(
     });
   }
 
-  revalidatePath('/admin/comandas');
+  revalidatePath('/admin/comandas', 'layout');
   revalidatePath('/admin/agenda');
   revalidatePath('/admin');
   revalidatePath('/admin/financeiro');
+  revalidatePath('/admin/dre');
   return { ok: true };
 }
 
@@ -611,7 +612,7 @@ export async function cancelComanda(comandaId: string) {
 
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath('/admin/comandas');
+  revalidatePath('/admin/comandas', 'layout');
   revalidatePath('/admin/produtos');
   return { ok: true };
 }

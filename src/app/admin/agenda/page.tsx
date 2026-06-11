@@ -57,7 +57,7 @@ export default async function AgendaPage({ searchParams }: AgendaPageProps) {
   // Buscar appointment_services correspondentes (pode ter 1 ou + serviços por appointment)
   const apptIds = (appointmentsRaw ?? []).map((a) => a.id);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let servicesByAppointment: Record<string, any> = {};
+  const servicesByAppointment: Record<string, any> = {};
 
   if (apptIds.length > 0) {
     const { data: apptServices } = await supabase

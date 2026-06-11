@@ -13,6 +13,7 @@ import {
   Crown,
 } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
 import { DashboardCharts } from './_components/dashboard-charts';
 
@@ -338,9 +339,9 @@ export default async function DashboardPage() {
               </h2>
               <p className="text-xs text-fg-muted mt-0.5">{services?.length ?? 0} serviços cadastrados</p>
             </div>
-            <a href="/admin/servicos" className="text-xs text-gold hover:underline flex items-center gap-1">
+            <Link href="/admin/servicos" className="text-xs text-gold hover:underline flex items-center gap-1">
               Ver todos <ArrowUpRight className="w-3 h-3" />
-            </a>
+            </Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {(services ?? []).map((svc) => (

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState, useTransition } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   Search,
@@ -76,30 +76,63 @@ export function CustomersList({
   totalCount,
 }: CustomersListProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [query, setQuery] = useState(initialQuery);
-  const [tier, setTier] = useState(initialTier);
 
-  function buildUrl(opts: { q?: string; t?: string; p?: number }) {
-    const params = new URLSearchParams();
-    const q = opts.q ?? query;
-    const t = opts.t ?? tier;
-    const p = opts.p ?? 1;
-    if (q) params.set('q', q);
-    if (t && t !== 'all') params.set('tier', t);
-    if (p > 1) params.set('page', String(p));
-    return `/admin/clientes${params.toString() ? '?' + params.toString() : ''}`;
-  }
+  // A URL e a unica fonte da verdade dos filtros (evita estado dessincronizado)
+  const activeTier = searchParams.get('tier') ?? initialTier ?? 'all';
+  const urlQuery = searchParams.get('q') ?? initialQuery ?? '';
 
-  function applyFilters(newQuery?: string, newTier?: string) {
-    startTransition(() => {
-      router.push(buildUrl({ q: newQuery, t: newTier, p: 1 }));
+  const replaceWithParams = useCallback(
+    (mutate: (params: URLSearchParams) => void) => {
+      const params = new URLSearchParams(searchParams.toString());
+      mutate(params);
+      const qs = params.toString();
+      startTransition(() => {
+        router.replace(`${pathname}${qs ? `?${qs}` : ''}`, { scroll: false });
+      });
+    },
+    [pathname, router, searchParams]
+  );
+
+  const applySearch = useCallback(
+    (term: string) => {
+      replaceWithParams((params) => {
+        if (term) params.set('q', term);
+        else params.delete('q');
+        params.delete('page');
+      });
+    },
+    [replaceWithParams]
+  );
+
+  // Busca ao vivo com debounce de 400ms
+  useEffect(() => {
+    const term = query.trim();
+    if (term === urlQuery.trim()) return;
+    const handle = setTimeout(() => applySearch(term), 400);
+    return () => clearTimeout(handle);
+  }, [query, urlQuery, applySearch]);
+
+  // Sincroniza o campo quando a URL muda por fora (ex: busca global do topo)
+  useEffect(() => {
+    setQuery(initialQuery);
+  }, [initialQuery]);
+
+  function selectTier(v: string) {
+    replaceWithParams((params) => {
+      if (v === 'all') params.delete('tier');
+      else params.set('tier', v);
+      params.delete('page');
     });
   }
 
   function goToPage(p: number) {
-    startTransition(() => {
-      router.push(buildUrl({ p }));
+    replaceWithParams((params) => {
+      if (p > 1) params.set('page', String(p));
+      else params.delete('page');
     });
   }
 
@@ -116,7 +149,7 @@ export function CustomersList({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') applyFilters();
+              if (e.key === 'Enter') applySearch(query.trim());
             }}
           />
         </div>
@@ -132,13 +165,10 @@ export function CustomersList({
             <button
               key={opt.v}
               type="button"
-              onClick={() => {
-                setTier(opt.v);
-                applyFilters(undefined, opt.v);
-              }}
+              onClick={() => selectTier(opt.v)}
               className={cn(
                 'px-3 py-2 rounded-md text-xs font-medium transition-all',
-                tier === opt.v
+                activeTier === opt.v
                   ? 'bg-gold text-bg shadow-gold'
                   : 'bg-bg-elevated text-fg-muted hover:text-fg hover:bg-bg-surface border border-border'
               )}

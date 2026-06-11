@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { X, Loader2, Check, TrendingUp, TrendingDown } from 'lucide-react';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { addIncome, addExpense } from '../actions';
 import { INCOME_CATEGORIES, EXPENSE_CATEGORIES } from '../constants';
 

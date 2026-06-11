@@ -77,7 +77,7 @@ export default async function ClienteHomePage() {
 
   const balance = Number(loyalty?.balance ?? customer.loyalty_points ?? 0);
   const lifetime = Number(loyalty?.lifetime_earned ?? 0);
-  const firstName = customer.full_name.split(' ')[0];
+  const firstName = (customer.full_name ?? 'Cliente').trim().split(/\s+/)[0] || 'Cliente';
   const tierLabel = TIER_LABELS[customer.loyalty_tier ?? ''] ?? null;
 
   const usagePct = sub

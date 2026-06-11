@@ -47,7 +47,7 @@ export async function GET() {
   }).format(new Date(nowMs + 7 * 86400000));
   const dayEnd = `${todayStr}T23:59:59.999-03:00`;
 
-  const [comandasRes, productsRes, billsRes, aptsRes] = await Promise.all([
+  const [comandasRes, productsRes, billsRes] = await Promise.all([
     admin
       .from('comandas')
       .select('id, opened_at, customers:customers(full_name)')
@@ -67,14 +67,26 @@ export async function GET() {
       .lte('due_date', plus7Str)
       .order('due_date')
       .limit(10),
-    admin
+  ]);
+
+  // Agendamentos restantes de hoje. Tenta incluir 'confirmed';
+  // se o enum do banco ainda nao tiver esse valor, cai para apenas 'scheduled'.
+  let aptsRes = await admin
+    .from('appointments')
+    .select('id', { count: 'exact', head: true })
+    .eq('barbershop_id', BARBERSHOP_ID)
+    .in('status', ['scheduled', 'confirmed'])
+    .gte('start_at', nowIso)
+    .lte('start_at', dayEnd);
+  if (aptsRes.error) {
+    aptsRes = await admin
       .from('appointments')
       .select('id', { count: 'exact', head: true })
       .eq('barbershop_id', BARBERSHOP_ID)
-      .in('status', ['scheduled', 'confirmed'])
+      .eq('status', 'scheduled')
       .gte('start_at', nowIso)
-      .lte('start_at', dayEnd),
-  ]);
+      .lte('start_at', dayEnd);
+  }
 
   const items: NotificationItem[] = [];
 

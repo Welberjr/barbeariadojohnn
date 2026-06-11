@@ -97,6 +97,7 @@ export async function updateAppointmentStatus(
   id: string,
   status:
     | 'scheduled'
+    | 'confirmed'
     | 'in_progress'
     | 'completed'
     | 'cancelled'

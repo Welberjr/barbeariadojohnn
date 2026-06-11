@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ChevronLeft,
@@ -392,9 +393,9 @@ export function AgendaView({
         <div className="card p-12 text-center">
           <p className="text-fg-muted">
             Nenhum profissional cadastrado. Cadastre profissionais em{' '}
-            <a href="/admin/profissionais" className="text-gold hover:underline">
+            <Link href="/admin/profissionais" className="text-gold hover:underline">
               Profissionais
-            </a>
+            </Link>
             .
           </p>
         </div>

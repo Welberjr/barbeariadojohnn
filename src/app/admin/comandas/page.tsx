@@ -60,8 +60,8 @@ export default async function ComandasPage() {
   const allIds = [...openIds, ...closedIds];
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let itemsByComanda: Record<string, { service_total: number; product_total: number }> = {};
-  let paymentByComanda: Record<string, string> = {};
+  const itemsByComanda: Record<string, { service_total: number; product_total: number }> = {};
+  const paymentByComanda: Record<string, string> = {};
 
   if (allIds.length > 0) {
     const [{ data: itemsAgg }, { data: paymentsAgg }] = await Promise.all([

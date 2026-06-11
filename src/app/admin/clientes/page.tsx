@@ -8,7 +8,11 @@ export const metadata = {
   title: 'Clientes',
 };
 
+// Lista sempre renderizada por requisicao (filtros via searchParams)
+export const dynamic = 'force-dynamic';
+
 const PAGE_SIZE = 24;
+const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
 interface ClientesPageProps {
   searchParams: Promise<{ q?: string; tier?: string; page?: string }>;
@@ -28,13 +32,17 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
       'id, full_name, phone, email, cpf, birth_date, tier, loyalty_tier, loyalty_points, total_appointments, total_spent, last_visit_at, photo_url, active, created_at',
       { count: 'exact' }
     )
+    .eq('barbershop_id', BARBERSHOP_ID)
     .order('created_at', { ascending: false });
 
   if (q && q.trim()) {
-    const term = q.trim();
-    query = query.or(
-      `full_name.ilike.%${term}%,phone.ilike.%${term}%,email.ilike.%${term}%`
-    );
+    // Remove caracteres que quebram a sintaxe do filtro .or() do PostgREST
+    const term = q.trim().replace(/[,()]/g, '');
+    if (term) {
+      query = query.or(
+        `full_name.ilike.%${term}%,phone.ilike.%${term}%,email.ilike.%${term}%`
+      );
+    }
   }
 
   if (tier && tier !== 'all') {
@@ -50,10 +58,10 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
   const admin = createAdminClient();
   const [{ count: totalAll }, { count: vips }, { count: regulars }, { count: news }, { data: topCustomers }, { data: shopConfig }] =
     await Promise.all([
-      supabase.from('customers').select('id', { count: 'exact', head: true }),
-      supabase.from('customers').select('id', { count: 'exact', head: true }).eq('tier', 'vip'),
-      supabase.from('customers').select('id', { count: 'exact', head: true }).eq('tier', 'active'),
-      supabase.from('customers').select('id', { count: 'exact', head: true }).eq('tier', 'new'),
+      supabase.from('customers').select('id', { count: 'exact', head: true }).eq('barbershop_id', BARBERSHOP_ID),
+      supabase.from('customers').select('id', { count: 'exact', head: true }).eq('barbershop_id', BARBERSHOP_ID).eq('tier', 'vip'),
+      supabase.from('customers').select('id', { count: 'exact', head: true }).eq('barbershop_id', BARBERSHOP_ID).eq('tier', 'active'),
+      supabase.from('customers').select('id', { count: 'exact', head: true }).eq('barbershop_id', BARBERSHOP_ID).eq('tier', 'new'),
       admin
         .from('customers')
         .select('id, full_name, photo_url, total_spent, total_appointments, tier')

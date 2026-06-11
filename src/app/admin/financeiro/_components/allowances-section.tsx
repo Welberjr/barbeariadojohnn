@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
-  Plus, X, Loader2, Check, Trash2, ChevronLeft, ChevronRight,
+  Plus, X, Loader2, Check, Trash2,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { createAllowance, approveAllowance, rejectAllowance, deleteAllowance } from '../actions';
