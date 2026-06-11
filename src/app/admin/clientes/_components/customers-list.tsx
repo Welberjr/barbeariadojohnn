@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   Search,
+  Users,
   Phone,
   Mail,
   Calendar,
@@ -191,6 +192,28 @@ export function CustomersList({
       </div>
 
       {/* CARDS */}
+      {customers.length === 0 ? (
+        <div className="card p-10 text-center">
+          <Users className="w-8 h-8 mx-auto mb-3 text-fg-dim" />
+          <p className="text-sm text-fg-muted mb-4">
+            Nenhum cliente encontrado para a busca ou filtro atual.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setQuery('');
+              replaceWithParams((params) => {
+                params.delete('q');
+                params.delete('tier');
+                params.delete('page');
+              });
+            }}
+            className="btn-secondary inline-flex"
+          >
+            Limpar filtros
+          </button>
+        </div>
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {customers.map((c) => {
           const tierData = tierConfig[c.tier] ?? tierFallback;
@@ -328,6 +351,7 @@ export function CustomersList({
           );
         })}
       </div>
+      )}
 
       {/* PAGINAÇÃO */}
       {totalPages > 1 && (

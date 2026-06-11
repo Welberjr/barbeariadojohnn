@@ -225,26 +225,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
             Erro ao carregar clientes: {error.message}
           </p>
         </div>
-      ) : !customers || customers.length === 0 ? (
-        q || tier ? (
-          <div className="card p-12 text-center">
-            <div className="inline-flex p-3 rounded-full bg-fg-dim/10 text-fg-subtle mb-4">
-              <Users className="w-6 h-6" />
-            </div>
-            <h2
-              className="text-xl font-bold text-fg mb-2"
-              style={{ fontFamily: 'var(--font-playfair), serif' }}
-            >
-              Nenhum cliente encontrado
-            </h2>
-            <p className="text-sm text-fg-muted mb-4">
-              Tente outro termo de busca ou limpe os filtros.
-            </p>
-            <Link href="/admin/clientes" className="btn-secondary inline-flex">
-              Limpar filtros
-            </Link>
-          </div>
-        ) : (
+      ) : (!customers || customers.length === 0) && !(q || tier) ? (
           <div className="card p-12 text-center">
             <div className="inline-flex p-3 rounded-full bg-gold/10 text-gold mb-4">
               <Users className="w-6 h-6" />
@@ -267,7 +248,6 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
               <span>Cadastrar primeiro cliente</span>
             </Link>
           </div>
-        )
       ) : (
         <CustomersList
           customers={customers}

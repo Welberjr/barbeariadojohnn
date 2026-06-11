@@ -109,6 +109,7 @@ export default async function ComandasPage() {
   const { data: customers } = await supabase
     .from('customers')
     .select('id, full_name, phone')
+    .eq('barbershop_id', BARBERSHOP_ID)
     .eq('active', true)
     .order('full_name')
     .limit(500);
