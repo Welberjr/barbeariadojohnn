@@ -120,6 +120,21 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
   // Mix de vendas considera tambem as vendas avulsas de produto (transactions type=product)
   const totalProdutosMix = totalProdutos + totalVendasAvulsas;
   const mixBase = totalServicos + totalProdutosMix;
+
+  // Projecao honesta de fim de mes (somente quando o periodo visualizado e o mes corrente):
+  // ritmo diario real x total de dias do mes. Substitui a antiga "Prevista" (valor x 1,1 fixo).
+  const receitaAtualPeriodo = faturamentoBruto + totalReceitasExtras + totalVendasAvulsas;
+  const isCurrentMonthView =
+    fromDate.getFullYear() === now.getFullYear() &&
+    fromDate.getMonth() === now.getMonth() &&
+    fromDate.getDate() === 1 &&
+    toDate.getFullYear() === now.getFullYear() &&
+    toDate.getMonth() === now.getMonth();
+  const daysInCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const daysElapsed = Math.max(1, Math.min(now.getDate(), toDate.getDate()));
+  const receitaSubLabel = isCurrentMonthView
+    ? `Projeção do mês: ${formatCurrency((receitaAtualPeriodo / daysElapsed) * daysInCurrentMonth)}`
+    : 'Total no período';
   const totalDespesas = totalDespesasManuais;
 
   const staffMap = new Map((staffRaw ?? []).map((s) => [s.id as string, s.display_name as string]));
@@ -283,9 +298,9 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
-          { label: 'Receita real', value: formatCurrency(faturamentoBruto + totalReceitasExtras + totalVendasAvulsas), sub: `Prevista: ${formatCurrency((faturamentoBruto + totalReceitasExtras + totalVendasAvulsas) * 1.1)}`, icon: CircleDollarSign, cls: 'text-gold' },
+          { label: 'Receita real', value: formatCurrency(receitaAtualPeriodo), sub: receitaSubLabel, icon: CircleDollarSign, cls: 'text-gold' },
           { label: 'Despesas', value: formatCurrency(totalDespesas), sub: 'Total no período', icon: Receipt, cls: 'text-danger' },
-          { label: 'Comissões reais', value: formatCurrency(totalComissoes), sub: `Prevista: ${formatCurrency(totalComissoes * 1.1)}`, icon: Users, cls: 'text-fg' },
+          { label: 'Comissões reais', value: formatCurrency(totalComissoes), sub: 'Total no período', icon: Users, cls: 'text-fg' },
           { label: 'Ticket médio', value: formatCurrency(ticketMedio), sub: `${clientesUnicos} clientes únicos`, icon: TrendingUp, cls: 'text-fg' },
           { label: 'Lucro líquido', value: formatCurrency(faturamentoBruto + totalReceitasExtras + totalVendasAvulsas - totalComissoes - totalDespesas), sub: 'Receitas − Comissões − Despesas', icon: Wallet, cls: 'text-success' },
         ].map((k) => {

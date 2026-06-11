@@ -1,7 +1,7 @@
-﻿import { Logo } from '@/components/brand/logo';
+import { Logo } from '@/components/brand/logo';
 
 /**
- * PÃ¡gina de preview/teste das variantes da logo.
+ * Página de preview/teste das variantes da logo.
  * Rota: /dev/logo
  *
  * Usada apenas em desenvolvimento para validar a logo SVG.
@@ -60,7 +60,7 @@ export default function LogoPreviewPage() {
         <h2 className="text-2xl font-serif text-gold">Em contexto: card premium</h2>
         <div className="card-premium p-12 max-w-md mx-auto text-center space-y-6">
           <Logo variant="full" size="xl" className="mx-auto" />
-          <p className="text-fg-muted">Sistema de gestÃ£o profissional</p>
+          <p className="text-fg-muted">Sistema de gestão profissional</p>
         </div>
       </section>
     </div>

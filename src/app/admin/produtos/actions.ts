@@ -101,7 +101,7 @@ export async function deleteProduct(productId: string) {
 }
 
 /**
- * Registra venda avulsa de produto (sem comanda). Debita estoque e cria transaÃ§Ã£o.
+ * Registra venda avulsa de produto (sem comanda). Debita estoque e cria transação.
  */
 export async function registerSale(productId: string, quantity: number) {
   const admin = createAdminClient();
@@ -112,8 +112,8 @@ export async function registerSale(productId: string, quantity: number) {
     .eq('id', productId)
     .maybeSingle();
 
-  if (!prod) return { ok: false as const, error: 'Produto nÃ£o encontrado' };
-  if (!prod.is_sellable) return { ok: false as const, error: 'Produto nÃ£o disponÃ­vel para venda' };
+  if (!prod) return { ok: false as const, error: 'Produto não encontrado' };
+  if (!prod.is_sellable) return { ok: false as const, error: 'Produto não disponível para venda' };
   if (Number(prod.stock_current) < quantity)
     return { ok: false as const, error: `Estoque insuficiente (${prod.stock_current} em estoque)` };
 
@@ -155,7 +155,7 @@ export async function registerSale(productId: string, quantity: number) {
 }
 
 /**
- * Desativa produto (soft delete) â€” usado pela tabela de produtos.
+ * Desativa produto (soft delete) - usado pela tabela de produtos.
  */
 export async function deactivateProductAction(productId: string) {
   const admin = createAdminClient();
@@ -169,7 +169,7 @@ export async function deactivateProductAction(productId: string) {
 }
 
 /**
- * Ajusta estoque manualmente (entrada / saÃ­da / ajuste).
+ * Ajusta estoque manualmente (entrada / saída / ajuste).
  */
 export async function adjustStock(
   productId: string,
@@ -186,7 +186,7 @@ export async function adjustStock(
     .eq('id', productId)
     .maybeSingle();
 
-  if (!prod) return { ok: false, error: 'Produto nÃ£o encontrado' };
+  if (!prod) return { ok: false, error: 'Produto não encontrado' };
 
   const newStock = Math.max(0, Number(prod.stock_current ?? 0) + delta);
 

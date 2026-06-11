@@ -22,9 +22,9 @@ export interface AppointmentData {
 
 /**
  * Cria um agendamento.
- * - appointments NÃƒO tem service_id direto (foi movido para appointment_services)
- * - status default Ã© 'scheduled' (enum appointment_status)
- * - Se service_id for fornecido, cria tambÃ©m a entrada em appointment_services
+ * - appointments NÃO tem service_id direto (foi movido para appointment_services)
+ * - status default é 'scheduled' (enum appointment_status)
+ * - Se service_id for fornecido, cria também a entrada em appointment_services
  */
 export async function createAppointment(data: AppointmentData) {
   const admin = createAdminClient();
@@ -50,9 +50,9 @@ export async function createAppointment(data: AppointmentData) {
 
   if (error) return { ok: false, error: error.message };
 
-  // Se um serviÃ§o foi escolhido, criar entrada em appointment_services
+  // Se um serviço foi escolhido, criar entrada em appointment_services
   if (data.service_id) {
-    // Buscar preÃ§o, duraÃ§Ã£o e commission_percent do staff
+    // Buscar preço, duração e commission_percent do staff
     const [{ data: service }, { data: staff }] = await Promise.all([
       admin
         .from('services')
@@ -143,7 +143,7 @@ export async function updateAppointment(id: string, data: any) {
 export async function deleteAppointment(id: string) {
   const admin = createAdminClient();
 
-  // Tenta deletar appointment_services manualmente caso nÃ£o tenha cascade
+  // Tenta deletar appointment_services manualmente caso não tenha cascade
   await admin.from('appointment_services').delete().eq('appointment_id', id);
 
   const { error } = await admin.from('appointments').delete().eq('id', id);
