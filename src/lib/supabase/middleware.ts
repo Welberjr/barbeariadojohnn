@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Supabase Middleware — Refresh de sessão Auth + roteamento por papel
  *
  * Papéis:
@@ -39,8 +39,11 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // Refresh session
-  const { data: { user } } = await supabase.auth.getUser();
+  // getSession() le o JWT do cookie local (sem roundtrip de rede)
+  // Mais rapido que getUser() para verificacao de autenticacao no middleware
+  // O getUser() completo acontece no layout (server component) quando necessario
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
 
   const pathname = request.nextUrl.pathname;
   const isCustomerUser = user?.user_metadata?.role === 'customer';
@@ -57,10 +60,10 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // ----- Área administrativa -----
+  // ----- Area administrativa -----
   if (isAdminRoute) {
     if (!user) return redirectTo('/login');
-    if (isCustomerUser) return redirectTo('/cliente'); // cliente não entra no admin
+    if (isCustomerUser) return redirectTo('/cliente');
   }
 
   // ----- Painel do cliente -----
@@ -68,7 +71,7 @@ export async function updateSession(request: NextRequest) {
     return redirectTo('/cliente/login');
   }
 
-  // ----- Telas de login com sessão ativa -----
+  // ----- Telas de login com sessao ativa -----
   if (isAdminLogin && user) {
     return redirectTo(isCustomerUser ? '/cliente' : '/admin');
   }
