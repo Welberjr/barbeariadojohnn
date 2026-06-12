@@ -78,8 +78,8 @@ const STATUS_CONFIG: Record<
   },
   no_show: {
     label: 'Não compareceu',
-    color: '#fb923c',
-    bgColor: 'rgba(251, 146, 60, 0.10)',
+    color: '#a855f7',
+    bgColor: 'rgba(168, 85, 247, 0.15)',
   },
 };
 

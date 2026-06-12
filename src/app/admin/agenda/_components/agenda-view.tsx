@@ -133,9 +133,9 @@ const STATUS_COLORS: Record<
     label: 'Cancelado',
   },
   no_show: {
-    bg: 'rgba(251, 146, 60, 0.10)',
-    border: '#fb923c',
-    text: '#fb923c',
+    bg: 'rgba(168, 85, 247, 0.12)',
+    border: '#a855f7',
+    text: '#a855f7',
     label: 'Não compareceu',
   },
 };

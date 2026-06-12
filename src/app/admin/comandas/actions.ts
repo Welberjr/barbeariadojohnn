@@ -560,9 +560,6 @@ export async function closeComanda(
 
   revalidatePath('/admin/comandas', 'layout');
   revalidatePath('/admin/agenda');
-  revalidatePath('/admin');
-  revalidatePath('/admin/financeiro');
-  revalidatePath('/admin/dre');
   return { ok: true };
 }
 

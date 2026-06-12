@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
+  HelpCircle,
   LayoutDashboard,
   Calendar,
   Users,
@@ -57,6 +58,7 @@ const menuItems: MenuItem[] = [
 
   // SISTEMA
   { label: 'Configurações', icon: Settings, href: '/admin/configuracoes', section: 'Sistema' },
+  { label: 'Central de Ajuda', icon: HelpCircle, href: '/admin/ajuda', section: 'Sistema' },
 ];
 
 // Agrupar por seção mantendo a ordem
