@@ -17,7 +17,6 @@ import {
   Trophy,
   FileText,
   Receipt,
-  Globe,
   Clock,
   ClipboardList,
 } from 'lucide-react';
@@ -55,7 +54,6 @@ const menuItems: MenuItem[] = [
   { label: 'Assinaturas', icon: Crown, href: '/admin/assinaturas', section: 'Marketing' },
   { label: 'Fidelidade', icon: Trophy, href: '/admin/fidelidade', section: 'Marketing' },
   { label: 'WhatsApp', icon: MessageSquare, href: '/admin/whatsapp', section: 'Marketing' },
-  { label: 'Site Público', icon: Globe, href: '/admin/site', section: 'Marketing' },
 
   // SISTEMA
   { label: 'Configurações', icon: Settings, href: '/admin/configuracoes', section: 'Sistema' },

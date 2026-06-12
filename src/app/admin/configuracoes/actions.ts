@@ -69,3 +69,42 @@ export async function updateBarbershopSettings(data: BarbershopSettings) {
   revalidatePath('/cardapio');
   return { ok: true };
 }
+
+/**
+ * Upload da logo para o Storage (bucket "logos") e atualizacao do cadastro.
+ */
+export async function uploadLogo(formData: FormData) {
+  const admin = createAdminClient();
+  const file = formData.get('file') as File | null;
+
+  if (!file || file.size === 0) return { ok: false, error: 'Nenhum arquivo enviado.' };
+  if (file.size > 2 * 1024 * 1024) return { ok: false, error: 'Imagem muito grande (máximo 2MB).' };
+  if (!file.type.startsWith('image/')) return { ok: false, error: 'Envie um arquivo de imagem (PNG, JPG, SVG ou WEBP).' };
+
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+  const path = `barbearia/logo-${Date.now()}.${ext}`;
+  const bytes = Buffer.from(await file.arrayBuffer());
+
+  const { error: upErr } = await admin.storage
+    .from('logos')
+    .upload(path, bytes, { contentType: file.type, upsert: true });
+
+  if (upErr) {
+    const msg = upErr.message?.toLowerCase().includes('bucket')
+      ? 'O bucket "logos" ainda não existe no Supabase Storage. Avise o suporte técnico.'
+      : upErr.message;
+    return { ok: false, error: msg };
+  }
+
+  const { data: pub } = admin.storage.from('logos').getPublicUrl(path);
+
+  const { error } = await admin
+    .from('barbershops')
+    .update({ logo_url: pub.publicUrl })
+    .eq('id', BARBERSHOP_ID);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath('/admin/configuracoes');
+  return { ok: true, url: pub.publicUrl };
+}

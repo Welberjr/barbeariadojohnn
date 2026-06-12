@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import { Loader2, Save, Building2, Image as ImageIcon, Palette, CreditCard } from 'lucide-react';
+import { Loader2, Save, Building2, Image as ImageIcon, Palette, CreditCard, Upload } from 'lucide-react';
 
-import { updateBarbershopSettings } from '../actions';
+import { updateBarbershopSettings, uploadLogo } from '../actions';
 import type { BarbershopSettings } from '../actions';
 
 interface Barbershop {
@@ -32,6 +32,27 @@ interface ConfiguracoesFormProps {
 export function ConfiguracoesForm({ barbershop }: ConfiguracoesFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [logoPreview, setLogoPreview] = useState(barbershop.logo_url ?? '');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploading(true);
+    const fd = new FormData();
+    fd.append('file', file);
+    const result = await uploadLogo(fd);
+    setIsUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (result.ok && result.url) {
+      setLogoPreview(result.url);
+      toast.success('Logo enviada com sucesso!');
+      router.refresh();
+    } else {
+      toast.error(result.error ?? 'Erro ao enviar a logo.');
+    }
+  }
 
   const { register, handleSubmit } = useForm<BarbershopSettings>({
     defaultValues: {
@@ -183,17 +204,49 @@ export function ConfiguracoesForm({ barbershop }: ConfiguracoesFormProps) {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="md:col-span-2">
+          <div className="md:col-span-2 space-y-3">
             <label className="label flex items-center gap-2">
               <ImageIcon className="w-3 h-3" />
-              URL do logo
+              Logo da barbearia
             </label>
-            <input
-              type="url"
-              placeholder="https://..."
-              className="input"
-              {...register('logo_url')}
-            />
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="w-20 h-20 rounded-md bg-bg-elevated border border-border/60 flex items-center justify-center overflow-hidden flex-shrink-0">
+                {logoPreview ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={logoPreview} alt="Logo atual" className="w-full h-full object-contain" />
+                ) : (
+                  <ImageIcon className="w-6 h-6 text-fg-dim" />
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  className="hidden"
+                  onChange={handleLogoUpload}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="btn-gold-outline text-xs flex items-center gap-1.5"
+                >
+                  {isUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                  <span>{isUploading ? 'Enviando...' : 'Enviar logo do computador'}</span>
+                </button>
+                <p className="text-[10px] text-fg-subtle">PNG, JPG, SVG ou WEBP · máximo 2MB</p>
+              </div>
+            </div>
+            <div>
+              <label className="label text-[11px]">Ou informe a URL da logo</label>
+              <input
+                type="url"
+                placeholder="https://..."
+                className="input"
+                {...register('logo_url')}
+              />
+            </div>
           </div>
 
           <div>
