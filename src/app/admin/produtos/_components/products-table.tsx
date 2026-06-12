@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -14,6 +14,8 @@ import {
   Loader2,
   X,
   Check,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { registerSale, deactivateProductAction, duplicateProductAction } from '../actions';
@@ -78,6 +80,17 @@ export function ProductsTable({ products, categories }: ProductsTableProps) {
         : !p.active;
     return matchQ && matchCat && matchStatus;
   });
+
+  // Paginacao client-side: 10 por pagina
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paged = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, categoryFilter, statusFilter]);
 
   async function handleDelete(id: string, name: string) {
     if (!confirm(`Desativar "${name}"?`)) return;
@@ -158,7 +171,7 @@ export function ProductsTable({ products, categories }: ProductsTableProps) {
             <span>Status / Ações</span>
           </div>
 
-          {filtered.map((p, idx) => {
+          {paged.map((p, idx) => {
             const baixo = p.active && p.stock_current <= p.stock_minimum;
             const esgotado = p.active && p.stock_current === 0;
             return (
@@ -166,7 +179,7 @@ export function ProductsTable({ products, categories }: ProductsTableProps) {
                 key={p.id}
                 className={cn(
                   'grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_auto] gap-3 px-4 py-3 items-center',
-                  idx !== filtered.length - 1 && 'border-b border-border/40',
+                  idx !== paged.length - 1 && 'border-b border-border/40',
                   !p.active && 'opacity-50'
                 )}
               >
@@ -239,6 +252,32 @@ export function ProductsTable({ products, categories }: ProductsTableProps) {
               </div>
             );
           })}
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-border/60">
+              <button
+                type="button"
+                disabled={safePage <= 1}
+                onClick={() => setPage(safePage - 1)}
+                className="btn-ghost text-xs flex items-center gap-1 disabled:opacity-40"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                Anterior
+              </button>
+              <p className="text-xs text-fg-muted">
+                Página {safePage} de {totalPages} · {filtered.length} produtos
+              </p>
+              <button
+                type="button"
+                disabled={safePage >= totalPages}
+                onClick={() => setPage(safePage + 1)}
+                className="btn-ghost text-xs flex items-center gap-1 disabled:opacity-40"
+              >
+                Próxima
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </div>
       )}
 

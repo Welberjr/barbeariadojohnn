@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
 import { CommissionPayButton } from './_components/commission-pay-button';
 import { AllowancesSection } from './_components/allowances-section';
+import { PayoutHistorySection } from './_components/payout-history';
 import { RevenueChart } from './_components/revenue-chart';
 import { FinanceiroButtons } from './_components/financeiro-buttons';
 
@@ -60,10 +61,10 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
       .order('display_name'),
     supabase
       .from('commission_payouts')
-      .select('id, staff_id, amount_paid, period_start, period_end, payment_date, payment_method, notes, staff:staff(display_name)')
+      .select('id, staff_id, amount_paid, total_commissions, total_allowances, total_expenses, period_start, period_end, payment_date, payment_method, notes, staff:staff(display_name)')
       .eq('barbershop_id', BARBERSHOP_ID)
       .order('payment_date', { ascending: false })
-      .limit(30),
+      .limit(200),
     // Vales (todos, filtro de mês feito no cliente)
     supabase
       .from('allowances')
@@ -391,51 +392,8 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
       {/* VALES / ADIANTAMENTOS */}
       <AllowancesSection allowances={allowances} staff={staffOptions} />
 
-      {/* HISTÓRICO DE PAGAMENTOS DE COMISSÃO */}
-      <section className="card p-6 space-y-4">
-        <div className="flex items-center gap-2">
-          <CreditCard className="w-4 h-4 text-gold" />
-          <h2 className="text-lg font-semibold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>
-            Histórico de Pagamentos de Comissão
-          </h2>
-        </div>
-        {payoutHistory.length === 0 ? (
-          <p className="text-sm text-fg-subtle py-6 text-center">
-            Nenhum pagamento registrado ainda.
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-[10px] uppercase tracking-wider text-fg-dim border-b border-border/60">
-                  <th className="py-2 text-left">Profissional</th>
-                  <th className="py-2 text-left">Período</th>
-                  <th className="py-2 text-right">Comissões</th>
-                  <th className="py-2 text-right">Vales</th>
-                  <th className="py-2 text-right">Despesas</th>
-                  <th className="py-2 text-right text-success">Valor pago</th>
-                  <th className="py-2 text-right">Data</th>
-                </tr>
-              </thead>
-              <tbody>
-                {payoutHistory.map((p) => (
-                  <tr key={p.id} className="border-b border-border/30 hover:bg-bg-elevated transition-colors">
-                    <td className="py-3 text-fg">{p.staff?.display_name ?? '—'}</td>
-                    <td className="py-3 text-fg-muted">
-                      {fmtDate(p.period_start)} — {fmtDate(p.period_end)}
-                    </td>
-                    <td className="py-3 text-right text-gold font-semibold">{formatCurrency(Number(p.amount_paid ?? 0))}</td>
-                    <td className="py-3 text-right text-fg-muted">—</td>
-                    <td className="py-3 text-right text-fg-muted">—</td>
-                    <td className="py-3 text-right text-success font-semibold">{formatCurrency(Number(p.amount_paid ?? 0))}</td>
-                    <td className="py-3 text-right text-fg-muted">{fmtDate(p.payment_date)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+      {/* HISTORICO DE PAGAMENTOS DE COMISSAO */}
+      <PayoutHistorySection payouts={payoutHistory} staff={staffOptions} />
 
       {/* GRID: Fluxo de caixa + Mix */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

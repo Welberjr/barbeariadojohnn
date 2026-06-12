@@ -21,26 +21,6 @@ export default async function ComandasPage({ searchParams }: PageProps) {
     params.data ? 'data' : params.periodo === 'todas' ? 'todas' : 'hoje';
   const page = Math.max(1, Number(params.pagina ?? '1') || 1);
 
-  // Comandas abertas
-  const { data: openComandasRaw } = await supabase
-    .from('comandas')
-    .select(
-      `
-      id,
-      customer_id,
-      staff_id,
-      status,
-      total,
-      subtotal,
-      opened_at,
-      customers:customers ( full_name, phone ),
-      staff:staff ( display_name )
-    `
-    )
-    .eq('barbershop_id', BARBERSHOP_ID)
-    .eq('status', 'open')
-    .order('opened_at', { ascending: false });
-
   const closedSelect = `
       id,
       customer_id,
@@ -52,25 +32,17 @@ export default async function ComandasPage({ searchParams }: PageProps) {
       staff:staff ( display_name )
     `;
 
-  // Hoje (sempre buscado: alimenta os cards de estatistica)
   const today = new Date().toLocaleDateString('en-CA', {
     timeZone: 'America/Sao_Paulo',
   });
   const todayStart = `${today}T00:00:00.000-03:00`;
 
-  const { data: closedTodayRaw } = await supabase
-    .from('comandas')
-    .select(closedSelect)
-    .eq('barbershop_id', BARBERSHOP_ID)
-    .eq('status', 'closed')
-    .gte('closed_at', todayStart)
-    .order('closed_at', { ascending: false })
-    .limit(100);
-
-  // Lista filtrada exibida na secao "Fechadas"
-  let closedListRaw = closedTodayRaw ?? [];
-  let totalCount = (closedTodayRaw ?? []).length;
-  let totalPages = 1;
+  // Query da lista filtrada (quando nao for "hoje")
+  let filteredPromise: PromiseLike<{
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data: any[] | null;
+    count?: number | null;
+  }> | null = null;
 
   if (mode === 'data' && params.data) {
     const dayStart = `${params.data}T00:00:00.000-03:00`;
@@ -78,7 +50,7 @@ export default async function ComandasPage({ searchParams }: PageProps) {
     nextDay.setUTCDate(nextDay.getUTCDate() + 1);
     const dayEnd = `${nextDay.toISOString().slice(0, 10)}T00:00:00.000-03:00`;
 
-    const { data } = await supabase
+    filteredPromise = supabase
       .from('comandas')
       .select(closedSelect)
       .eq('barbershop_id', BARBERSHOP_ID)
@@ -87,23 +59,81 @@ export default async function ComandasPage({ searchParams }: PageProps) {
       .lt('closed_at', dayEnd)
       .order('closed_at', { ascending: false })
       .limit(100);
-    closedListRaw = data ?? [];
-    totalCount = closedListRaw.length;
   } else if (mode === 'todas') {
     const from = (page - 1) * PAGE_SIZE;
-    const { data, count } = await supabase
+    filteredPromise = supabase
       .from('comandas')
       .select(closedSelect, { count: 'exact' })
       .eq('barbershop_id', BARBERSHOP_ID)
       .eq('status', 'closed')
       .order('closed_at', { ascending: false })
       .range(from, from + PAGE_SIZE - 1);
-    closedListRaw = data ?? [];
-    totalCount = count ?? 0;
+  }
+
+  // RODADA 1: tudo em paralelo (era sequencial e custava ~4s)
+  const [
+    { data: openComandasRaw },
+    { data: closedTodayRaw },
+    filteredRes,
+    { data: customers },
+    { data: staff },
+  ] = await Promise.all([
+    supabase
+      .from('comandas')
+      .select(
+        `
+      id,
+      customer_id,
+      staff_id,
+      status,
+      total,
+      subtotal,
+      opened_at,
+      customers:customers ( full_name, phone ),
+      staff:staff ( display_name )
+    `
+      )
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('status', 'open')
+      .order('opened_at', { ascending: false }),
+    supabase
+      .from('comandas')
+      .select(closedSelect)
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('status', 'closed')
+      .gte('closed_at', todayStart)
+      .order('closed_at', { ascending: false })
+      .limit(100),
+    filteredPromise ?? Promise.resolve(null),
+    supabase
+      .from('customers')
+      .select('id, full_name, phone')
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('active', true)
+      .order('full_name')
+      .limit(500),
+    supabase
+      .from('staff')
+      .select('id, display_name, role')
+      .eq('active', true)
+      .in('role', ['barber', 'owner', 'manager'])
+      .order('display_name'),
+  ]);
+
+  let closedListRaw = closedTodayRaw ?? [];
+  let totalCount = (closedTodayRaw ?? []).length;
+  let totalPages = 1;
+
+  if (mode === 'data' && filteredRes) {
+    closedListRaw = filteredRes.data ?? [];
+    totalCount = closedListRaw.length;
+  } else if (mode === 'todas' && filteredRes) {
+    closedListRaw = filteredRes.data ?? [];
+    totalCount = filteredRes.count ?? 0;
     totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   }
 
-  // Agregados (itens + forma de pagamento) das comandas visiveis
+  // RODADA 2: agregados (itens + forma de pagamento) das comandas visiveis
   const openIds = (openComandasRaw ?? []).map((c) => c.id);
   const closedIds = closedListRaw.map((c) => c.id);
   const allIds = [...openIds, ...closedIds];
@@ -155,22 +185,6 @@ export default async function ComandasPage({ searchParams }: PageProps) {
     count: (closedTodayRaw ?? []).length,
     total: (closedTodayRaw ?? []).reduce((sum, c) => sum + Number(c.total ?? 0), 0),
   };
-
-  // Dados auxiliares pra criar nova comanda
-  const { data: customers } = await supabase
-    .from('customers')
-    .select('id, full_name, phone')
-    .eq('barbershop_id', BARBERSHOP_ID)
-    .eq('active', true)
-    .order('full_name')
-    .limit(500);
-
-  const { data: staff } = await supabase
-    .from('staff')
-    .select('id, display_name, role')
-    .eq('active', true)
-    .in('role', ['barber', 'owner', 'manager'])
-    .order('display_name');
 
   return (
     <ComandasView

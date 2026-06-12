@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Loader2, Save } from 'lucide-react';
@@ -23,12 +23,19 @@ interface GoalsManagerProps {
   staff: StaffOpt[];
   currentYear: number;
   currentMonth: number;
+  initialStaffId?: string | null;
   existingGoals: ExistingGoal[];
 }
 
-export function GoalsManager({ staff, currentYear, currentMonth, existingGoals }: GoalsManagerProps) {
+export function GoalsManager({ staff, currentYear, currentMonth, initialStaffId, existingGoals }: GoalsManagerProps) {
   const router = useRouter();
-  const [staffId, setStaffId] = useState('');
+  const [staffId, setStaffId] = useState(initialStaffId ?? '');
+
+  useEffect(() => {
+    if (initialStaffId !== null && initialStaffId !== undefined) {
+      setStaffId(initialStaffId);
+    }
+  }, [initialStaffId]);
   const [revenueTarget, setRevenueTarget] = useState('');
   const [apptTarget, setApptTarget] = useState('');
   const [ticketTarget, setTicketTarget] = useState('');
@@ -45,7 +52,7 @@ export function GoalsManager({ staff, currentYear, currentMonth, existingGoals }
     try {
       const result = await upsertGoal({
         staff_id: staffId || null,
-        period_type: 'month',
+        period_type: 'monthly',
         year: currentYear,
         month: currentMonth,
         revenue_target: numericRevenue,
@@ -84,7 +91,7 @@ export function GoalsManager({ staff, currentYear, currentMonth, existingGoals }
   }
 
   return (
-    <section className="card p-6 space-y-4">
+    <section id="form-meta" className="card p-6 space-y-4 scroll-mt-24">
       <h2
         className="text-lg font-semibold text-fg"
         style={{ fontFamily: 'var(--font-playfair), serif' }}

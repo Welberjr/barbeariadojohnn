@@ -7,7 +7,7 @@ const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
 export interface GoalFormData {
   staff_id?: string | null;
-  period_type: 'month' | 'week' | 'year';
+  period_type: 'monthly' | 'weekly';
   year: number;
   month?: number | null;
   week?: number | null;
@@ -31,10 +31,10 @@ export async function upsertGoal(data: GoalFormData) {
     avg_ticket_target: data.avg_ticket_target ?? null,
   };
 
-  if (data.period_type === 'month') payload.month = data.month ?? null;
+  if (data.period_type === 'monthly') payload.month = data.month ?? null;
   else payload.month = null;
 
-  if (data.period_type === 'week') payload.week = data.week ?? null;
+  if (data.period_type === 'weekly') payload.week = data.week ?? null;
   else payload.week = null;
 
   // Upsert manual: tenta encontrar meta existente do mesmo período/staff
@@ -49,16 +49,20 @@ export async function upsertGoal(data: GoalFormData) {
   if (data.staff_id) query = query.eq('staff_id', data.staff_id);
   else query = query.is('staff_id', null);
 
-  if (data.period_type === 'month')
+  if (data.period_type === 'monthly')
     query = query.eq('month', data.month ?? 0);
-  if (data.period_type === 'week') query = query.eq('week', data.week ?? 0);
+  if (data.period_type === 'weekly') query = query.eq('week', data.week ?? 0);
 
   const { data: existing } = await query.maybeSingle();
 
   if (existing?.id) {
     const { error } = await admin
       .from('goals')
-      .update({ revenue_target: data.revenue_target })
+      .update({
+        revenue_target: data.revenue_target,
+        appointments_target: data.appointments_target ?? null,
+        avg_ticket_target: data.avg_ticket_target ?? null,
+      })
       .eq('id', existing.id);
     if (error) return { ok: false, error: error.message };
   } else {

@@ -82,6 +82,11 @@ export function ComandasView({
 }: ComandasViewProps) {
   const router = useRouter();
   const [isPending] = useTransition();
+  const [isNavPending, startNavTransition] = useTransition();
+
+  function navigate(url: string) {
+    startNavTransition(() => router.push(url));
+  }
   const [showNew, setShowNew] = useState(false);
   const [newForm, setNewForm] = useState({
     customer_id: '',
@@ -352,6 +357,7 @@ export function ComandasView({
             style={{ fontFamily: 'var(--font-playfair), serif' }}
           >
             <CheckCircle2 className="w-5 h-5 text-success" />
+            {isNavPending && <Loader2 className="w-4 h-4 animate-spin text-gold" />}
             {closedFilter.mode === 'hoje' &&
               `Fechadas hoje (${closedList.length})`}
             {closedFilter.mode === 'data' &&
@@ -363,7 +369,7 @@ export function ComandasView({
           <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
-              onClick={() => router.push('/admin/comandas')}
+              onClick={() => navigate('/admin/comandas')}
               className={cn(
                 'px-3 py-1.5 rounded-md text-xs border transition-colors',
                 closedFilter.mode === 'hoje'
@@ -375,7 +381,7 @@ export function ComandasView({
             </button>
             <button
               type="button"
-              onClick={() => router.push('/admin/comandas?periodo=todas')}
+              onClick={() => navigate('/admin/comandas?periodo=todas')}
               className={cn(
                 'px-3 py-1.5 rounded-md text-xs border transition-colors',
                 closedFilter.mode === 'todas'
@@ -394,8 +400,8 @@ export function ComandasView({
               value={closedFilter.date ?? ''}
               onChange={(e) =>
                 e.target.value
-                  ? router.push(`/admin/comandas?data=${e.target.value}`)
-                  : router.push('/admin/comandas')
+                  ? navigate(`/admin/comandas?data=${e.target.value}`)
+                  : navigate('/admin/comandas')
               }
             />
           </div>
@@ -406,7 +412,7 @@ export function ComandasView({
             Nenhuma comanda fechada neste período
           </p>
         ) : (
-          <div className="space-y-1">
+          <div className={cn('space-y-1', isNavPending && 'opacity-50 pointer-events-none')}>
             {closedList.map((c) => {
               const closedAt = new Date(c.closed_at);
               const closedTime = closedAt.toLocaleTimeString('pt-BR', {
@@ -465,7 +471,7 @@ export function ComandasView({
               type="button"
               disabled={closedFilter.page <= 1}
               onClick={() =>
-                router.push(
+                navigate(
                   `/admin/comandas?periodo=todas&pagina=${closedFilter.page - 1}`
                 )
               }
@@ -481,7 +487,7 @@ export function ComandasView({
               type="button"
               disabled={closedFilter.page >= closedFilter.totalPages}
               onClick={() =>
-                router.push(
+                navigate(
                   `/admin/comandas?periodo=todas&pagina=${closedFilter.page + 1}`
                 )
               }
