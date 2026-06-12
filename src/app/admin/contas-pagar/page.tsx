@@ -6,6 +6,8 @@ import {
   CheckCircle2,
   Clock,
   CircleDollarSign,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
@@ -42,20 +44,30 @@ interface ContasPagarPageProps {
   searchParams: Promise<{
     status?: string;
     category?: string;
+    q?: string;
+    pagina?: string;
   }>;
 }
 
 export default async function ContasPagarPage({
   searchParams,
 }: ContasPagarPageProps) {
-  const { status: statusParam, category: categoryParam } = await searchParams;
+  const {
+    status: statusParam,
+    category: categoryParam,
+    q: qParam,
+    pagina: paginaParam,
+  } = await searchParams;
+  const PAGE_SIZE = 10;
+  const page = Math.max(1, Number(paginaParam ?? '1') || 1);
   const supabase = createAdminClient();
 
   // Buscar bills
   let query = supabase
     .from('bills')
     .select(
-      'id, description, amount, due_date, paid_at, paid_amount, payment_method, category_id, supplier, status, is_recurring, recurrence_type'
+      'id, description, amount, due_date, paid_at, paid_amount, payment_method, category_id, supplier, status, is_recurring, recurrence_type',
+      { count: 'exact' }
     )
     .eq('barbershop_id', BARBERSHOP_ID);
 
@@ -67,11 +79,24 @@ export default async function ContasPagarPage({
     query = query.eq('category_id', categoryParam);
   }
 
-  const { data: billsRaw } = await query
+  if (qParam && qParam.trim()) {
+    const term = qParam.trim().replace(/[,()]/g, '');
+    if (term) {
+      query = query.or(
+        `description.ilike.%${term}%,supplier.ilike.%${term}%`
+      );
+    }
+  }
+
+  const from = (page - 1) * PAGE_SIZE;
+  const { data: billsRaw, count: billsCount } = await query
     .order('status', { ascending: true }) // pending primeiro
-    .order('due_date', { ascending: true });
+    .order('due_date', { ascending: true })
+    .range(from, from + PAGE_SIZE - 1);
 
   const bills = (billsRaw ?? []) as Bill[];
+  const totalCount = billsCount ?? bills.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   // Categorias
   const { data: categoriesRaw } = await supabase
@@ -260,6 +285,7 @@ export default async function ContasPagarPage({
       <ContasPagarFilters
         currentStatus={currentStatus}
         currentCategory={currentCategory}
+        currentQuery={qParam ?? ''}
         categories={categories}
       />
 
@@ -405,6 +431,39 @@ export default async function ContasPagarPage({
               </tbody>
             </table>
           </div>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-border/60">
+              <Link
+                href={`/admin/contas-pagar?${new URLSearchParams({
+                  ...(statusParam ? { status: statusParam } : {}),
+                  ...(categoryParam ? { category: categoryParam } : {}),
+                  ...(qParam ? { q: qParam } : {}),
+                  ...(page - 1 > 1 ? { pagina: String(page - 1) } : {}),
+                }).toString()}`}
+                aria-disabled={page <= 1}
+                className={`btn-ghost text-xs flex items-center gap-1 ${page <= 1 ? 'pointer-events-none opacity-40' : ''}`}
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                Anterior
+              </Link>
+              <p className="text-xs text-fg-muted">
+                Página {page} de {totalPages} · {totalCount} contas
+              </p>
+              <Link
+                href={`/admin/contas-pagar?${new URLSearchParams({
+                  ...(statusParam ? { status: statusParam } : {}),
+                  ...(categoryParam ? { category: categoryParam } : {}),
+                  ...(qParam ? { q: qParam } : {}),
+                  pagina: String(page + 1),
+                }).toString()}`}
+                aria-disabled={page >= totalPages}
+                className={`btn-ghost text-xs flex items-center gap-1 ${page >= totalPages ? 'pointer-events-none opacity-40' : ''}`}
+              >
+                Próxima
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          )}
         </div>
       )}
 

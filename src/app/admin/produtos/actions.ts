@@ -55,6 +55,50 @@ export async function createProduct(data: ProductFormData) {
   return { ok: true };
 }
 
+export async function duplicateProductAction(productId: string) {
+  const admin = createAdminClient();
+
+  const { data: original, error: errFetch } = await admin
+    .from('products')
+    .select('*')
+    .eq('id', productId)
+    .eq('barbershop_id', BARBERSHOP_ID)
+    .single();
+
+  if (errFetch || !original) {
+    return { ok: false as const, error: errFetch?.message ?? 'Produto não encontrado' };
+  }
+
+  const { data: copy, error: errInsert } = await admin
+    .from('products')
+    .insert({
+      barbershop_id: BARBERSHOP_ID,
+      category_id: original.category_id,
+      name: `${original.name} (cópia)`,
+      brand: original.brand,
+      description: original.description,
+      sku: null,
+      barcode: null,
+      photo_url: original.photo_url,
+      cost_price: original.cost_price,
+      sale_price: original.sale_price,
+      default_commission_percent: original.default_commission_percent,
+      stock_current: 0,
+      stock_minimum: original.stock_minimum,
+      is_sellable: original.is_sellable,
+      active: original.active,
+    })
+    .select('id')
+    .single();
+
+  if (errInsert || !copy) {
+    return { ok: false as const, error: errInsert?.message ?? 'Erro ao duplicar' };
+  }
+
+  revalidatePath('/admin/produtos');
+  return { ok: true as const, id: copy.id as string };
+}
+
 export async function updateProduct(productId: string, data: ProductFormData) {
   const admin = createAdminClient();
 

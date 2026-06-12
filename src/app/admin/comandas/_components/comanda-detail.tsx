@@ -529,7 +529,7 @@ export function ComandaDetail({
                     'flex items-start gap-2.5 p-2.5 rounded-md border cursor-pointer transition-colors',
                     serviceForm.use_subscription
                       ? 'border-gold/50 bg-gold/10'
-                      : 'border-border bg-bg-elevated hover:border-gold/30',
+                      : 'border-gold/50 bg-gold/5 hover:border-gold shadow-[0_0_12px_rgba(212,160,79,0.15)]',
                     (subscription.usesLeft <= 0 || subscription.isExpired) &&
                       'opacity-50 cursor-not-allowed'
                   )}

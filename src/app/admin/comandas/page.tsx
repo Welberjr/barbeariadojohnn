@@ -2,13 +2,24 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { ComandasView } from './_components/comandas-view';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
+const PAGE_SIZE = 10;
 
 export const metadata = {
   title: 'Comandas',
 };
 
-export default async function ComandasPage() {
+interface PageProps {
+  searchParams: Promise<{ periodo?: string; data?: string; pagina?: string }>;
+}
+
+export default async function ComandasPage({ searchParams }: PageProps) {
+  const params = await searchParams;
   const supabase = createAdminClient();
+
+  // Filtro das fechadas: hoje (padrao) | todas | data especifica
+  const mode: 'hoje' | 'todas' | 'data' =
+    params.data ? 'data' : params.periodo === 'todas' ? 'todas' : 'hoje';
+  const page = Math.max(1, Number(params.pagina ?? '1') || 1);
 
   // Comandas abertas
   const { data: openComandasRaw } = await supabase
@@ -30,14 +41,7 @@ export default async function ComandasPage() {
     .eq('status', 'open')
     .order('opened_at', { ascending: false });
 
-  // Comandas fechadas hoje
-  const today = new Date().toISOString().split('T')[0];
-  const todayStart = `${today}T00:00:00.000-03:00`;
-
-  const { data: closedTodayRaw } = await supabase
-    .from('comandas')
-    .select(
-      `
+  const closedSelect = `
       id,
       customer_id,
       staff_id,
@@ -46,20 +50,64 @@ export default async function ComandasPage() {
       closed_at,
       customers:customers ( full_name ),
       staff:staff ( display_name )
-    `
-    )
+    `;
+
+  // Hoje (sempre buscado: alimenta os cards de estatistica)
+  const today = new Date().toLocaleDateString('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+  });
+  const todayStart = `${today}T00:00:00.000-03:00`;
+
+  const { data: closedTodayRaw } = await supabase
+    .from('comandas')
+    .select(closedSelect)
     .eq('barbershop_id', BARBERSHOP_ID)
     .eq('status', 'closed')
     .gte('closed_at', todayStart)
     .order('closed_at', { ascending: false })
-    .limit(50);
+    .limit(100);
 
-  // Para cada comanda, agregar items (services/products totals) e payment_method
+  // Lista filtrada exibida na secao "Fechadas"
+  let closedListRaw = closedTodayRaw ?? [];
+  let totalCount = (closedTodayRaw ?? []).length;
+  let totalPages = 1;
+
+  if (mode === 'data' && params.data) {
+    const dayStart = `${params.data}T00:00:00.000-03:00`;
+    const nextDay = new Date(`${params.data}T12:00:00Z`);
+    nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+    const dayEnd = `${nextDay.toISOString().slice(0, 10)}T00:00:00.000-03:00`;
+
+    const { data } = await supabase
+      .from('comandas')
+      .select(closedSelect)
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('status', 'closed')
+      .gte('closed_at', dayStart)
+      .lt('closed_at', dayEnd)
+      .order('closed_at', { ascending: false })
+      .limit(100);
+    closedListRaw = data ?? [];
+    totalCount = closedListRaw.length;
+  } else if (mode === 'todas') {
+    const from = (page - 1) * PAGE_SIZE;
+    const { data, count } = await supabase
+      .from('comandas')
+      .select(closedSelect, { count: 'exact' })
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('status', 'closed')
+      .order('closed_at', { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+    closedListRaw = data ?? [];
+    totalCount = count ?? 0;
+    totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  }
+
+  // Agregados (itens + forma de pagamento) das comandas visiveis
   const openIds = (openComandasRaw ?? []).map((c) => c.id);
-  const closedIds = (closedTodayRaw ?? []).map((c) => c.id);
+  const closedIds = closedListRaw.map((c) => c.id);
   const allIds = [...openIds, ...closedIds];
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const itemsByComanda: Record<string, { service_total: number; product_total: number }> = {};
   const paymentByComanda: Record<string, string> = {};
 
@@ -87,12 +135,10 @@ export default async function ComandasPage() {
 
     for (const pay of paymentsAgg ?? []) {
       const cid = pay.comanda_id as string;
-      // pega primeiro pagamento (se houver vários, prevalece o primeiro encontrado)
       if (!paymentByComanda[cid]) paymentByComanda[cid] = pay.method as string;
     }
   }
 
-  // Anexa nas comandas
   const openComandas = (openComandasRaw ?? []).map((c) => ({
     ...c,
     service_total: itemsByComanda[c.id]?.service_total ?? 0,
@@ -100,10 +146,15 @@ export default async function ComandasPage() {
     payment_method: paymentByComanda[c.id] ?? null,
   }));
 
-  const closedToday = (closedTodayRaw ?? []).map((c) => ({
+  const closedList = closedListRaw.map((c) => ({
     ...c,
     payment_method: paymentByComanda[c.id] ?? null,
   }));
+
+  const statsToday = {
+    count: (closedTodayRaw ?? []).length,
+    total: (closedTodayRaw ?? []).reduce((sum, c) => sum + Number(c.total ?? 0), 0),
+  };
 
   // Dados auxiliares pra criar nova comanda
   const { data: customers } = await supabase
@@ -126,7 +177,15 @@ export default async function ComandasPage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       openComandas={openComandas as any}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      closedToday={closedToday as any}
+      closedList={closedList as any}
+      statsToday={statsToday}
+      closedFilter={{
+        mode,
+        date: params.data ?? null,
+        page,
+        totalPages,
+        totalCount,
+      }}
       customers={customers ?? []}
       staff={staff ?? []}
     />

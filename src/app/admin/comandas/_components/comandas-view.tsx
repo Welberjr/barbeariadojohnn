@@ -13,6 +13,8 @@ import {
   X,
   ArrowRight,
   Clock,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, formatCurrency, formatPhone } from '@/lib/utils';
@@ -53,16 +55,28 @@ interface ClosedComanda {
   staff: { display_name: string } | null;
 }
 
+interface ClosedFilter {
+  mode: 'hoje' | 'todas' | 'data';
+  date: string | null;
+  page: number;
+  totalPages: number;
+  totalCount: number;
+}
+
 interface ComandasViewProps {
   openComandas: OpenComanda[];
-  closedToday: ClosedComanda[];
+  closedList: ClosedComanda[];
+  statsToday: { count: number; total: number };
+  closedFilter: ClosedFilter;
   customers: Customer[];
   staff: Staff[];
 }
 
 export function ComandasView({
   openComandas,
-  closedToday,
+  closedList,
+  statsToday,
+  closedFilter,
   customers,
   staff,
 }: ComandasViewProps) {
@@ -97,7 +111,6 @@ export function ComandasView({
   }
 
   // Estatísticas do dia
-  const totalToday = closedToday.reduce((sum, c) => sum + Number(c.total), 0);
   const totalOpen = openComandas.reduce((sum, c) => sum + Number(c.total), 0);
   const STALE_MIN = 240; // 4 horas
   const staleCount = openComandas.filter(
@@ -187,7 +200,7 @@ export function ComandasView({
             className="text-2xl font-bold text-success"
             style={{ fontFamily: 'var(--font-playfair), serif' }}
           >
-            {closedToday.length}
+            {statsToday.count}
           </p>
         </div>
         <div className="card-premium p-4">
@@ -201,7 +214,7 @@ export function ComandasView({
             className="text-2xl font-bold text-gold"
             style={{ fontFamily: 'var(--font-playfair), serif' }}
           >
-            {formatCurrency(totalToday)}
+            {formatCurrency(statsToday.total)}
           </p>
         </div>
       </div>
@@ -331,35 +344,93 @@ export function ComandasView({
         )}
       </section>
 
-      {/* FECHADAS HOJE */}
-      {closedToday.length > 0 && (
-        <section className="card p-6">
+      {/* FECHADAS */}
+      <section className="card p-6">
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
           <h2
-            className="text-lg font-semibold text-fg mb-4 flex items-center gap-2"
+            className="text-lg font-semibold text-fg flex items-center gap-2"
             style={{ fontFamily: 'var(--font-playfair), serif' }}
           >
             <CheckCircle2 className="w-5 h-5 text-success" />
-            Fechadas hoje ({closedToday.length})
+            {closedFilter.mode === 'hoje' &&
+              `Fechadas hoje (${closedList.length})`}
+            {closedFilter.mode === 'data' &&
+              `Fechadas em ${(closedFilter.date ?? '').split('-').reverse().join('/')} (${closedList.length})`}
+            {closedFilter.mode === 'todas' &&
+              `Todas as fechadas (${closedFilter.totalCount})`}
           </h2>
 
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => router.push('/admin/comandas')}
+              className={cn(
+                'px-3 py-1.5 rounded-md text-xs border transition-colors',
+                closedFilter.mode === 'hoje'
+                  ? 'border-gold bg-gold/15 text-gold font-semibold'
+                  : 'border-border text-fg-muted hover:border-gold/40'
+              )}
+            >
+              Hoje
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push('/admin/comandas?periodo=todas')}
+              className={cn(
+                'px-3 py-1.5 rounded-md text-xs border transition-colors',
+                closedFilter.mode === 'todas'
+                  ? 'border-gold bg-gold/15 text-gold font-semibold'
+                  : 'border-border text-fg-muted hover:border-gold/40'
+              )}
+            >
+              Todas
+            </button>
+            <input
+              type="date"
+              className={cn(
+                'input text-xs py-1.5 w-auto',
+                closedFilter.mode === 'data' && 'border-gold'
+              )}
+              value={closedFilter.date ?? ''}
+              onChange={(e) =>
+                e.target.value
+                  ? router.push(`/admin/comandas?data=${e.target.value}`)
+                  : router.push('/admin/comandas')
+              }
+            />
+          </div>
+        </div>
+
+        {closedList.length === 0 ? (
+          <p className="text-center text-fg-subtle text-sm py-8">
+            Nenhuma comanda fechada neste período
+          </p>
+        ) : (
           <div className="space-y-1">
-            {closedToday.map((c) => {
+            {closedList.map((c) => {
               const closedAt = new Date(c.closed_at);
               const closedTime = closedAt.toLocaleTimeString('pt-BR', {
                 hour: '2-digit',
                 minute: '2-digit',
               });
+              const closedDate = closedAt.toLocaleDateString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+              });
               const paymentLabels: Record<string, string> = {
                 cash: 'Dinheiro',
                 pix: 'PIX',
-                credit_card: 'Crédito',
-                debit_card: 'Débito',
+                debit: 'Débito',
+                credit: 'Crédito',
+                credit_parcel: 'Crédito parcelado',
+                mixed: 'Misto',
               };
 
               return (
-                <div
+                <Link
                   key={c.id}
-                  className="flex items-center gap-3 p-3 rounded-md border border-border/40 hover:bg-bg-elevated transition-colors"
+                  href={`/admin/comandas/${c.id}`}
+                  className="flex items-center gap-3 p-3 rounded-md border border-border/40 hover:bg-bg-elevated hover:border-gold/40 transition-colors group"
                 >
                   <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0" />
                   <div className="flex-1 min-w-0">
@@ -367,9 +438,12 @@ export function ComandasView({
                       {c.customers?.full_name ?? 'Cliente'}
                     </p>
                     <p className="text-[11px] text-fg-muted">
-                      {c.staff?.display_name ?? '-'} · {closedTime}
+                      {c.staff?.display_name ?? '-'} ·{' '}
+                      {closedFilter.mode === 'hoje'
+                        ? closedTime
+                        : `${closedDate} ${closedTime}`}
                       {c.payment_method && (
-                        <span className="ml-2 text-fg-dim">
+                        <span className="ml-2 text-fg-subtle">
                           · {paymentLabels[c.payment_method] ?? c.payment_method}
                         </span>
                       )}
@@ -378,13 +452,47 @@ export function ComandasView({
                   <p className="text-sm font-bold text-gold flex-shrink-0">
                     {formatCurrency(Number(c.total))}
                   </p>
-                </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-gold opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                </Link>
               );
             })}
           </div>
-        </section>
-      )}
+        )}
 
+        {closedFilter.mode === 'todas' && closedFilter.totalPages > 1 && (
+          <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/40">
+            <button
+              type="button"
+              disabled={closedFilter.page <= 1}
+              onClick={() =>
+                router.push(
+                  `/admin/comandas?periodo=todas&pagina=${closedFilter.page - 1}`
+                )
+              }
+              className="btn-ghost text-xs flex items-center gap-1 disabled:opacity-40"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+              Anterior
+            </button>
+            <p className="text-xs text-fg-muted">
+              Página {closedFilter.page} de {closedFilter.totalPages}
+            </p>
+            <button
+              type="button"
+              disabled={closedFilter.page >= closedFilter.totalPages}
+              onClick={() =>
+                router.push(
+                  `/admin/comandas?periodo=todas&pagina=${closedFilter.page + 1}`
+                )
+              }
+              className="btn-ghost text-xs flex items-center gap-1 disabled:opacity-40"
+            >
+              Próxima
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+      </section>
       {/* DRAWER NOVA COMANDA */}
       {showNew && (
         <>

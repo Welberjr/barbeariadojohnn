@@ -33,7 +33,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
       { count: 'exact' }
     )
     .eq('barbershop_id', BARBERSHOP_ID)
-    .order('created_at', { ascending: false });
+    .order('full_name', { ascending: true });
 
   if (q && q.trim()) {
     // Remove caracteres que quebram a sintaxe do filtro .or() do PostgREST

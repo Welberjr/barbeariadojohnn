@@ -25,20 +25,32 @@ export function RevenueChart({ data, title }: RevenueChartProps) {
   const GROUP_W = BAR_W * 2 + GAP + 8;
   const H = 180;
   const PAD_TOP = 16;
-  const PAD_BOTTOM = 28;
+  const PAD_BOTTOM = 22;
   const PAD_LEFT = 40;
   const PAD_RIGHT = 16;
   const innerH = H - PAD_TOP - PAD_BOTTOM;
   const W = PAD_LEFT + data.length * GROUP_W + PAD_RIGHT;
 
   return (
-    <div className="card p-5 space-y-2">
-      <p
-        className="text-sm font-semibold text-fg"
-        style={{ fontFamily: 'var(--font-playfair), serif' }}
-      >
-        {title}
-      </p>
+    <div className="card p-5 space-y-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <p
+          className="text-sm font-semibold text-fg"
+          style={{ fontFamily: 'var(--font-playfair), serif' }}
+        >
+          {title}
+        </p>
+        <div className="flex items-center gap-4">
+          <span className="flex items-center gap-1.5 text-xs text-fg-muted">
+            <span className="w-2.5 h-2.5 rounded-sm bg-[#22c55e] inline-block" />
+            Receitas
+          </span>
+          <span className="flex items-center gap-1.5 text-xs text-fg-muted">
+            <span className="w-2.5 h-2.5 rounded-sm bg-[#ef4444] inline-block" />
+            Despesas
+          </span>
+        </div>
+      </div>
       <div className="overflow-x-auto">
         <svg
           viewBox={`0 0 ${W} ${H}`}
@@ -54,11 +66,11 @@ export function RevenueChart({ data, title }: RevenueChartProps) {
                   y1={y}
                   x2={W - PAD_RIGHT}
                   y2={y}
-                  stroke="#333"
+                  stroke="#3A3A3A"
                   strokeWidth="0.5"
                   strokeDasharray="3 3"
                 />
-                <text x={PAD_LEFT - 5} y={y + 3} textAnchor="end" fontSize="8" fill="#555">
+                <text x={PAD_LEFT - 5} y={y + 3} textAnchor="end" fontSize="9" fill="#A8A8A8">
                   {formatK(maxVal * ratio)}
                 </text>
               </g>
@@ -98,24 +110,16 @@ export function RevenueChart({ data, title }: RevenueChartProps) {
                 {/* Label X */}
                 <text
                   x={x + BAR_W}
-                  y={H - 10}
+                  y={H - 6}
                   textAnchor="middle"
-                  fontSize="7"
-                  fill="#555"
+                  fontSize="8.5"
+                  fill="#A8A8A8"
                 >
                   {d.date}
                 </text>
               </g>
             );
           })}
-
-          {/* Legenda */}
-          <g transform={`translate(${PAD_LEFT}, ${H - 6})`}>
-            <rect x="0" y="-5" width="8" height="8" fill="#22c55e" rx="1" />
-            <text x="11" y="2" fontSize="8" fill="#888">Receitas</text>
-            <rect x="70" y="-5" width="8" height="8" fill="#ef4444" rx="1" />
-            <text x="81" y="2" fontSize="8" fill="#888">Despesas</text>
-          </g>
         </svg>
       </div>
     </div>

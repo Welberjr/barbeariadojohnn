@@ -295,3 +295,35 @@
 .animate-fade-in {
   animation: fade-in 200ms ease-out forwards;
 }
+
+/* ===== Impressao / PDF (DRE e relatorios) ===== */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 0 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-area,
+  .print-area * {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border-color: #c8c8c8 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  @page {
+    margin: 14mm;
+  }
+}

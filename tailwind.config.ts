@@ -58,9 +58,9 @@ const config: Config = {
         info: '#3B82F6',
         fg: {
           DEFAULT: '#FAFAFA',
-          muted: '#A1A1A1',
-          subtle: '#6B6B6B',
-          dim: '#404040',
+          muted: '#C6C6C6',
+          subtle: '#9C9C9C',
+          dim: '#707070',
         },
       },
       fontFamily: {

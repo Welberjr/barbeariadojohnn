@@ -15,6 +15,8 @@ import {
   Star,
   ChevronLeft,
   ChevronRight,
+  LayoutGrid,
+  List,
 } from 'lucide-react';
 import { cn, formatCurrency, formatPhone } from '@/lib/utils';
 
@@ -84,6 +86,7 @@ export function CustomersList({
 
   // A URL e a unica fonte da verdade dos filtros (evita estado dessincronizado)
   const activeTier = searchParams.get('tier') ?? initialTier ?? 'all';
+  const view = searchParams.get('view') === 'lista' ? 'lista' : 'cards';
   const urlQuery = searchParams.get('q') ?? initialQuery ?? '';
 
   const replaceWithParams = useCallback(
@@ -127,6 +130,13 @@ export function CustomersList({
       if (v === 'all') params.delete('tier');
       else params.set('tier', v);
       params.delete('page');
+    });
+  }
+
+  function selectView(v: 'cards' | 'lista') {
+    replaceWithParams((params) => {
+      if (v === 'lista') params.set('view', 'lista');
+      else params.delete('view');
     });
   }
 
@@ -178,6 +188,35 @@ export function CustomersList({
             </button>
           ))}
         </div>
+
+        <div className="flex gap-1 sm:ml-auto">
+          <button
+            type="button"
+            onClick={() => selectView('cards')}
+            title="Visualizar em cards"
+            className={cn(
+              'p-2 rounded-md border transition-colors',
+              view === 'cards'
+                ? 'border-gold bg-gold/15 text-gold'
+                : 'border-border text-fg-muted hover:text-fg'
+            )}
+          >
+            <LayoutGrid className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => selectView('lista')}
+            title="Visualizar em lista"
+            className={cn(
+              'p-2 rounded-md border transition-colors',
+              view === 'lista'
+                ? 'border-gold bg-gold/15 text-gold'
+                : 'border-border text-fg-muted hover:text-fg'
+            )}
+          >
+            <List className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* RESULTADOS */}
@@ -212,6 +251,86 @@ export function CustomersList({
           >
             Limpar filtros
           </button>
+        </div>
+      ) : view === 'lista' ? (
+        <div className="card divide-y divide-border/40">
+          {customers.map((c) => {
+            const tierData = tierConfig[c.tier] ?? tierFallback;
+            const TierIcon = tierData.icon;
+            const initials =
+              (c.full_name ?? '')
+                .trim()
+                .split(/\s+/)
+                .map((n) => n[0] ?? '')
+                .join('')
+                .slice(0, 2)
+                .toUpperCase() || '?';
+
+            return (
+              <Link
+                key={c.id}
+                href={`/admin/clientes/${c.id}`}
+                className={cn(
+                  'flex items-center gap-3 px-4 py-2.5 hover:bg-bg-elevated transition-colors',
+                  !c.active && 'opacity-50'
+                )}
+              >
+                {c.photo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={c.photo_url}
+                    alt={c.full_name ?? 'Cliente'}
+                    className="w-9 h-9 rounded-full object-cover border border-gold/30 flex-shrink-0"
+                  />
+                ) : (
+                  <div
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-bg flex-shrink-0"
+                    style={{
+                      background: 'linear-gradient(135deg, #D4A04F 0%, #F5C518 100%)',
+                    }}
+                  >
+                    {initials}
+                  </div>
+                )}
+
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-fg truncate">
+                    {c.full_name ?? 'Sem nome'}
+                  </p>
+                  <p className="text-[11px] text-fg-muted truncate">
+                    {c.phone ? formatPhone(c.phone) : 'Sem telefone'}
+                    {c.last_visit_at &&
+                      ` · última visita ${new Date(c.last_visit_at).toLocaleDateString('pt-BR')}`}
+                  </p>
+                </div>
+
+                <span
+                  className={cn(
+                    'hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-medium border tracking-wider uppercase flex-shrink-0',
+                    tierData.color
+                  )}
+                >
+                  <TierIcon className="w-2.5 h-2.5" />
+                  {tierData.label}
+                </span>
+
+                <div className="text-right hidden md:block w-14 flex-shrink-0">
+                  <p className="text-[8px] uppercase tracking-wider text-fg-dim">Visitas</p>
+                  <p className="text-sm font-bold text-fg">{c.total_appointments}</p>
+                </div>
+                <div className="text-right w-24 flex-shrink-0">
+                  <p className="text-[8px] uppercase tracking-wider text-fg-dim">Total</p>
+                  <p className="text-sm font-bold text-gold">
+                    {formatCurrency(Number(c.total_spent))}
+                  </p>
+                </div>
+                <div className="text-right hidden md:block w-14 flex-shrink-0">
+                  <p className="text-[8px] uppercase tracking-wider text-fg-dim">Pontos</p>
+                  <p className="text-sm font-bold text-fg">{c.loyalty_points}</p>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

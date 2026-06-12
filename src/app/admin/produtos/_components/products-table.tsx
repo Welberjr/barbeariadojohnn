@@ -16,7 +16,7 @@ import {
   Check,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
-import { registerSale, deactivateProductAction } from '../actions';
+import { registerSale, deactivateProductAction, duplicateProductAction } from '../actions';
 
 interface Product {
   id: string;
@@ -44,6 +44,20 @@ export function ProductsTable({ products, categories }: ProductsTableProps) {
   const [statusFilter, setStatusFilter] = useState('all');
 
   // Modal registrar venda
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+
+  async function handleDuplicate(p: Product) {
+    setDuplicatingId(p.id);
+    const result = await duplicateProductAction(p.id);
+    setDuplicatingId(null);
+    if (result.ok && result.id) {
+      toast.success('Produto duplicado! Ajuste os dados da cópia.');
+      router.push(`/admin/produtos/${result.id}`);
+    } else {
+      toast.error(result.error ?? 'Erro ao duplicar');
+    }
+  }
+
   const [saleModal, setSaleModal] = useState<Product | null>(null);
   const [saleQty, setSaleQty] = useState(1);
   const [savingSale, setSavingSale] = useState(false);
@@ -195,10 +209,16 @@ export function ProductsTable({ products, categories }: ProductsTableProps) {
                   </button>
                   <button
                     type="button"
-                    title="Duplicar (em breve)"
-                    className="p-1.5 rounded-md text-fg-subtle hover:text-info hover:bg-info/10 transition-colors"
+                    title="Duplicar produto"
+                    disabled={duplicatingId === p.id}
+                    onClick={() => handleDuplicate(p)}
+                    className="p-1.5 rounded-md text-fg-subtle hover:text-info hover:bg-info/10 transition-colors disabled:opacity-40"
                   >
-                    <Copy className="w-3.5 h-3.5" />
+                    {duplicatingId === p.id ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
                   </button>
                   <Link
                     href={`/admin/produtos/${p.id}`}

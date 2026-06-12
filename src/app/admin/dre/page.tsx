@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
+import { DrePdfButton } from './_components/dre-pdf-button';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -209,7 +210,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
     receitaBrutaTotal > 0 ? (lucroLiquido / receitaBrutaTotal) * 100 : 0;
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in print-area">
       {/* HEADER */}
       <div className="flex items-end justify-between flex-wrap gap-4">
         <div>
@@ -227,7 +228,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
           </p>
         </div>
 
-        <form className="flex items-end gap-2" method="get">
+        <form className="flex items-end gap-2 no-print" method="get">
           <div>
             <label className="label text-[10px]">De</label>
             <input
@@ -249,6 +250,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
           <button type="submit" className="btn-secondary py-2 text-sm">
             Aplicar
           </button>
+          <DrePdfButton />
         </form>
       </div>
 
