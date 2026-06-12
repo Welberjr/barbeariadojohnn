@@ -547,8 +547,10 @@ export function AgendaView({
                             type="button"
                             onClick={() => setOpenApt(apt)}
                             className={cn(
-                              'absolute inset-x-1 rounded-md p-2 text-left overflow-hidden hover:scale-[1.02] hover:shadow-lg transition-all border-l-2 z-20 cursor-pointer'
+                              'absolute inset-x-1 rounded-md text-left overflow-hidden hover:scale-[1.02] hover:shadow-lg transition-all border-l-2 z-20 cursor-pointer',
+                              pos.height < 40 ? 'px-2 py-0.5' : pos.height < 56 ? 'px-2 py-1' : 'px-2 py-1.5'
                             )}
+                            title={(apt.customers?.full_name ?? 'Cliente') + (apt.services?.name ? ' - ' + apt.services.name : '')}
                             style={{
                               top: `${pos.top}px`,
                               height: `${pos.height - 2}px`,
@@ -556,22 +558,25 @@ export function AgendaView({
                               borderLeftColor: color.border,
                             }}
                           >
-                            <div className="text-[10px] font-mono opacity-70 mb-0.5" style={{ color: color.text }}>
-                              {startTime} – {endTime}
-                            </div>
-                            <p
-                              className="text-xs font-semibold truncate"
-                              style={{ color: color.text }}
-                            >
-                              {apt.customers?.full_name ?? 'Cliente'}
-                            </p>
-                            {pos.height > 50 && apt.services?.name && (
-                              <p
-                                className="text-[10px] opacity-80 truncate mt-0.5"
-                                style={{ color: color.text }}
-                              >
-                                {apt.services.name}
+                            {pos.height < 40 ? (
+                              <p className="text-[11px] font-semibold truncate leading-tight" style={{ color: color.text }}>
+                                <span className="font-mono font-normal opacity-70">{startTime}</span>{' '}
+                                {apt.customers?.full_name ?? 'Cliente'}
                               </p>
+                            ) : (
+                              <>
+                                <div className="text-[10px] font-mono opacity-70 mb-0.5 leading-tight" style={{ color: color.text }}>
+                                  {startTime} – {endTime}
+                                </div>
+                                <p className="text-xs font-semibold truncate leading-tight" style={{ color: color.text }}>
+                                  {apt.customers?.full_name ?? 'Cliente'}
+                                </p>
+                                {pos.height >= 60 && apt.services?.name && (
+                                  <p className="text-[10px] opacity-80 truncate mt-0.5 leading-tight" style={{ color: color.text }}>
+                                    {apt.services.name}
+                                  </p>
+                                )}
+                              </>
                             )}
                           </button>
                         );
