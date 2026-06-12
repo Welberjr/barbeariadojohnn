@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
+import { InfoTip } from '@/components/info-tip';
 import { ProductsTable } from './_components/products-table';
 import { PeriodSelector } from './_components/period-selector';
 import { QuickSellButton } from './_components/quick-sell-button';
@@ -146,21 +147,21 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="card p-5">
-          <p className="text-[10px] tracking-widest uppercase text-fg-muted mb-2">Produtos ativos</p>
+          <p className="text-[10px] tracking-widest uppercase text-fg-muted mb-2 flex items-center gap-1">Produtos ativos <InfoTip text="Quantos produtos estão disponíveis para venda hoje. Produtos desativados não contam." /></p>
           <p className="text-3xl font-bold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>
             {totalAtivos}
           </p>
           <p className="text-[10px] text-fg-subtle mt-1">{products.length} cadastrados no total</p>
         </div>
         <div className="card p-5">
-          <p className="text-[10px] tracking-widest uppercase text-fg-muted mb-2">Valor em estoque</p>
+          <p className="text-[10px] tracking-widest uppercase text-fg-muted mb-2 flex items-center gap-1">Valor em estoque <InfoTip text="Quanto custou o estoque parado na prateleira (quantidade vezes preço de custo). Dinheiro investido que ainda não virou venda." /></p>
           <p className="text-2xl font-bold text-gold" style={{ fontFamily: 'var(--font-playfair), serif' }}>
             {formatCurrency(valorEstoque)}
           </p>
           <p className="text-[10px] text-fg-subtle mt-1">Soma preço de venda × estoque (ativos)</p>
         </div>
         <div className="card p-5">
-          <p className="text-[10px] tracking-widest uppercase text-fg-muted mb-2">Estoque baixo</p>
+          <p className="text-[10px] tracking-widest uppercase text-fg-muted mb-2 flex items-center gap-1">Estoque baixo <InfoTip text="Produtos na quantidade mínima ou abaixo dela. Hora de repor antes de perder venda no balcão." /></p>
           <p
             className={`text-3xl font-bold ${estoqueBaixo > 0 ? 'text-danger' : 'text-fg'}`}
             style={{ fontFamily: 'var(--font-playfair), serif' }}
@@ -172,14 +173,14 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
           </p>
         </div>
         <div className="card p-5">
-          <p className="text-[10px] tracking-widest uppercase text-fg-muted mb-2">Vendas {monthLabel}</p>
+          <p className="text-[10px] tracking-widest uppercase text-fg-muted mb-2 flex items-center gap-1">Vendas {monthLabel} <InfoTip text="Receita de produtos vendidos no mês selecionado, somando vendas em comanda e avulsas." /></p>
           <p className="text-2xl font-bold text-info" style={{ fontFamily: 'var(--font-playfair), serif' }}>
             {formatCurrency(vendasMes)}
           </p>
           <p className="text-[10px] text-fg-subtle mt-1">Faturamento em produtos</p>
         </div>
         <div className="card p-5">
-          <p className="text-[10px] tracking-widest uppercase text-fg-muted mb-2">Lucro {monthLabel}</p>
+          <p className="text-[10px] tracking-widest uppercase text-fg-muted mb-2 flex items-center gap-1">Lucro {monthLabel} <InfoTip text="Receita de produtos menos o custo deles no mês. É a margem real do seu balcão." /></p>
           <p className="text-2xl font-bold text-success" style={{ fontFamily: 'var(--font-playfair), serif' }}>
             {formatCurrency(lucroMes)}
           </p>

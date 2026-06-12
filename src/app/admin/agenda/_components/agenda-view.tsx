@@ -10,6 +10,7 @@ import {
   CalendarOff,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { InfoTip } from '@/components/info-tip';
 import { AppointmentDrawer } from './appointment-drawer';
 import { NewAppointmentDrawer } from './new-appointment-drawer';
 
@@ -324,8 +325,9 @@ export function AgendaView({
       {/* ============= STATS RAPIDAS ============= */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <div className="card-premium p-4">
-          <p className="text-[10px] text-fg-dim tracking-widest uppercase">
+          <p className="text-[10px] text-fg-dim tracking-widest uppercase flex items-center gap-1">
             Total do dia
+            <InfoTip text="Todos os agendamentos do dia selecionado, em qualquer status, incluindo cancelados e não comparecimentos." />
           </p>
           <p
             className="text-2xl font-bold text-fg mt-1"
@@ -335,8 +337,9 @@ export function AgendaView({
           </p>
         </div>
         <div className="card-premium p-4">
-          <p className="text-[10px] text-fg-dim tracking-widest uppercase">
+          <p className="text-[10px] text-fg-dim tracking-widest uppercase flex items-center gap-1">
             Confirmados
+            <InfoTip text="Agendamentos confirmados ou já em atendimento. Os dourados da grade ainda aguardam confirmação." />
           </p>
           <p
             className="text-2xl font-bold text-success mt-1"
@@ -346,8 +349,9 @@ export function AgendaView({
           </p>
         </div>
         <div className="card-premium p-4">
-          <p className="text-[10px] text-fg-dim tracking-widest uppercase">
+          <p className="text-[10px] text-fg-dim tracking-widest uppercase flex items-center gap-1">
             Concluídos
+            <InfoTip text="Atendimentos do dia que já foram finalizados." />
           </p>
           <p
             className="text-2xl font-bold text-gold mt-1"

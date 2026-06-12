@@ -3,6 +3,7 @@ import { Plus, Users, Crown, TrendingUp, Heart, Trophy } from 'lucide-react';
 import Link from 'next/link';
 import { CustomersList } from './_components/customers-list';
 import { formatCurrency } from '@/lib/utils';
+import { InfoTip } from '@/components/info-tip';
 
 export const metadata = {
   title: 'Clientes',
@@ -124,7 +125,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
             <div className="p-2 rounded-md bg-gold/10 text-gold">
               <Users className="w-4 h-4" />
             </div>
-            <p className="text-[10px] tracking-widest uppercase text-fg-muted">Total clientes</p>
+            <p className="text-[10px] tracking-widest uppercase text-fg-muted flex items-center gap-1">Total clientes <InfoTip text="Clientes ativos no cadastro. Quem foi desativado sai desta conta." /></p>
           </div>
           <p className="text-3xl font-bold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>{totalAll ?? 0}</p>
           <p className="text-[10px] text-fg-subtle mt-1">{vips ?? 0} VIPs · {news ?? 0} Novos</p>
@@ -135,7 +136,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
             <div className="p-2 rounded-md bg-gold/10 text-gold">
               <Crown className="w-4 h-4" />
             </div>
-            <p className="text-[10px] tracking-widest uppercase text-fg-muted">Cliente VIP</p>
+            <p className="text-[10px] tracking-widest uppercase text-fg-muted flex items-center gap-1">Cliente VIP <InfoTip text="O cliente que mais gastou na barbearia desde o início. Trate bem, ele paga muitas contas." /></p>
           </div>
           {topVip ? (
             <>
@@ -152,7 +153,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
             <div className="p-2 rounded-md bg-info/10 text-info">
               <TrendingUp className="w-4 h-4" />
             </div>
-            <p className="text-[10px] tracking-widest uppercase text-fg-muted">Ticket médio</p>
+            <p className="text-[10px] tracking-widest uppercase text-fg-muted flex items-center gap-1">Ticket médio <InfoTip text="Gasto médio por visita considerando todos os clientes. Bom termômetro de quanto cada cadeira rende." /></p>
           </div>
           <p className="text-2xl font-bold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>{formatCurrency(globalTicket)}</p>
           <p className="text-[10px] text-fg-subtle mt-1">Média por atendimento</p>
@@ -163,7 +164,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
             <div className="p-2 rounded-md bg-success/10 text-success">
               <Heart className="w-4 h-4" />
             </div>
-            <p className="text-[10px] tracking-widest uppercase text-fg-muted">Recorrentes</p>
+            <p className="text-[10px] tracking-widest uppercase text-fg-muted flex items-center gap-1">Recorrentes <InfoTip text="Clientes com mais de uma visita. Recorrência alta significa clientela fiel." /></p>
           </div>
           <p className="text-3xl font-bold text-success" style={{ fontFamily: 'var(--font-playfair), serif' }}>{regulars ?? 0}</p>
         </div>

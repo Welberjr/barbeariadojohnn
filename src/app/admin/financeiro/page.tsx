@@ -13,6 +13,7 @@ import { formatCurrency } from '@/lib/utils';
 import { CommissionPayButton } from './_components/commission-pay-button';
 import { AllowancesSection } from './_components/allowances-section';
 import { PayoutHistorySection } from './_components/payout-history';
+import { InfoTip } from '@/components/info-tip';
 import { RevenueChart } from './_components/revenue-chart';
 import { FinanceiroButtons } from './_components/financeiro-buttons';
 
@@ -299,18 +300,21 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
-          { label: 'Receita real', value: formatCurrency(receitaAtualPeriodo), sub: receitaSubLabel, icon: CircleDollarSign, cls: 'text-gold' },
-          { label: 'Despesas', value: formatCurrency(totalDespesas), sub: 'Total no período', icon: Receipt, cls: 'text-danger' },
-          { label: 'Comissões reais', value: formatCurrency(totalComissoes), sub: 'Total no período', icon: Users, cls: 'text-fg' },
-          { label: 'Ticket médio', value: formatCurrency(ticketMedio), sub: `${clientesUnicos} clientes únicos`, icon: TrendingUp, cls: 'text-fg' },
-          { label: 'Lucro líquido', value: formatCurrency(faturamentoBruto + totalReceitasExtras + totalVendasAvulsas - totalComissoes - totalDespesas), sub: 'Receitas − Comissões − Despesas', icon: Wallet, cls: 'text-success' },
+          { label: 'Receita real', value: formatCurrency(receitaAtualPeriodo), sub: receitaSubLabel, icon: CircleDollarSign, cls: 'text-gold', tip: 'Tudo o que realmente entrou no período: comandas fechadas, vendas avulsas de produtos e receitas extras.' },
+          { label: 'Despesas', value: formatCurrency(totalDespesas), sub: 'Total no período', icon: Receipt, cls: 'text-danger', tip: 'Saídas de dinheiro do período: contas pagas, despesas manuais e custos lançados no sistema.' },
+          { label: 'Comissões reais', value: formatCurrency(totalComissoes), sub: 'Total no período', icon: Users, cls: 'text-fg', tip: 'Quanto a equipe gerou de comissão sobre os serviços do período, conforme o percentual de cada serviço.' },
+          { label: 'Ticket médio', value: formatCurrency(ticketMedio), sub: `${clientesUnicos} clientes únicos`, icon: TrendingUp, cls: 'text-fg', tip: 'Valor médio gasto por comanda fechada no período. Quanto maior, mais cada cliente deixa por visita.' },
+          { label: 'Lucro líquido', value: formatCurrency(faturamentoBruto + totalReceitasExtras + totalVendasAvulsas - totalComissoes - totalDespesas), sub: 'Receitas − Comissões − Despesas', icon: Wallet, cls: 'text-success', tip: 'O que sobra no período depois de pagar comissões e despesas. É o resultado simplificado; o DRE detalha tudo.' },
         ].map((k) => {
           const Icon = k.icon;
           return (
             <div key={k.label} className="card p-5">
               <div className="flex items-center gap-2 mb-2">
                 <Icon className="w-4 h-4 text-gold" />
-                <p className="text-[10px] tracking-widest uppercase text-fg-muted">{k.label}</p>
+                <p className="text-[10px] tracking-widest uppercase text-fg-muted flex items-center gap-1">
+                  {k.label}
+                  {k.tip && <InfoTip text={k.tip} />}
+                </p>
               </div>
               <p className={`text-xl font-bold ${k.cls}`} style={{ fontFamily: 'var(--font-playfair), serif' }}>
                 {k.value}
@@ -332,7 +336,7 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
         <div className="flex items-center gap-2">
           <Users className="w-4 h-4 text-gold" />
           <h2 className="text-lg font-semibold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>
-            Ranking de Comissões por Profissional
+            Ranking de Comissões por Profissional <InfoTip text="Quem mais vendeu e quanto cada um tem a receber de comissão no período, já descontando vales quando houver." />
           </h2>
         </div>
 
@@ -401,7 +405,7 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
           <div className="flex items-center gap-2 mb-4">
             <Wallet className="w-4 h-4 text-gold" />
             <h2 className="text-lg font-semibold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>
-              Fluxo de Caixa
+              Fluxo de Caixa <InfoTip text="Quanto entrou por forma de pagamento (PIX, dinheiro, cartão) no período, com as taxas de cartão destacadas." />
             </h2>
           </div>
           {paymentsArray.length === 0 ? (
@@ -426,7 +430,7 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
 
         <section className="card p-6">
           <h2 className="text-lg font-semibold text-fg mb-4" style={{ fontFamily: 'var(--font-playfair), serif' }}>
-            Mix de Vendas
+            Mix de Vendas <InfoTip text="Proporção entre serviços e produtos na sua receita. Equilíbrio saudável é sinal de balcão ativo." />
           </h2>
           <div className="grid grid-cols-2 gap-4">
             <div className="p-4 rounded-md bg-bg-elevated border border-border/60">

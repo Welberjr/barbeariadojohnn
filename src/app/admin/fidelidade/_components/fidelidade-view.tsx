@@ -18,6 +18,7 @@ import {
   Users,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import { InfoTip } from '@/components/info-tip';
 
 import {
   updateLoyaltyConfig,
@@ -317,7 +318,7 @@ export function FidelidadeView({
             className="text-lg font-semibold text-fg"
             style={{ fontFamily: 'var(--font-playfair), serif' }}
           >
-            Regras do Programa
+            Regras do Programa <InfoTip text="Defina quantos pontos o cliente ganha por real gasto e por visita. Os pontos acumulam automaticamente ao fechar comandas e podem ser trocados pelos prêmios cadastrados." />
           </h2>
 
           <label className="flex items-start gap-3 p-3 rounded-md bg-bg-elevated border border-border cursor-pointer hover:border-gold/30 transition-colors">

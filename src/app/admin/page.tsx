@@ -21,6 +21,7 @@ import {
 import { createAdminClient } from '@/lib/supabase/admin';
 import Link from 'next/link';
 import { cn, formatCurrency } from '@/lib/utils';
+import { InfoTip } from '@/components/info-tip';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -369,7 +370,7 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Link href="/admin/comandas" className="card p-5 group hover:border-gold/40 transition-colors">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-[10px] text-fg-dim tracking-widest uppercase">Faturado hoje</p>
+            <p className="text-[10px] text-fg-dim tracking-widest uppercase flex items-center gap-1">Faturado hoje <InfoTip text="Soma das comandas fechadas hoje. Não inclui comandas ainda abertas nem agendamentos futuros." /></p>
             <CircleDollarSign className="w-4 h-4 text-gold" />
           </div>
           <p className="text-2xl font-bold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>
@@ -382,7 +383,7 @@ export default async function DashboardPage() {
 
         <Link href="/admin/agenda" className="card p-5 group hover:border-gold/40 transition-colors">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-[10px] text-fg-dim tracking-widest uppercase">Agenda de hoje</p>
+            <p className="text-[10px] text-fg-dim tracking-widest uppercase flex items-center gap-1">Agenda de hoje <InfoTip text="Atendimentos concluídos sobre o total agendado para hoje (cancelados ficam de fora)." /></p>
             <Calendar className="w-4 h-4 text-gold" />
           </div>
           <p className="text-2xl font-bold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>
@@ -399,7 +400,7 @@ export default async function DashboardPage() {
 
         <Link href="/admin/comandas" className="card p-5 group hover:border-gold/40 transition-colors">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-[10px] text-fg-dim tracking-widest uppercase">Em curso agora</p>
+            <p className="text-[10px] text-fg-dim tracking-widest uppercase flex items-center gap-1">Em curso agora <InfoTip text="Comandas abertas neste momento e quanto elas somam. É dinheiro que está na casa, mas ainda não foi cobrado." /></p>
             <Scissors className="w-4 h-4 text-gold" />
           </div>
           <p className="text-2xl font-bold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>
@@ -412,7 +413,7 @@ export default async function DashboardPage() {
 
         <Link href="/admin/financeiro" className="card p-5 group hover:border-gold/40 transition-colors">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-[10px] text-fg-dim tracking-widest uppercase">Mês até agora</p>
+            <p className="text-[10px] text-fg-dim tracking-widest uppercase flex items-center gap-1">Mês até agora <InfoTip text="Faturamento acumulado do mês. A comparação usa o mesmo número de dias do mês passado, para ser justa." /></p>
             <Wallet className="w-4 h-4 text-gold" />
           </div>
           <p className="text-2xl font-bold text-gold" style={{ fontFamily: 'var(--font-playfair), serif' }}>
@@ -504,7 +505,7 @@ export default async function DashboardPage() {
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-fg flex items-center gap-2" style={{ fontFamily: 'var(--font-playfair), serif' }}>
               <Clock className="w-4 h-4 text-gold" />
-              Próximos atendimentos
+              Próximos atendimentos <InfoTip text="Quem ainda vai ser atendido hoje, em ordem de horário. Toque em um item para abrir a agenda." />
             </h2>
             <Link href="/admin/agenda" className="text-[11px] text-gold hover:underline flex items-center gap-0.5">
               Ver agenda <ArrowUpRight className="w-3 h-3" />
@@ -558,7 +559,7 @@ export default async function DashboardPage() {
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-fg flex items-center gap-2" style={{ fontFamily: 'var(--font-playfair), serif' }}>
               <Gauge className="w-4 h-4 text-gold" />
-              Meta do mês
+              Meta do mês <InfoTip text="Progresso da meta consolidada: barra cheia é o realizado, barra clara é a projeção e o traço marca o esperado para hoje." />
             </h2>
             <Link href="/admin/metas" className="text-[11px] text-gold hover:underline flex items-center gap-0.5">
               Ver metas <ArrowUpRight className="w-3 h-3" />
@@ -613,7 +614,7 @@ export default async function DashboardPage() {
               <p className="text-base font-bold text-fg">{subsAtivas.length}</p>
             </div>
             <div>
-              <p className="text-[9px] uppercase tracking-wider text-fg-dim">MRR</p>
+              <p className="text-[9px] uppercase tracking-wider text-fg-dim flex items-center gap-1">MRR <InfoTip text="Receita recorrente mensal: a soma das mensalidades dos assinantes ativos do clube." /></p>
               <p className="text-base font-bold text-gold">{formatCurrency(mrr)}</p>
             </div>
             <div>
@@ -630,7 +631,7 @@ export default async function DashboardPage() {
         <section className="card p-5 space-y-3">
           <h2 className="text-base font-semibold text-fg flex items-center gap-2" style={{ fontFamily: 'var(--font-playfair), serif' }}>
             <TrendingUp className="w-4 h-4 text-gold" />
-            Faturamento · últimos 14 dias
+            Faturamento · últimos 14 dias <InfoTip text="Vendas fechadas por dia nas últimas duas semanas. A barra mais clara é hoje. Passe o mouse para ver o valor exato." />
           </h2>
           <svg viewBox="0 0 560 170" className="w-full" role="img" aria-label="Faturamento dos últimos 14 dias">
             {dias.map((d, i) => {
@@ -655,7 +656,7 @@ export default async function DashboardPage() {
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-fg flex items-center gap-2" style={{ fontFamily: 'var(--font-playfair), serif' }}>
               <Crown className="w-4 h-4 text-gold" />
-              Equipe do mês
+              Equipe do mês <InfoTip text="Ranking de faturamento dos profissionais no mês, com o número de atendimentos de cada um." />
             </h2>
             <Link href="/admin/metas" className="text-[11px] text-gold hover:underline flex items-center gap-0.5">
               Desempenho <ArrowUpRight className="w-3 h-3" />
@@ -698,7 +699,7 @@ export default async function DashboardPage() {
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-fg flex items-center gap-2" style={{ fontFamily: 'var(--font-playfair), serif' }}>
               <Scissors className="w-4 h-4 text-gold" />
-              Serviços mais vendidos
+              Serviços mais vendidos <InfoTip text="Os serviços que mais geraram receita no mês, com a quantidade de vezes que foram vendidos." />
             </h2>
             <Link href="/admin/servicos" className="text-[11px] text-gold hover:underline flex items-center gap-0.5">
               Cardápio <ArrowUpRight className="w-3 h-3" />
@@ -728,7 +729,7 @@ export default async function DashboardPage() {
         <section className="space-y-3">
           <h2 className="text-base font-semibold text-fg flex items-center gap-2 px-1" style={{ fontFamily: 'var(--font-playfair), serif' }}>
             <Zap className="w-4 h-4 text-gold" />
-            Insights automatizados
+            Insights automatizados <InfoTip text="Leituras automáticas dos seus dados: picos de movimento, cancelamentos e ticket médio, com sugestões práticas." />
           </h2>
           <div className="space-y-3">
             {insights.map((ins) => {

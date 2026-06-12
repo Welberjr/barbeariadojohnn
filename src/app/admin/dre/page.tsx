@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
+import { InfoTip } from '@/components/info-tip';
 import { DrePdfButton } from './_components/dre-pdf-button';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
@@ -325,8 +326,9 @@ export default async function DREPage({ searchParams }: DREPageProps) {
             <div className="p-2 rounded-md bg-gold/10 text-gold">
               <TrendingUp className="w-4 h-4" />
             </div>
-            <p className="text-[10px] tracking-widest uppercase text-fg-muted">
+            <p className="text-[10px] tracking-widest uppercase text-fg-muted flex items-center gap-1">
               Receita Bruta
+              <InfoTip text="Tudo o que entrou no período: serviços, produtos (em comanda e venda avulsa) e receitas extras, antes de qualquer desconto." />
             </p>
           </div>
           <p
@@ -342,8 +344,9 @@ export default async function DREPage({ searchParams }: DREPageProps) {
             <div className="p-2 rounded-md bg-danger/10 text-danger">
               <TrendingDown className="w-4 h-4" />
             </div>
-            <p className="text-[10px] tracking-widest uppercase text-fg-muted">
+            <p className="text-[10px] tracking-widest uppercase text-fg-muted flex items-center gap-1">
               Custos + Despesas
+              <InfoTip text="Soma de taxas de cartão, custo dos produtos vendidos, comissões pagas e despesas operacionais (aluguel, contas, fornecedores)." />
             </p>
           </div>
           <p
@@ -370,8 +373,9 @@ export default async function DREPage({ searchParams }: DREPageProps) {
             >
               <CircleDollarSign className="w-4 h-4" />
             </div>
-            <p className="text-[10px] tracking-widest uppercase text-fg-muted">
+            <p className="text-[10px] tracking-widest uppercase text-fg-muted flex items-center gap-1">
               Lucro Líquido
+              <InfoTip text="O que sobra de verdade no bolso: receita bruta menos todos os custos e despesas do período. Negativo significa prejuízo." />
             </p>
           </div>
           <p

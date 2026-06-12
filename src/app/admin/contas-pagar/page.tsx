@@ -13,6 +13,7 @@ import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
 import { ContasPagarFilters } from './_components/contas-pagar-filters';
 import { QuickPayButton } from './_components/quick-pay-button';
+import { InfoTip } from '@/components/info-tip';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -210,8 +211,9 @@ export default async function ContasPagarPage({
             <div className="p-2 rounded-md bg-warning/10 text-warning">
               <Receipt className="w-4 h-4" />
             </div>
-            <p className="text-[10px] tracking-widest uppercase text-fg-muted">
+            <p className="text-[10px] tracking-widest uppercase text-fg-muted flex items-center gap-1">
               Total pendente
+              <InfoTip text="Soma de todas as contas em aberto, independente da data de vencimento. É o que você ainda vai precisar desembolsar." />
             </p>
           </div>
           <p
@@ -233,8 +235,9 @@ export default async function ContasPagarPage({
             >
               <AlertTriangle className="w-4 h-4" />
             </div>
-            <p className="text-[10px] tracking-widest uppercase text-fg-muted">
+            <p className="text-[10px] tracking-widest uppercase text-fg-muted flex items-center gap-1">
               Vencidas
+              <InfoTip text="Contas que passaram do vencimento e ainda não foram pagas. Priorize estas para evitar juros e cortes de fornecedores." />
             </p>
           </div>
           <p
@@ -252,8 +255,9 @@ export default async function ContasPagarPage({
             <div className="p-2 rounded-md bg-info/10 text-info">
               <Clock className="w-4 h-4" />
             </div>
-            <p className="text-[10px] tracking-widest uppercase text-fg-muted">
+            <p className="text-[10px] tracking-widest uppercase text-fg-muted flex items-center gap-1">
               Vencem 7d
+              <InfoTip text="Contas que vencem nos próximos 7 dias. Olhe aqui para planejar o caixa da semana." />
             </p>
           </div>
           <p
@@ -269,8 +273,9 @@ export default async function ContasPagarPage({
             <div className="p-2 rounded-md bg-success/10 text-success">
               <CheckCircle2 className="w-4 h-4" />
             </div>
-            <p className="text-[10px] tracking-widest uppercase text-fg-muted">
+            <p className="text-[10px] tracking-widest uppercase text-fg-muted flex items-center gap-1">
               Pagas no mês
+              <InfoTip text="Total já quitado dentro do mês atual. Ajuda a comparar com o orçamento previsto de despesas." />
             </p>
           </div>
           <p

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { GoalsManager } from './_components/goals-manager';
+import { InfoTip } from '@/components/info-tip';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -262,7 +263,7 @@ export default async function MetasPage({ searchParams }: PageProps) {
               className="text-lg font-semibold text-fg"
               style={{ fontFamily: 'var(--font-playfair), serif' }}
             >
-              Metas da Barbearia
+              Metas da Barbearia <InfoTip text="Meta consolidada do mês. REAL é o que já entrou; PREVISTO é a projeção mantendo o ritmo atual; o traço na barra marca onde você deveria estar hoje." />
             </h2>
           </div>
           <Link
@@ -314,7 +315,7 @@ export default async function MetasPage({ searchParams }: PageProps) {
             className="text-lg font-semibold text-fg"
             style={{ fontFamily: 'var(--font-playfair), serif' }}
           >
-            Desempenho por Profissional
+            Desempenho por Profissional <InfoTip text="Resultado individual no mês. O status (Crítico, Atenção, Bom, Superado) compara o realizado com o esperado para o dia de hoje, não com a meta cheia." />
           </h2>
         </div>
 

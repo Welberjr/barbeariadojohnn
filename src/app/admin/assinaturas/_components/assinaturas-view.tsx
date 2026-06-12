@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { cn, formatCurrency, formatPhone } from '@/lib/utils';
 import { formatAllowedDays } from '@/lib/subscriptions';
+import { InfoTip } from '@/components/info-tip';
 import {
   createSubscription,
   cancelSubscription,
@@ -688,8 +689,9 @@ export function AssinaturasView({
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[9px] uppercase tracking-wider text-fg-dim">
+                    <p className="text-[9px] uppercase tracking-wider text-fg-dim flex items-center justify-end gap-1">
                       Potinho ({p.share_percent}%)
+                      <InfoTip text="Parte da mensalidade reservada para a equipe: preço do plano vezes o percentual do barbeiro, rateada entre quem atendeu o assinante durante o ciclo." />
                     </p>
                     <p
                       className="text-xl font-bold text-gold"
@@ -900,8 +902,9 @@ export function AssinaturasView({
                 {/* Fechamento do ciclo anterior */}
                 <div className="card p-4 space-y-2 bg-bg-elevated">
                   <div className="flex items-center justify-between text-[11px]">
-                    <span className="uppercase tracking-wider text-fg-dim">
+                    <span className="uppercase tracking-wider text-fg-dim flex items-center gap-1">
                       Fechamento do ciclo
+                      <InfoTip text="Resumo do ciclo que está sendo encerrado: quantos usos o assinante fez e quanto vai para o potinho dos barbeiros. O pagamento zera o ciclo e abre o próximo." />
                     </span>
                     <span className="text-fg-muted">
                       {preview.totalUses} uso{preview.totalUses === 1 ? '' : 's'}
