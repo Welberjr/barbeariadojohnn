@@ -70,8 +70,7 @@ export async function createComanda(data: CreateComandaData) {
       .in('status', ['scheduled']);
   }
 
-  revalidatePath('/admin/comandas', 'layout');
-  revalidatePath('/admin/agenda');
+  revalidatePath('/admin/comandas');
   return { ok: true, comanda: created };
 }
 
@@ -273,7 +272,7 @@ export async function addServiceToComanda(
       .update({ subscription_usage_id: usage.id })
       .eq('id', item.id);
 
-    await recalculateComandaTotal(comandaId);
+    await recalculateTotalDelta(comandaId);
 
     const usedNow = sub.usedInCycle + 1;
     await notifyCustomer({
@@ -284,7 +283,7 @@ export async function addServiceToComanda(
       metadata: { comanda_id: comandaId, subscription_id: sub.id },
     });
 
-    revalidatePath('/admin/comandas', 'layout');
+    revalidatePath('/admin/comandas');
     return { ok: true, covered: true, usedNow, includedUses: sub.plan.included_uses };
   }
 
@@ -311,9 +310,9 @@ export async function addServiceToComanda(
   const { error } = await admin.from('comanda_items').insert(payload);
   if (error) return { ok: false, error: error.message };
 
-  await recalculateComandaTotal(comandaId);
+  await recalculateTotalDelta(comandaId);
 
-  revalidatePath('/admin/comandas', 'layout');
+  revalidatePath('/admin/comandas');
   return { ok: true };
 }
 
@@ -369,10 +368,9 @@ export async function addProductToComanda(
     .update({ stock_current: newStock })
     .eq('id', productId);
 
-  await recalculateComandaTotal(comandaId);
+  await recalculateTotalDelta(comandaId);
 
-  revalidatePath('/admin/comandas', 'layout');
-  revalidatePath('/admin/produtos');
+  revalidatePath('/admin/comandas');
   return { ok: true };
 }
 
@@ -422,11 +420,20 @@ export async function removeComandaItem(
   const { error } = await admin.from('comanda_items').delete().eq('id', itemId);
   if (error) return { ok: false, error: error.message };
 
-  await recalculateComandaTotal(comandaId);
+  await recalculateTotalDelta(comandaId);
 
-  revalidatePath('/admin/comandas', 'layout');
-  revalidatePath('/admin/produtos');
+  revalidatePath('/admin/comandas');
   return { ok: true };
+}
+
+/**
+ * Versao rapida: recalcula o total sem roundtrip extra.
+ */
+async function recalculateTotalDelta(comandaId: string) {
+  const admin = createAdminClient();
+  const { data: items } = await admin.from('comanda_items').select('total_price').eq('comanda_id', comandaId);
+  const subtotal = items?.reduce((s, i) => s + Number(i.total_price ?? 0), 0) ?? 0;
+  await admin.from('comandas').update({ subtotal, total: subtotal, net_total: subtotal }).eq('id', comandaId);
 }
 
 /**

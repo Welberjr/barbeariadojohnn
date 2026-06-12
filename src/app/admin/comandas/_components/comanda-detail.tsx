@@ -1,7 +1,7 @@
 'use client';
 
 import { useConfirm } from '@/components/confirm-dialog';
-import { useState, useTransition, useMemo } from 'react';
+import { useEffect, useState, useTransition, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -129,6 +129,7 @@ export function ComandaDetail({
 }: ComandaDetailProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+
   const todayAllowed = subscription
     ? isDayAllowed(new Date(), subscription.allowedDays)
     : true;
