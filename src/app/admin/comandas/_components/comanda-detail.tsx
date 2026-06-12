@@ -1,5 +1,6 @@
 'use client';
 
+import { useConfirm } from '@/components/confirm-dialog';
 import { useState, useTransition, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -23,6 +24,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, formatCurrency } from '@/lib/utils';
+import { isDayAllowed, formatAllowedDays } from '@/lib/subscriptions';
 import {
   addServiceToComanda,
   addProductToComanda,
@@ -127,6 +129,12 @@ export function ComandaDetail({
 }: ComandaDetailProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const todayAllowed = subscription
+    ? isDayAllowed(new Date(), subscription.allowedDays)
+    : true;
+  const allowedLabel = subscription
+    ? formatAllowedDays(subscription.allowedDays)
+    : '';
   const [showAddService, setShowAddService] = useState(false);
   const [showAddProduct, setShowAddProduct] = useState(false);
 
@@ -203,6 +211,8 @@ export function ComandaDetail({
     });
   }
 
+  const confirmDialog = useConfirm();
+
   async function handleAddService() {
     if (!serviceForm.service_id || !serviceForm.staff_id) {
       toast.error('Selecione serviço e profissional');
@@ -264,7 +274,7 @@ export function ComandaDetail({
     itemId: string,
     type: 'service' | 'product'
   ) {
-    if (!confirm('Remover este item?')) return;
+    if (!(await confirmDialog({ title: 'Remover este item?', danger: true }))) return;
 
     const result = await removeComandaItem(comanda.id, itemId, type);
     if (result.ok) {
@@ -305,9 +315,7 @@ export function ComandaDetail({
 
   async function handleCancel() {
     if (
-      !confirm(
-        'Cancelar esta comanda? Os itens serão perdidos e nenhuma venda será registrada.'
-      )
+      !(await confirmDialog({ title: 'Cancelar esta comanda? Os itens serão perdidos e nenhuma venda será registrada.', danger: true }))
     )
       return;
 
@@ -419,7 +427,7 @@ export function ComandaDetail({
                 ) : (
                   <>
                     Usou {subscription.usedInCycle} de {subscription.includedUses} atendimentos
-                    deste ciclo · vence em{' '}
+                    deste ciclo · válido {allowedLabel} · vence em{' '}
                     {new Date(subscription.periodEnd).toLocaleDateString('pt-BR')}
                   </>
                 )}
@@ -530,14 +538,14 @@ export function ComandaDetail({
                     serviceForm.use_subscription
                       ? 'border-gold/50 bg-gold/10'
                       : 'border-gold/50 bg-gold/5 hover:border-gold shadow-[0_0_12px_rgba(212,160,79,0.15)]',
-                    (subscription.usesLeft <= 0 || subscription.isExpired) &&
+                    (subscription.usesLeft <= 0 || subscription.isExpired || !todayAllowed) &&
                       'opacity-50 cursor-not-allowed'
                   )}
                 >
                   <input
                     type="checkbox"
                     className="w-3.5 h-3.5 accent-gold mt-0.5 cursor-pointer"
-                    disabled={subscription.usesLeft <= 0 || subscription.isExpired}
+                    disabled={subscription.usesLeft <= 0 || subscription.isExpired || !todayAllowed}
                     checked={serviceForm.use_subscription}
                     onChange={(e) =>
                       setServiceForm({
@@ -553,6 +561,8 @@ export function ComandaDetail({
                     <p className="text-[10px] text-fg-subtle">
                       {subscription.isExpired
                         ? 'Ciclo vencido: lance o pagamento primeiro'
+                        : !todayAllowed
+                          ? `Hoje não é dia do plano (válido ${allowedLabel}). O atendimento de hoje é cobrado avulso.`
                         : subscription.usesLeft > 0
                           ? `Restam ${subscription.usesLeft} de ${subscription.includedUses} usos neste ciclo`
                           : 'Sem usos restantes neste ciclo'}

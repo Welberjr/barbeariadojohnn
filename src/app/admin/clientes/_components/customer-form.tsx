@@ -1,5 +1,6 @@
 'use client';
 
+import { useConfirm } from '@/components/confirm-dialog';
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -96,6 +97,8 @@ export function CustomerForm({
     },
   });
 
+  const confirmDialog = useConfirm();
+
   async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -156,7 +159,7 @@ export function CustomerForm({
 
   async function handleDelete() {
     if (!customerId) return;
-    if (!confirm('Tem certeza que deseja desativar este cliente?')) return;
+    if (!(await confirmDialog({ title: 'Tem certeza que deseja desativar este cliente?', danger: true }))) return;
 
     setIsDeleting(true);
     const result = await deactivateCustomer(customerId);

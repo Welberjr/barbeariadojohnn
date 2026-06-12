@@ -1,5 +1,6 @@
 'use client';
 
+import { useConfirm } from '@/components/confirm-dialog';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -67,6 +68,8 @@ export function ServiceForm({ serviceId, defaultValues }: ServiceFormProps) {
     },
   });
 
+  const confirmDialog = useConfirm();
+
   async function onSubmit(data: ServiceFormSchema) {
     setIsLoading(true);
     try {
@@ -93,9 +96,7 @@ export function ServiceForm({ serviceId, defaultValues }: ServiceFormProps) {
   async function handleDelete() {
     if (!serviceId) return;
     if (
-      !confirm(
-        'Tem certeza que deseja desativar este serviço? Ele não aparecerá mais no cardápio.'
-      )
+      !(await confirmDialog({ title: 'Tem certeza que deseja desativar este serviço? Ele não aparecerá mais no cardápio.', danger: true }))
     ) {
       return;
     }

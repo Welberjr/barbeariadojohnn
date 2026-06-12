@@ -1,5 +1,6 @@
 'use client';
 
+import { useConfirm } from '@/components/confirm-dialog';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -42,6 +43,8 @@ export function GoalsManager({ staff, currentYear, currentMonth, initialStaffId,
   const [isLoading, setIsLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  const confirmDialog = useConfirm();
+
   async function handleSave() {
     const numericRevenue = Number(revenueTarget.replace(',', '.'));
     if (!numericRevenue || numericRevenue <= 0) {
@@ -78,7 +81,7 @@ export function GoalsManager({ staff, currentYear, currentMonth, initialStaffId,
   }
 
   async function handleDelete(goalId: string) {
-    if (!confirm('Remover esta meta?')) return;
+    if (!(await confirmDialog({ title: 'Remover esta meta?', danger: true }))) return;
     setDeletingId(goalId);
     const result = await deleteGoal(goalId);
     if (result.ok) {

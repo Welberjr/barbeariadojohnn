@@ -1,5 +1,6 @@
 'use client';
 
+import { useConfirm } from '@/components/confirm-dialog';
 import { useState, useTransition } from 'react';
 import { Plus, Trash2, Loader2, CalendarOff, Users, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -54,6 +55,8 @@ export function DaysOffList({ daysOff, availableStaff }: DaysOffListProps) {
     return `${d}/${m}/${y}`;
   }
 
+  const confirmDialog = useConfirm();
+
   async function handleAdd() {
     if (!form.start_date) {
       toast.error('Informe a data de início');
@@ -85,7 +88,7 @@ export function DaysOffList({ daysOff, availableStaff }: DaysOffListProps) {
   }
 
   async function handleDelete(id: string, label: string) {
-    if (!confirm(`Remover "${label}"?`)) return;
+    if (!(await confirmDialog({ title: `Remover "${label}"?`, danger: true }))) return;
 
     const result = await deleteDayOff(id);
     if (result.ok) {

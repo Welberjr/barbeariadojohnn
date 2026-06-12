@@ -1,3 +1,4 @@
+import { ConfirmProvider } from '@/components/confirm-dialog';
 import type { Metadata } from 'next';
 import { Inter, Playfair_Display, JetBrains_Mono } from 'next/font/google';
 import { Toaster } from 'sonner';
@@ -47,7 +48,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className={`${inter.variable} ${playfair.variable} ${jetbrains.variable}`}>
       <body className="bg-bg text-fg antialiased font-sans">
-        {children}
+        <ConfirmProvider>{children}</ConfirmProvider>
         <Toaster
           theme="dark"
           position="top-right"

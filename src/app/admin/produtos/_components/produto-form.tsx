@@ -1,5 +1,6 @@
 'use client';
 
+import { useConfirm } from '@/components/confirm-dialog';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -88,6 +89,8 @@ export function ProductForm({
   const margem = costPrice > 0 ? ((salePrice - costPrice) / costPrice) * 100 : 0;
   const lucroPorUnidade = salePrice - costPrice;
 
+  const confirmDialog = useConfirm();
+
   async function onSubmit(data: ProductFormSchema) {
     setIsLoading(true);
     try {
@@ -114,9 +117,7 @@ export function ProductForm({
   async function handleDelete() {
     if (!productId) return;
     if (
-      !confirm(
-        'Desativar este produto? Ele não aparecerá mais nas vendas, mas o histórico será preservado.'
-      )
+      !(await confirmDialog({ title: 'Desativar este produto? Ele não aparecerá mais nas vendas, mas o histórico será preservado.', danger: true }))
     )
       return;
     setIsDeleting(true);

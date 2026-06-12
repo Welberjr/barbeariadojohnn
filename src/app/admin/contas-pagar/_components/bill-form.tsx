@@ -1,5 +1,6 @@
 'use client';
 
+import { useConfirm } from '@/components/confirm-dialog';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -89,6 +90,8 @@ export function BillForm({
 
   const recurring = watch('is_recurring');
 
+  const confirmDialog = useConfirm();
+
   async function onSubmit(data: BillFormSchema) {
     setIsLoading(true);
     try {
@@ -125,7 +128,7 @@ export function BillForm({
 
   async function handleReopen() {
     if (!billId) return;
-    if (!confirm('Reabrir esta conta? Ela voltará para o status pendente.')) return;
+    if (!(await confirmDialog({ title: 'Reabrir esta conta? Ela voltará para o status pendente.', danger: true }))) return;
     setIsActioning(true);
     const result = await reopenBill(billId);
     if (result.ok) {
@@ -158,7 +161,7 @@ export function BillForm({
 
   async function handleDelete() {
     if (!billId) return;
-    if (!confirm('Excluir esta conta? Esta ação não pode ser desfeita.'))
+    if (!(await confirmDialog({ title: 'Excluir esta conta? Esta ação não pode ser desfeita.', danger: true })))
       return;
     setIsActioning(true);
     const result = await deleteBill(billId);

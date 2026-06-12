@@ -1,5 +1,6 @@
 'use client';
 
+import { useConfirm } from '@/components/confirm-dialog';
 import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -106,6 +107,8 @@ export function AppointmentDrawer({
   const statusConfig =
     STATUS_CONFIG[appointment.status] ?? STATUS_CONFIG.scheduled;
 
+  const confirmDialog = useConfirm();
+
   async function handleStatusChange(
     newStatus: keyof typeof STATUS_CONFIG
   ) {
@@ -127,7 +130,7 @@ export function AppointmentDrawer({
   }
 
   async function handleDelete() {
-    if (!confirm(`Cancelar este agendamento permanentemente? Esta ação não pode ser desfeita.`))
+    if (!(await confirmDialog({ title: `Cancelar este agendamento permanentemente? Esta ação não pode ser desfeita.`, danger: true })))
       return;
 
     const result = await deleteAppointment(appointment.id);

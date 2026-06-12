@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useConfirm } from '@/components/confirm-dialog';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -22,6 +23,9 @@ import {
   Users,
   Ban,
   Scissors,
+  Search,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { cn, formatCurrency, formatPhone } from '@/lib/utils';
 import { formatAllowedDays } from '@/lib/subscriptions';
@@ -152,6 +156,35 @@ export function AssinaturasView({
 
   const activePlans = plans.filter((p) => p.active);
 
+  const confirmDialog = useConfirm();
+
+  // Busca, filtro e paginacao da lista de assinantes
+  const [subQuery, setSubQuery] = useState('');
+  const [subStatusFilter, setSubStatusFilter] = useState('all');
+  const [subPage, setSubPage] = useState(1);
+  const [subPageSize, setSubPageSize] = useState(5);
+
+  const filteredSubs = useMemo(() => {
+    const term = subQuery.trim().toLowerCase();
+    return subscriptions.filter((sub) => {
+      const matchQ = !term || sub.customer_name.toLowerCase().includes(term);
+      const matchStatus =
+        subStatusFilter === 'all' || sub.status === subStatusFilter;
+      return matchQ && matchStatus;
+    });
+  }, [subscriptions, subQuery, subStatusFilter]);
+
+  const subTotalPages = Math.max(1, Math.ceil(filteredSubs.length / subPageSize));
+  const subSafePage = Math.min(subPage, subTotalPages);
+  const pagedSubs = filteredSubs.slice(
+    (subSafePage - 1) * subPageSize,
+    subSafePage * subPageSize
+  );
+
+  useEffect(() => {
+    setSubPage(1);
+  }, [subQuery, subStatusFilter, subPageSize]);
+
   async function openSettle(sub: SubscriptionRow) {
     setSettleSub(sub);
     setPreview(null);
@@ -212,7 +245,7 @@ export function AssinaturasView({
   }
 
   async function handleCancel(sub: SubscriptionRow) {
-    if (!confirm(`Cancelar a assinatura de ${sub.customer_name}?`)) return;
+    if (!(await confirmDialog({ title: `Cancelar a assinatura de ${sub.customer_name}?`, danger: true }))) return;
     const result = await cancelSubscription(sub.id);
     if (result.ok) {
       toast.success('Assinatura cancelada');
@@ -229,7 +262,7 @@ export function AssinaturasView({
   }
 
   async function handleDeletePlan(plan: Plan) {
-    if (!confirm(`Desativar o plano ${plan.name}?`)) return;
+    if (!(await confirmDialog({ title: `Desativar o plano ${plan.name}?`, danger: true }))) return;
     const result = await deletePlan(plan.id);
     if (result.ok) {
       toast.success('Plano desativado');
@@ -308,6 +341,39 @@ export function AssinaturasView({
       {/* ===================== TAB ASSINANTES ===================== */}
       {tab === 'assinantes' && (
         <div className="space-y-3">
+          {/* CONTROLES: busca, status e tamanho da pagina */}
+          <div className="card p-3 flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-subtle" />
+              <input
+                type="text"
+                placeholder="Buscar assinante por nome..."
+                className="input pl-10 py-1.5 text-sm w-full"
+                value={subQuery}
+                onChange={(e) => setSubQuery(e.target.value)}
+              />
+            </div>
+            <select
+              className="input py-1.5 text-xs w-auto"
+              value={subStatusFilter}
+              onChange={(e) => setSubStatusFilter(e.target.value)}
+            >
+              <option value="all">Todos os status</option>
+              <option value="active">Ativas</option>
+              <option value="past_due">Inadimplentes</option>
+              <option value="cancelled">Canceladas</option>
+            </select>
+            <select
+              className="input py-1.5 text-xs w-auto"
+              value={subPageSize}
+              onChange={(e) => setSubPageSize(Number(e.target.value))}
+              title="Assinaturas por página"
+            >
+              <option value={5}>5 por página</option>
+              <option value={10}>10 por página</option>
+              <option value={20}>20 por página</option>
+            </select>
+          </div>
           {subscriptions.length === 0 ? (
             <div className="card p-12 text-center">
               <Crown className="w-8 h-8 text-gold mx-auto mb-3" />
@@ -330,7 +396,7 @@ export function AssinaturasView({
               </button>
             </div>
           ) : (
-            subscriptions.map((sub) => {
+            pagedSubs.map((sub) => {
               const pct =
                 sub.included_uses > 0
                   ? Math.min(100, (sub.used_in_cycle / sub.included_uses) * 100)
@@ -466,6 +532,40 @@ export function AssinaturasView({
                 </div>
               );
             })
+          )}
+
+          {filteredSubs.length === 0 && subscriptions.length > 0 && (
+            <div className="card p-8 text-center">
+              <p className="text-sm text-fg-muted">
+                Nenhuma assinatura encontrada com os filtros atuais.
+              </p>
+            </div>
+          )}
+
+          {subTotalPages > 1 && (
+            <div className="card px-4 py-3 flex items-center justify-between">
+              <button
+                type="button"
+                disabled={subSafePage <= 1}
+                onClick={() => setSubPage(subSafePage - 1)}
+                className="btn-ghost text-xs flex items-center gap-1 disabled:opacity-40"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                Anterior
+              </button>
+              <p className="text-xs text-fg-muted">
+                Página {subSafePage} de {subTotalPages} · {filteredSubs.length} assinaturas
+              </p>
+              <button
+                type="button"
+                disabled={subSafePage >= subTotalPages}
+                onClick={() => setSubPage(subSafePage + 1)}
+                className="btn-ghost text-xs flex items-center gap-1 disabled:opacity-40"
+              >
+                Próxima
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           )}
         </div>
       )}

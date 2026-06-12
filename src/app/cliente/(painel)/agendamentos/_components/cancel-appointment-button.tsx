@@ -1,5 +1,6 @@
 'use client';
 
+import { useConfirm } from '@/components/confirm-dialog';
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -26,8 +27,10 @@ export function CancelAppointmentButton({
 
   if (!canCancel) return null;
 
+  const confirmDialog = useConfirm();
+
   async function handleCancel() {
-    if (!confirm('Cancelar este agendamento?')) return;
+    if (!(await confirmDialog({ title: 'Cancelar este agendamento?', danger: true }))) return;
     setBusy(true);
     const result = await cancelCustomerAppointment(appointmentId);
     setBusy(false);

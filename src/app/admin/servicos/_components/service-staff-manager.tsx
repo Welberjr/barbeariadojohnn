@@ -1,5 +1,6 @@
 'use client';
 
+import { useConfirm } from '@/components/confirm-dialog';
 import { useState, useTransition } from 'react';
 import { Plus, Trash2, Loader2, Check, X, Edit2, UserCog } from 'lucide-react';
 import { toast } from 'sonner';
@@ -80,6 +81,8 @@ export function ServiceStaffManager({
     setEditForm({ customPrice: '', customDuration: '', customCommission: '' });
   }
 
+  const confirmDialog = useConfirm();
+
   async function saveEdit(staffId: string) {
     const result = await upsertStaffService({
       staff_id: staffId,
@@ -138,7 +141,7 @@ export function ServiceStaffManager({
   }
 
   async function removeStaff(staffId: string, displayName: string) {
-    if (!confirm(`Remover ${displayName} deste serviço?`)) return;
+    if (!(await confirmDialog({ title: `Remover ${displayName} deste serviço?`, danger: true }))) return;
 
     const result = await removeStaffService(staffId, serviceId);
     if (result.ok) {

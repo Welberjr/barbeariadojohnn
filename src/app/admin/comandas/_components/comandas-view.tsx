@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, formatCurrency, formatPhone } from '@/lib/utils';
+import { InfoTip } from '@/components/info-tip';
 import { createComanda } from '../actions';
 
 interface Customer {
@@ -169,8 +170,9 @@ export function ComandasView({
         <div className="card-premium p-4">
           <div className="flex items-center gap-2 mb-1">
             <ClipboardList className="w-3.5 h-3.5 text-gold" />
-            <p className="text-[10px] text-fg-dim tracking-widest uppercase">
+            <p className="text-[10px] text-fg-dim tracking-widest uppercase flex items-center gap-1">
               Abertas
+              <InfoTip text="Quantidade de comandas em andamento agora. Cada comanda aberta é um atendimento em curso que ainda não foi cobrado." />
             </p>
           </div>
           <p
@@ -183,8 +185,9 @@ export function ComandasView({
         <div className="card-premium p-4">
           <div className="flex items-center gap-2 mb-1">
             <Clock className="w-3.5 h-3.5 text-gold-shimmer" />
-            <p className="text-[10px] text-fg-dim tracking-widest uppercase">
+            <p className="text-[10px] text-fg-dim tracking-widest uppercase flex items-center gap-1">
               Em curso
+              <InfoTip text="Soma dos valores das comandas abertas. É o dinheiro que está na casa, mas ainda não entrou no caixa." />
             </p>
           </div>
           <p
@@ -197,8 +200,9 @@ export function ComandasView({
         <div className="card-premium p-4">
           <div className="flex items-center gap-2 mb-1">
             <CheckCircle2 className="w-3.5 h-3.5 text-success" />
-            <p className="text-[10px] text-fg-dim tracking-widest uppercase">
+            <p className="text-[10px] text-fg-dim tracking-widest uppercase flex items-center gap-1">
               Fechadas hoje
+              <InfoTip text="Atendimentos concluídos e cobrados hoje, independente do filtro escolhido na lista abaixo." />
             </p>
           </div>
           <p
@@ -211,8 +215,9 @@ export function ComandasView({
         <div className="card-premium p-4">
           <div className="flex items-center gap-2 mb-1">
             <Receipt className="w-3.5 h-3.5 text-gold" />
-            <p className="text-[10px] text-fg-dim tracking-widest uppercase">
+            <p className="text-[10px] text-fg-dim tracking-widest uppercase flex items-center gap-1">
               Faturado hoje
+              <InfoTip text="Total recebido nas comandas fechadas hoje, somando serviços e produtos, antes de descontar taxas de cartão." />
             </p>
           </div>
           <p

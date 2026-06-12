@@ -12,6 +12,7 @@ import {
 import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
 import { ContasPagarFilters } from './_components/contas-pagar-filters';
+import { QuickPayButton } from './_components/quick-pay-button';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -335,6 +336,9 @@ export default async function ContasPagarPage({
                   <th className="text-right py-3 px-4 text-[10px] uppercase tracking-wider text-fg-dim font-semibold">
                     Valor
                   </th>
+                  <th className="text-right py-3 px-4 text-[10px] uppercase tracking-wider text-fg-dim font-semibold">
+                    Ações
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -424,6 +428,15 @@ export default async function ContasPagarPage({
                               pago: {formatCurrency(Number(b.paid_amount))}
                             </p>
                           )}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        {(b.status === 'pending' || b.status === 'overdue') && (
+                          <QuickPayButton
+                            billId={b.id}
+                            description={b.description}
+                            amount={Number(b.amount)}
+                          />
+                        )}
                       </td>
                     </tr>
                   );

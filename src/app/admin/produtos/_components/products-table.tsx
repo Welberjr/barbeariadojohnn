@@ -1,5 +1,6 @@
 'use client';
 
+import { useConfirm } from '@/components/confirm-dialog';
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -48,6 +49,8 @@ export function ProductsTable({ products, categories }: ProductsTableProps) {
   // Modal registrar venda
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
+  const confirmDialog = useConfirm();
+
   async function handleDuplicate(p: Product) {
     setDuplicatingId(p.id);
     const result = await duplicateProductAction(p.id);
@@ -93,7 +96,7 @@ export function ProductsTable({ products, categories }: ProductsTableProps) {
   }, [query, categoryFilter, statusFilter]);
 
   async function handleDelete(id: string, name: string) {
-    if (!confirm(`Desativar "${name}"?`)) return;
+    if (!(await confirmDialog({ title: `Desativar "${name}"?`, danger: true }))) return;
     const res = await deactivateProductAction(id);
     if (res.ok) {
       toast.success('Produto desativado');

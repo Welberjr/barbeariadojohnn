@@ -211,8 +211,27 @@ export default async function DREPage({ searchParams }: DREPageProps) {
 
   return (
     <div className="space-y-6 animate-fade-in print-area">
+      {/* CABECALHO EXCLUSIVO DO PDF */}
+      <div className="hidden print:block border-b-2 border-black pb-3">
+        <h1 className="text-2xl font-bold" style={{ fontFamily: 'var(--font-playfair), serif' }}>
+          Barbearia do Johnn
+        </h1>
+        <p className="text-sm font-semibold mt-1">DRE — Demonstrativo de Resultados</p>
+        <p className="text-xs mt-1">
+          Período: {fromStr.split('-').reverse().join('/')} a {toStr.split('-').reverse().join('/')} · Emitido em{' '}
+          {new Date().toLocaleString('pt-BR', {
+            timeZone: 'America/Sao_Paulo',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          })}
+        </p>
+      </div>
+
       {/* HEADER */}
-      <div className="flex items-end justify-between flex-wrap gap-4">
+      <div className="flex items-end justify-between flex-wrap gap-4 print:hidden">
         <div>
           <p className="text-[10px] text-fg-dim tracking-[0.25em] uppercase mb-1">
             Financeiro
@@ -257,7 +276,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
       <div className="divider-gold" />
 
       {/* ATALHOS */}
-      <div className="flex flex-wrap gap-2">
+      <div className="no-print flex flex-wrap gap-2">
         {(() => {
           const today = new Date();
           const todayStr = today.toISOString().split('T')[0];

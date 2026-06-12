@@ -1,5 +1,6 @@
 'use client';
 
+import { useConfirm } from '@/components/confirm-dialog';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -125,6 +126,8 @@ export function FidelidadeView({
   const [redeemReward_, setRedeemReward] = useState('');
   const [isRedeeming, setIsRedeeming] = useState(false);
 
+  const confirmDialog = useConfirm();
+
   async function handleSaveConfig() {
     setIsSavingCfg(true);
     const result = await updateLoyaltyConfig({
@@ -193,7 +196,7 @@ export function FidelidadeView({
   }
 
   async function handleDeleteReward(id: string) {
-    if (!confirm('Desativar este prêmio?')) return;
+    if (!(await confirmDialog({ title: 'Desativar este prêmio?', danger: true }))) return;
     setDeletingRwId(id);
     const result = await deleteReward(id);
     if (result.ok) {

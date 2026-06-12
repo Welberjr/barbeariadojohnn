@@ -327,3 +327,20 @@
     margin: 14mm;
   }
 }
+/* Refinamentos de impressao: sem quebras dentro de cards/linhas */
+@media print {
+  .print-area .card,
+  .print-area .card-premium,
+  .print-area section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border: 1px solid #d8d8d8 !important;
+    border-radius: 6px;
+  }
+  .print-area table tr {
+    break-inside: avoid;
+  }
+  .print-area a {
+    text-decoration: none !important;
+  }
+}

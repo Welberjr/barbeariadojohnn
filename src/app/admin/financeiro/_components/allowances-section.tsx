@@ -1,5 +1,6 @@
 'use client';
 
+import { useConfirm } from '@/components/confirm-dialog';
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -71,6 +72,8 @@ export function AllowancesSection({ allowances, staff }: AllowancesSectionProps)
 
   const totalApproved = approvedRows.reduce((s, a) => s + a.amount, 0);
 
+  const confirmDialog = useConfirm();
+
   async function handleCreate() {
     const amount = parseFloat(form.amount.replace(',', '.'));
     if (!form.staff_id) { toast.error('Selecione um profissional'); return; }
@@ -110,7 +113,7 @@ export function AllowancesSection({ allowances, staff }: AllowancesSectionProps)
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Remover este vale?')) return;
+    if (!(await confirmDialog({ title: 'Remover este vale?', danger: true }))) return;
     setBusy(id);
     const r = await deleteAllowance(id);
     setBusy(null);
