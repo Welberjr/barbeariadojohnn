@@ -1,7 +1,7 @@
-'use client';
+﻿﻿'use client';
 
 import { useConfirm } from '@/components/confirm-dialog';
-import { useRef, useState } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -59,6 +59,7 @@ export function CustomerForm({
   accessEmail = null,
 }: CustomerFormProps) {
   const router = useRouter();
+  const [, startTransition] = useTransition();
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 

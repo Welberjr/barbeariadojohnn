@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -18,10 +18,12 @@ export function QuickPayButton({
   billId,
   description,
   amount,
+  onPaid,
 }: {
   billId: string;
   description: string;
   amount: number;
+  onPaid?: () => void;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -36,6 +38,7 @@ export function QuickPayButton({
     if (result.ok) {
       toast.success('Conta marcada como paga!');
       setOpen(false);
+      onPaid?.();
       startTransition(() => router.refresh());
     } else {
       toast.error(result.error ?? 'Erro ao marcar como paga');

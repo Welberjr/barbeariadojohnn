@@ -1,7 +1,7 @@
-'use client';
+﻿﻿'use client';
 
 import { useConfirm } from '@/components/confirm-dialog';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Loader2, Save } from 'lucide-react';
@@ -29,6 +29,7 @@ interface GoalsManagerProps {
 }
 
 export function GoalsManager({ staff, currentYear, currentMonth, initialStaffId, existingGoals }: GoalsManagerProps) {
+  const [, startTransition] = useTransition();
   const router = useRouter();
   const [staffId, setStaffId] = useState(initialStaffId ?? '');
 
@@ -68,7 +69,7 @@ export function GoalsManager({ staff, currentYear, currentMonth, initialStaffId,
         setApptTarget('');
         setTicketTarget('');
         setStaffId('');
-        setTimeout(() => router.refresh(), 600);
+        startTransition(() => router.refresh());
       } else {
         toast.error(result.error ?? 'Erro ao salvar meta.');
       }

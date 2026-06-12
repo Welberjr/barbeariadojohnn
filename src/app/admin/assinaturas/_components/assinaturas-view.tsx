@@ -1,4 +1,4 @@
-'use client';
+﻿﻿'use client';
 
 import { useConfirm } from '@/components/confirm-dialog';
 import { useEffect, useMemo, useState, useTransition } from 'react';
@@ -135,6 +135,10 @@ export function AssinaturasView({
 }: AssinaturasViewProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+
+  // Estado local para feedback instantaneo de status
+  const [localSubs, setLocalSubs] = useState<SubscriptionRow[]>(subscriptions);
+  useEffect(() => { setLocalSubs(subscriptions); }, [subscriptions]);
   const [tab, setTab] = useState<'planos' | 'assinantes' | 'repasses'>(
     'assinantes'
   );
@@ -167,7 +171,7 @@ export function AssinaturasView({
 
   const filteredSubs = useMemo(() => {
     const term = subQuery.trim().toLowerCase();
-    return subscriptions.filter((sub) => {
+    return localSubs.filter((sub) => {
       const matchQ = !term || sub.customer_name.toLowerCase().includes(term);
       const matchStatus =
         subStatusFilter === 'all' || sub.status === subStatusFilter;
@@ -246,6 +250,7 @@ export function AssinaturasView({
   }
 
   async function handleCancel(sub: SubscriptionRow) {
+    setLocalSubs((prev) => prev.map((s) => s.id === sub.id ? { ...s, status: 'cancelled' } : s));
     if (!(await confirmDialog({ title: `Cancelar a assinatura de ${sub.customer_name}?`, danger: true }))) return;
     const result = await cancelSubscription(sub.id);
     if (result.ok) {
@@ -255,6 +260,7 @@ export function AssinaturasView({
   }
 
   async function handleReactivate(sub: SubscriptionRow) {
+    setLocalSubs((prev) => prev.map((s) => s.id === sub.id ? { ...s, status: 'active' } : s));
     const result = await reactivateSubscription(sub.id);
     if (result.ok) {
       toast.success('Assinatura reativada');
@@ -375,7 +381,7 @@ export function AssinaturasView({
               <option value={20}>20 por página</option>
             </select>
           </div>
-          {subscriptions.length === 0 ? (
+          {localSubs.length === 0 ? (
             <div className="card p-12 text-center">
               <Crown className="w-8 h-8 text-gold mx-auto mb-3" />
               <h3
@@ -535,7 +541,7 @@ export function AssinaturasView({
             })
           )}
 
-          {filteredSubs.length === 0 && subscriptions.length > 0 && (
+          {filteredSubs.length === 0 && localSubs.length > 0 && (
             <div className="card p-8 text-center">
               <p className="text-sm text-fg-muted">
                 Nenhuma assinatura encontrada com os filtros atuais.

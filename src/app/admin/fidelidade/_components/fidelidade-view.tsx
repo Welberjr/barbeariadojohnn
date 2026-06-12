@@ -1,7 +1,7 @@
-'use client';
+﻿﻿'use client';
 
 import { useConfirm } from '@/components/confirm-dialog';
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
@@ -95,6 +95,7 @@ export function FidelidadeView({
   customers,
   transactions,
 }: FidelidadeViewProps) {
+  const [, startTransition] = useTransition();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('config');
 
@@ -137,7 +138,7 @@ export function FidelidadeView({
     });
     if (result.ok) {
       toast.success('Configuração salva!');
-      router.refresh();
+      startTransition(() => router.refresh());
     } else {
       toast.error(result.error ?? 'Erro.');
     }
@@ -202,7 +203,7 @@ export function FidelidadeView({
     const result = await deleteReward(id);
     if (result.ok) {
       toast.success('Prêmio desativado.');
-      router.refresh();
+      startTransition(() => router.refresh());
     } else {
       toast.error(result.error ?? 'Erro.');
     }

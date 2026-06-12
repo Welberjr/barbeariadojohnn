@@ -1,7 +1,7 @@
-'use client';
+﻿'use client';
 
 import { useConfirm } from '@/components/confirm-dialog';
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -40,6 +40,9 @@ interface ProductsTableProps {
 }
 
 export function ProductsTable({ products, categories }: ProductsTableProps) {
+  // Estado local para otimismo de desativar/vender
+  const [localProducts, setLocalProducts] = useState<Product[]>(products);
+  useEffect(() => { setLocalProducts(products); }, [products]);
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [query, setQuery] = useState('');
@@ -67,7 +70,7 @@ export function ProductsTable({ products, categories }: ProductsTableProps) {
   const [saleQty, setSaleQty] = useState(1);
   const [savingSale, setSavingSale] = useState(false);
 
-  const filtered = products.filter((p) => {
+  const filtered = localProducts.filter((p) => {
     const matchQ = query
       ? p.name.toLowerCase().includes(query.toLowerCase()) ||
         (p.brand ?? '').toLowerCase().includes(query.toLowerCase()) ||
@@ -96,6 +99,7 @@ export function ProductsTable({ products, categories }: ProductsTableProps) {
   }, [query, categoryFilter, statusFilter]);
 
   async function handleDelete(id: string, name: string) {
+    setLocalProducts((prev) => prev.filter((p) => p.id !== id));
     if (!(await confirmDialog({ title: `Desativar "${name}"?`, danger: true }))) return;
     const res = await deactivateProductAction(id);
     if (res.ok) {

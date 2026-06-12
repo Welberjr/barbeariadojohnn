@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useConfirm } from '@/components/confirm-dialog';
 import { useTransition } from 'react';
@@ -120,10 +120,8 @@ export function AppointmentDrawer({
 
     if (result.ok) {
       toast.success(`Status alterado para ${STATUS_CONFIG[newStatus].label}`);
-      startTransition(() => {
-        router.refresh();
-        onClose();
-      });
+      onClose(); // fecha imediatamente
+      startTransition(() => router.refresh()); // sincroniza em background
     } else {
       toast.error(result.error ?? 'Erro');
     }
@@ -136,10 +134,8 @@ export function AppointmentDrawer({
     const result = await deleteAppointment(appointment.id);
     if (result.ok) {
       toast.success('Agendamento removido!');
-      startTransition(() => {
-        router.refresh();
-        onClose();
-      });
+      onClose(); // fecha imediatamente
+      startTransition(() => router.refresh()); // sincroniza em background
     } else {
       toast.error(result.error ?? 'Erro');
     }
