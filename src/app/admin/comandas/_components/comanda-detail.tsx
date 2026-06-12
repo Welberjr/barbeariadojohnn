@@ -1,7 +1,7 @@
-'use client';
+﻿﻿﻿'use client';
 
 import { useConfirm } from '@/components/confirm-dialog';
-import { useEffect, useState, useTransition, useMemo } from 'react';
+import { useEffect, useState, useTransition, useMemo, useId } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -129,6 +129,15 @@ export function ComandaDetail({
 }: ComandaDetailProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const tempId = useId();
+
+  // -------- Estado local (UI otimista) --------
+  const [localServices, setLocalServices] = useState<ServiceItem[]>(comandaServices);
+  const [localProducts, setLocalProducts] = useState<ProductItem[]>(comandaProducts);
+
+  // Sync quando o server refresh trouxer novos dados
+  useEffect(() => { setLocalServices(comandaServices); }, [comandaServices]);
+  useEffect(() => { setLocalProducts(comandaProducts); }, [comandaProducts]);
 
   const todayAllowed = subscription
     ? isDayAllowed(new Date(), subscription.allowedDays)
@@ -169,16 +178,16 @@ export function ComandaDetail({
 
   // Total calculado em tempo real considerando desconto/gorjeta
   const calculatedTotal = useMemo(() => {
-    const sub = comandaServices.reduce(
+    const sub = localServices.reduce(
       (s, item) => s + Number(item.subtotal),
       0
     );
-    const prod = comandaProducts.reduce(
+    const prod = localProducts.reduce(
       (s, item) => s + Number(item.subtotal),
       0
     );
     return sub + prod;
-  }, [comandaServices, comandaProducts]);
+  }, [localServices, localProducts]);
 
   const finalTotal = calculatedTotal - closeForm.discount + closeForm.tip;
 
@@ -220,6 +229,26 @@ export function ComandaDetail({
       return;
     }
 
+    // UI otimista: mostra imediatamente sem esperar o servidor
+    const _svc = services.find((s) => s.id === serviceForm.service_id);
+    const _stf = staff.find((s) => s.id === serviceForm.staff_id);
+    const optimisticSvcId = `opt-svc-${Date.now()}`;
+    setLocalServices((prev) => [
+      ...prev,
+      {
+        id: optimisticSvcId,
+        service_id: serviceForm.service_id,
+        staff_id: serviceForm.staff_id,
+        unit_price: serviceForm.price,
+        quantity: 1,
+        subtotal: serviceForm.use_subscription ? 0 : serviceForm.price,
+        services: _svc ? { name: _svc.name, base_duration_minutes: _svc.base_duration_minutes } : null,
+        staff: _stf ? { display_name: _stf.display_name } : null,
+      },
+    ]);
+    setShowAddService(false);
+    setServiceForm({ service_id: '', staff_id: comanda.staff_id, price: 0, use_subscription: false });
+
     const result = await addServiceToComanda(
       comanda.id,
       serviceForm.service_id,
@@ -230,21 +259,13 @@ export function ComandaDetail({
     );
 
     if (result.ok) {
-      toast.success(
-        serviceForm.use_subscription
-          ? 'Serviço coberto pela assinatura!'
-          : 'Serviço adicionado!'
-      );
-      setShowAddService(false);
-      setServiceForm({
-        service_id: '',
-        staff_id: comanda.staff_id,
-        price: 0,
-        use_subscription: false,
-      });
+      toast.success(serviceForm.use_subscription ? 'Serviço coberto pela assinatura!' : 'Serviço adicionado!');
       startTransition(() => router.refresh());
     } else {
-      toast.error(result.error ?? 'Erro');
+      // Reverter otimista se houver erro
+      setLocalServices((prev) => prev.filter((s) => s.id !== optimisticSvcId));
+      setShowAddService(true);
+      toast.error(result.error ?? 'Erro ao adicionar serviço');
     }
   }
 
@@ -253,6 +274,23 @@ export function ComandaDetail({
       toast.error('Selecione um produto');
       return;
     }
+
+    // UI otimista para produto
+    const _prd = products.find((p) => p.id === productForm.product_id);
+    const optimisticPrdId = `opt-prd-${Date.now()}`;
+    setLocalProducts((prev) => [
+      ...prev,
+      {
+        id: optimisticPrdId,
+        product_id: productForm.product_id,
+        unit_price: productForm.price,
+        quantity: productForm.quantity,
+        subtotal: productForm.price * productForm.quantity,
+        products: _prd ? { name: _prd.name } : null,
+      },
+    ]);
+    setShowAddProduct(false);
+    setProductForm({ product_id: '', price: 0, quantity: 1 });
 
     const result = await addProductToComanda(
       comanda.id,
@@ -263,11 +301,11 @@ export function ComandaDetail({
 
     if (result.ok) {
       toast.success('Produto adicionado!');
-      setShowAddProduct(false);
-      setProductForm({ product_id: '', price: 0, quantity: 1 });
       startTransition(() => router.refresh());
     } else {
-      toast.error(result.error ?? 'Erro');
+      setLocalProducts((prev) => prev.filter((p) => p.id !== optimisticPrdId));
+      setShowAddProduct(true);
+      toast.error(result.error ?? 'Erro ao adicionar produto');
     }
   }
 
@@ -277,6 +315,12 @@ export function ComandaDetail({
   ) {
     if (!(await confirmDialog({ title: 'Remover este item?', danger: true }))) return;
 
+    // Remover localmente de imediato
+    if (type === 'service') {
+      setLocalServices((prev) => prev.filter((s) => s.id !== itemId));
+    } else {
+      setLocalProducts((prev) => prev.filter((p) => p.id !== itemId));
+    }
     const result = await removeComandaItem(comanda.id, itemId, type);
     if (result.ok) {
       toast.success('Item removido!');
@@ -445,7 +489,7 @@ export function ComandaDetail({
               style={{ fontFamily: 'var(--font-playfair), serif' }}
             >
               <Scissors className="w-4 h-4 text-gold" />
-              Serviços ({comandaServices.length})
+              Serviços ({localServices.length})
             </h2>
             {isOpen && (
               <button
@@ -588,13 +632,13 @@ export function ComandaDetail({
             </div>
           )}
 
-          {comandaServices.length === 0 ? (
+          {localServices.length === 0 ? (
             <p className="text-center text-fg-subtle text-xs py-4">
               Nenhum serviço adicionado ainda
             </p>
           ) : (
             <div className="space-y-1">
-              {comandaServices.map((item) => (
+              {localServices.map((item) => (
                 <div
                   key={item.id}
                   className="flex items-center gap-3 p-2 rounded-md hover:bg-bg-elevated transition-colors"
@@ -638,7 +682,7 @@ export function ComandaDetail({
               style={{ fontFamily: 'var(--font-playfair), serif' }}
             >
               <Package className="w-4 h-4 text-gold" />
-              Produtos ({comandaProducts.length})
+              Produtos ({localProducts.length})
             </h2>
             {isOpen && products.length > 0 && (
               <button
@@ -724,13 +768,13 @@ export function ComandaDetail({
                 Cadastrar produto
               </Link>
             </p>
-          ) : comandaProducts.length === 0 ? (
+          ) : localProducts.length === 0 ? (
             <p className="text-center text-fg-subtle text-xs py-4">
               Nenhum produto adicionado
             </p>
           ) : (
             <div className="space-y-1">
-              {comandaProducts.map((item) => (
+              {localProducts.map((item) => (
                 <div
                   key={item.id}
                   className="flex items-center gap-3 p-2 rounded-md hover:bg-bg-elevated transition-colors"
@@ -778,7 +822,7 @@ export function ComandaDetail({
                 <span className="text-fg-muted">Serviços</span>
                 <span className="text-fg">
                   {formatCurrency(
-                    comandaServices.reduce(
+                    localServices.reduce(
                       (s, i) => s + Number(i.subtotal),
                       0
                     )
@@ -789,7 +833,7 @@ export function ComandaDetail({
                 <span className="text-fg-muted">Produtos</span>
                 <span className="text-fg">
                   {formatCurrency(
-                    comandaProducts.reduce(
+                    localProducts.reduce(
                       (s, i) => s + Number(i.subtotal),
                       0
                     )
