@@ -358,6 +358,22 @@ export function AgendaView({
         </div>
       </div>
 
+      {/* ============= LEGENDA DE CORES ============= */}
+      <div className="card px-4 py-2.5 flex items-center gap-x-4 gap-y-1.5 flex-wrap">
+        <span className="text-[10px] uppercase tracking-wider text-fg-dim font-semibold">
+          Legenda
+        </span>
+        {Object.entries(STATUS_COLORS).map(([key, cfg]) => (
+          <span key={key} className="flex items-center gap-1.5 text-[11px] text-fg-muted">
+            <span
+              className="w-2.5 h-2.5 rounded-full border"
+              style={{ background: cfg.bg, borderColor: cfg.border }}
+            />
+            {cfg.label}
+          </span>
+        ))}
+      </div>
+
       {/* ============= BANNERS ============= */}
       {isBarbershopClosed && !barbershopDayOff && (
         <div className="card p-4 border-l-4 border-l-warning bg-warning/5">
