@@ -1,4 +1,4 @@
-'use server';
+﻿﻿'use server';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
@@ -513,33 +513,38 @@ export async function closeComanda(
 
   if (errUpdate) return { ok: false, error: errUpdate.message };
 
-  // 2. Cria o pagamento em comanda_payments
-  const { error: errPayment } = await admin.from('comanda_payments').insert({
-    barbershop_id: BARBERSHOP_ID,
-    comanda_id: comandaId,
-    method,
-    amount: total,
-    installments: 1,
-    fee_percent: 0,
-    fee_value: 0,
-    net_amount: total,
-  });
+  // 2-3. Pagamento + atualizar appointment em paralelo (independentes entre si)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const parallelOps: any[] = [
+    admin.from('comanda_payments').insert({
+      barbershop_id: BARBERSHOP_ID,
+      comanda_id: comandaId,
+      method,
+      amount: total,
+      installments: 1,
+      fee_percent: 0,
+      fee_value: 0,
+      net_amount: total,
+    }),
+  ];
 
-  if (errPayment) return { ok: false, error: errPayment.message };
-
-  // 3. Integracao: marca appointment como completed se houver
   if (comanda.appointment_id) {
-    await admin
-      .from('appointments')
-      .update({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    parallelOps.push(
+      admin.from('appointments').update({
         status: 'completed',
         completed_at: new Date().toISOString(),
         comanda_id: comandaId,
-      })
-      .eq('id', comanda.appointment_id);
+      }).eq('id', comanda.appointment_id)
+    );
   }
 
-  // 4. Atualiza estatisticas do cliente + fidelidade
+  const parallelResults = await Promise.all(parallelOps);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const paymentResult = parallelResults[0] as any;
+  if (paymentResult?.error) return { ok: false, error: paymentResult.error.message };
+
+  // 4. Cliente + pontos em paralelo
   if (comanda.customer_id) {
     const { data: customer } = await admin
       .from('customers')
@@ -547,25 +552,22 @@ export async function closeComanda(
       .eq('id', comanda.customer_id)
       .maybeSingle();
 
-    if (customer) {
-      await admin
-        .from('customers')
-        .update({
-          total_appointments: Number(customer.total_appointments ?? 0) + 1,
-          total_spent: Number(customer.total_spent ?? 0) + total,
-        })
-        .eq('id', comanda.customer_id);
-    }
-
-    // Pontos de fidelidade (idempotente por comanda)
-    await awardPointsForComanda({
-      comandaId,
-      customerId: comanda.customer_id as string,
-      amount: total,
-    });
+    await Promise.all([
+      customer
+        ? admin.from('customers').update({
+            total_appointments: Number(customer.total_appointments ?? 0) + 1,
+            total_spent: Number(customer.total_spent ?? 0) + total,
+          }).eq('id', comanda.customer_id)
+        : Promise.resolve(),
+      awardPointsForComanda({
+        comandaId,
+        customerId: comanda.customer_id as string,
+        amount: total,
+      }),
+    ]);
   }
 
-  revalidatePath('/admin/comandas', 'layout');
+  revalidatePath('/admin/comandas');
   revalidatePath('/admin/agenda');
   return { ok: true };
 }
@@ -582,29 +584,46 @@ export async function cancelComanda(comandaId: string) {
     .select('item_type, product_id, quantity, subscription_usage_id')
     .eq('comanda_id', comandaId);
 
-  for (const item of items ?? []) {
-    if (item.item_type === 'product' && item.product_id) {
-      const { data: prod } = await admin
-        .from('products')
-        .select('stock_current')
-        .eq('id', item.product_id)
-        .maybeSingle();
-      const newStock =
-        Number(prod?.stock_current ?? 0) + Number(item.quantity ?? 0);
-      await admin
-        .from('products')
-        .update({ stock_current: newStock })
-        .eq('id', item.product_id);
-    }
+  // Coletar IDs de produto e usages para processar em paralelo
+  const productItems = (items ?? []).filter(
+    (i) => i.item_type === 'product' && i.product_id
+  );
+  const usageIds = (items ?? [])
+    .map((i) => i.subscription_usage_id)
+    .filter(Boolean) as string[];
 
-    if (item.subscription_usage_id) {
-      await admin
-        .from('subscription_usages')
-        .delete()
-        .eq('id', item.subscription_usage_id)
-        .is('settled_payout_id', null);
+  // Buscar estoques de todos os produtos de uma vez
+  const productOps: Promise<unknown>[] = [];
+  if (productItems.length > 0) {
+    const pids = productItems.map((i) => i.product_id as string);
+    const { data: prods } = await admin
+      .from('products')
+      .select('id, stock_current')
+      .in('id', pids);
+    const stockMap = new Map((prods ?? []).map((p) => [p.id, Number(p.stock_current ?? 0)]));
+    for (const item of productItems) {
+      const current = stockMap.get(item.product_id as string) ?? 0;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      productOps.push(
+        admin.from('products')
+          .update({ stock_current: current + Number(item.quantity ?? 0) })
+          .eq('id', item.product_id as string) as any
+      );
     }
   }
+
+  // Todos os updates em paralelo
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const cancelOps: any[] = [...productOps];
+  if (usageIds.length > 0) {
+    cancelOps.push(
+      admin.from('subscription_usages')
+        .delete()
+        .in('id', usageIds)
+        .is('settled_payout_id', null) as any
+    );
+  }
+  if (cancelOps.length > 0) await Promise.all(cancelOps);
 
   const { error } = await admin
     .from('comandas')
@@ -616,7 +635,6 @@ export async function cancelComanda(comandaId: string) {
 
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath('/admin/comandas', 'layout');
-  revalidatePath('/admin/produtos');
+  revalidatePath('/admin/comandas');
   return { ok: true };
 }

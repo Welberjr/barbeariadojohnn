@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
@@ -89,6 +89,7 @@ export function ComandasView({
     startNavTransition(() => router.push(url));
   }
   const [showNew, setShowNew] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   const [newForm, setNewForm] = useState({
     customer_id: '',
     staff_id: staff[0]?.id ?? '',
@@ -100,19 +101,18 @@ export function ComandasView({
       toast.error('Selecione cliente e profissional');
       return;
     }
-
+    setIsCreating(true);
     const result = await createComanda({
       customer_id: newForm.customer_id,
       staff_id: newForm.staff_id,
     });
-
+    setIsCreating(false);
     if (result.ok && result.comanda) {
-      toast.success('Comanda aberta!');
       setShowNew(false);
-      // Redirecionar pra detalhe da comanda
+      setNewForm({ customer_id: '', staff_id: staff[0]?.id ?? '' });
       router.push(`/admin/comandas/${result.comanda.id}`);
     } else {
-      toast.error(result.error ?? 'Erro');
+      toast.error(result.error ?? 'Erro ao abrir comanda');
     }
   }
 

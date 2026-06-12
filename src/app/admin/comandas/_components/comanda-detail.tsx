@@ -1,4 +1,4 @@
-﻿﻿﻿'use client';
+﻿﻿﻿﻿﻿'use client';
 
 import { useConfirm } from '@/components/confirm-dialog';
 import { useEffect, useState, useTransition, useMemo, useId } from 'react';
@@ -138,6 +138,9 @@ export function ComandaDetail({
   // Sync quando o server refresh trouxer novos dados
   useEffect(() => { setLocalServices(comandaServices); }, [comandaServices]);
   useEffect(() => { setLocalProducts(comandaProducts); }, [comandaProducts]);
+
+  const [isClosing, setIsClosing] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const todayAllowed = subscription
     ? isDayAllowed(new Date(), subscription.allowedDays)
@@ -339,22 +342,21 @@ export function ComandaDetail({
       toast.error('Selecione a forma de pagamento');
       return;
     }
-
+    setIsClosing(true);
+    // Navegar imediatamente + processar em paralelo
+    router.push('/admin/comandas');
     const result = await closeComanda(
       comanda.id,
       closeForm.payment_method,
       closeForm.discount,
       closeForm.tip
     );
-
+    setIsClosing(false);
     if (result.ok) {
       toast.success('Comanda fechada! Venda registrada.');
-      startTransition(() => {
-        router.push('/admin/comandas');
-        router.refresh();
-      });
+      startTransition(() => router.refresh());
     } else {
-      toast.error(result.error ?? 'Erro');
+      toast.error(result.error ?? 'Erro ao fechar comanda');
     }
   }
 
@@ -364,15 +366,15 @@ export function ComandaDetail({
     )
       return;
 
+    setIsCancelling(true);
+    router.push('/admin/comandas');
     const result = await cancelComanda(comanda.id);
+    setIsCancelling(false);
     if (result.ok) {
       toast.success('Comanda cancelada');
-      startTransition(() => {
-        router.push('/admin/comandas');
-        router.refresh();
-      });
+      startTransition(() => router.refresh());
     } else {
-      toast.error(result.error ?? 'Erro');
+      toast.error(result.error ?? 'Erro ao cancelar');
     }
   }
 
@@ -935,7 +937,7 @@ export function ComandaDetail({
               <button
                 type="button"
                 onClick={handleClose}
-                disabled={isPending || calculatedTotal <= 0}
+                                disabled={isPending || calculatedTotal <= 0}
                 className="w-full btn-gold-shimmer flex items-center justify-center gap-2 py-3"
               >
                 {isPending ? (
@@ -949,7 +951,7 @@ export function ComandaDetail({
               <button
                 type="button"
                 onClick={handleCancel}
-                disabled={isPending}
+                              disabled={isPending}
                 className="w-full text-xs text-fg-subtle hover:text-danger transition-colors py-2"
               >
                 Cancelar comanda
