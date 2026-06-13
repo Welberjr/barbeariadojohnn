@@ -1,4 +1,4 @@
-'use client';
+﻿﻿﻿'use client';
 
 import { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Loader2, Scissors } from 'lucide-react';
@@ -78,16 +78,16 @@ export function ChatFloat({
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          'fixed bottom-20 right-4 md:bottom-6 md:right-6 z-50 w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all',
+          'fixed bottom-20 right-3 md:bottom-6 md:right-6 z-50 w-11 h-11 rounded-full shadow-lg flex items-center justify-center transition-all',
           open ? 'scale-90' : 'hover:scale-110'
         )}
         style={{ background: `linear-gradient(135deg, #B8862A, ${accentColor})` }}
         aria-label={open ? 'Fechar chat' : 'Abrir assistente'}
       >
-        {open ? <X className="w-6 h-6 text-bg" /> : <MessageCircle className="w-6 h-6 text-bg" />}
+        {open ? <X className="w-4 h-4 text-bg" /> : <MessageCircle className="w-4 h-4 text-bg" />}
         {/* Pulse quando fechado */}
         {!open && (
-          <span className="absolute inset-0 rounded-full animate-ping opacity-30"
+          <span className="absolute inset-0 rounded-full animate-ping opacity-20"
             style={{ background: accentColor }} />
         )}
       </button>
@@ -95,7 +95,7 @@ export function ChatFloat({
       {/* Painel de chat */}
       {open && (
         <div
-          className="fixed bottom-36 right-4 md:bottom-24 md:right-6 z-50 w-[calc(100vw-2rem)] max-w-sm bg-bg border border-border/60 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+          className="fixed bottom-32 right-3 md:bottom-24 md:right-6 z-50 w-[calc(100vw-1.5rem)] max-w-sm bg-bg border border-border/60 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
           style={{ height: 'min(520px, calc(100vh - 10rem))', animation: 'slideUp 0.2s ease-out' }}
         >
           {/* Header */}
