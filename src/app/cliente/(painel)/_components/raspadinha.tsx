@@ -1,9 +1,9 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import { Sparkles, Gift } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { awardBonusPoints } from '@/app/cliente/actions';
+
 
 const PRIZES = [5, 10, 15, 20, 30, 50];
 
@@ -91,7 +91,12 @@ export function Raspadinha({ customerId }: { customerId: string }) {
   async function reveal() {
     setState('revealed');
     localStorage.setItem(weekKey, prize.toString());
-    await awardBonusPoints(customerId, prize, 'raspadinha_semanal');
+    // Creditar em background - nao bloquear a UI
+    fetch('/api/bonus-points', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ points: prize, reason: 'raspadinha_semanal' }),
+    }).catch(() => {});
   }
 
   if (state === 'used') {

@@ -1,4 +1,4 @@
-import Link from 'next/link';
+﻿﻿import Link from 'next/link';
 import {
   CalendarPlus, Scissors, Clock, ChevronRight, Trophy,
   Crown, Flame, Star, Target, Zap, Gift, CheckCircle2,
@@ -118,17 +118,32 @@ export default async function ClienteHomePage() {
   const top5   = rankings.allTime.slice(0, 5);
   const usagePct = sub ? Math.min(100, (sub.usedInCycle / Math.max(1, sub.plan.included_uses)) * 100) : 0;
 
-  // Missoes (logica simples baseada em dados existentes)
+  // Missoes em tres categorias: permanentes, progressao e avancadas
   const totalVisitas = visitas?.length ?? 0;
-  const missions = [
-    { done: true,           pts: 0,   label: 'Criar conta no app' },
-    { done: totalVisitas >= 1, pts: 100, label: 'Fazer o 1° agendamento' },
-    { done: totalVisitas >= 3, pts: 150, label: '3 visitas realizadas' },
-    { done: streak >= 2,    pts: 200, label: '2 meses seguidos' },
-    { done: !!sub,          pts: 300, label: 'Assinar o Clube VIP' },
-  ].filter(Boolean);
-  const doneMissions   = missions.filter((m) => m.done).length;
-  const totalMissions  = missions.length;
+  const allMissions = [
+    // Permanentes (sempre existem)
+    { cat: 'start',    done: true,                  pts: 0,   label: 'Criar conta no app',          icon: '✅' },
+    { cat: 'start',    done: totalVisitas >= 1,     pts: 100, label: 'Primeira visita registrada',   icon: '💈' },
+    { cat: 'start',    done: totalVisitas >= 3,     pts: 150, label: '3 visitas realizadas',          icon: '🔁' },
+    { cat: 'start',    done: totalVisitas >= 5,     pts: 200, label: '5 visitas realizadas',          icon: '⭐' },
+    { cat: 'start',    done: totalVisitas >= 10,    pts: 500, label: '10 visitas — cliente fiel',     icon: '🏅' },
+    // Progressao
+    { cat: 'progress', done: balance >= 100,        pts: 0,   label: 'Acumular 100 pontos',          icon: '💰' },
+    { cat: 'progress', done: balance >= 500,        pts: 0,   label: 'Acumular 500 pontos',          icon: '💎' },
+    { cat: 'progress', done: streak >= 2,           pts: 200, label: '2 meses consecutivos',         icon: '🔥' },
+    { cat: 'progress', done: streak >= 4,           pts: 400, label: '4 meses consecutivos',         icon: '🔥🔥' },
+    { cat: 'progress', done: streak >= 6,           pts: 600, label: '6 meses — lenda viva',         icon: '🏆' },
+    // Avancadas
+    { cat: 'adv',      done: !!sub,                 pts: 300, label: 'Assinar o Clube VIP',          icon: '👑' },
+    { cat: 'adv',      done: lifetime >= 1500,      pts: 0,   label: 'Atingir nível Ouro',           icon: '🥇' },
+    { cat: 'adv',      done: !!myPos && myPos.position <= 10, pts: 0, label: 'Entrar no Top 10 do ranking', icon: '🎯' },
+  ];
+  // Mostrar: todas feitas + as 3 proximas pendentes
+  const doneMissionsAll = allMissions.filter((m) => m.done);
+  const pendingMissions = allMissions.filter((m) => !m.done).slice(0, 4);
+  const missions = [...doneMissionsAll.slice(-2), ...pendingMissions]; // ultimas 2 feitas + 4 proximas
+  const doneMissions = doneMissionsAll.length;
+  const totalMissions = allMissions.length;
   return (
     <div className="space-y-4 animate-fade-in pb-2">
 
@@ -359,9 +374,7 @@ export default async function ClienteHomePage() {
               'flex items-center gap-3 p-2.5 rounded-lg',
               m.done ? 'bg-success/8 border border-success/20' : 'bg-bg-elevated'
             )}>
-              {m.done
-                ? <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0" />
-                : <div className="w-4 h-4 rounded-full border-2 border-border flex-shrink-0" />}
+              <span className="text-lg flex-shrink-0">{m.icon}</span>
               <p className={cn('text-sm flex-1', m.done ? 'text-fg-muted line-through' : 'text-fg')}>
                 {m.label}
               </p>
@@ -425,13 +438,19 @@ export default async function ClienteHomePage() {
           </div>
         </div>
       ) : (
-        <div className="card p-4 flex items-center justify-between gap-3 border-gold/15">
+        <Link href="/cliente/clube"
+          className="card p-4 flex items-center justify-between gap-3 border-gold/30 hover:border-gold/60 transition-colors"
+          style={{ background: 'linear-gradient(135deg, rgba(212,160,79,0.08) 0%, transparent 100%)' }}>
           <div>
-            <p className="text-sm font-bold text-fg">Conheça o Clube VIP</p>
-            <p className="text-xs text-fg-muted mt-0.5">Cortes mensais com prioridade e economia.</p>
+            <p className="text-[10px] tracking-[0.2em] uppercase text-gold font-semibold mb-1">Exclusivo</p>
+            <p className="text-sm font-bold text-fg">Clube VIP da Barbearia</p>
+            <p className="text-xs text-fg-muted mt-0.5">Atendimentos mensais + prioridade + pontos bônus</p>
+            <span className="inline-flex items-center gap-1 mt-2 text-[11px] text-gold font-semibold">
+              Ver planos e benefícios →
+            </span>
           </div>
-          <Crown className="w-8 h-8 text-gold flex-shrink-0" />
-        </div>
+          <Crown className="w-10 h-10 text-gold flex-shrink-0 opacity-80" />
+        </Link>
       )}
 
       {/* ══════════ CONQUISTAS ══════════ */}
