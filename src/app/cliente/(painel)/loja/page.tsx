@@ -1,4 +1,4 @@
-import { requireCustomer } from '@/lib/customer-auth';
+﻿import { requireCustomer } from '@/lib/customer-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { formatCurrency } from '@/lib/utils';
 import { ShoppingBag, Package, ChevronLeft, Tag } from 'lucide-react';
@@ -18,10 +18,9 @@ export default async function LojaPage() {
   const [{ data: products }, { data: categories }] = await Promise.all([
     admin
       .from('products')
-      .select('id, name, description, sale_price, stock_current, stock_minimum, category_id, image_url, active, is_sellable, brand')
+      .select('id, name, description, sale_price, stock_current, stock_minimum, category_id, image_url, active, brand')
       .eq('barbershop_id', BARBERSHOP_ID)
       .eq('active', true)
-      .eq('is_sellable', true)
       .order('name'),
     admin
       .from('product_categories')
