@@ -1,4 +1,4 @@
-﻿﻿'use client';
+﻿﻿﻿﻿﻿'use client';
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
@@ -421,7 +421,72 @@ export function AgendaView({
           </p>
         </div>
       ) : (
-        <div className="card overflow-hidden">
+        <>
+
+        {/* ═══════ MOBILE: lista vertical por horário ═══════ */}
+        <div className="md:hidden card overflow-hidden">
+          {/* Filtro por barbeiro */}
+          <div className="p-3 flex gap-2 overflow-x-auto border-b border-border/50">
+            <button type="button" onClick={() => setMobileStaffFilter(null)}
+              className={cn("flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors",
+                mobileStaffFilter === null ? "bg-gold/20 text-gold border-gold/40" : "bg-bg-elevated text-fg-muted border-border")}>
+              Todos
+            </button>
+            {staff.map((s) => (
+              <button key={s.id} type="button" onClick={() => setMobileStaffFilter(s.id)}
+                className={cn("flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap",
+                  mobileStaffFilter === s.id ? "bg-gold/20 text-gold border-gold/40" : "bg-bg-elevated text-fg-muted border-border")}>
+                {s.display_name.split(' ')[0]}
+              </button>
+            ))}
+          </div>
+          {/* Lista de agendamentos */}
+          <div className="divide-y divide-border/40">
+            {(() => {
+              const filtered = appointments
+                .filter((a) => !mobileStaffFilter || a.staff_id === mobileStaffFilter)
+                .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
+              if (filtered.length === 0)
+                return <p className="p-8 text-center text-sm text-fg-muted">Nenhum agendamento para este dia.</p>;
+              const MOBILE_STATUS: Record<string, string> = {
+                scheduled: '#D4A04F', confirmed: '#22c55e', in_progress: '#3b82f6',
+                completed: '#6b7280', cancelled: '#ef4444', no_show: '#a855f7',
+              };
+              return filtered.map((a) => {
+                const st = staff.find((s) => s.id === a.staff_id);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const svcName = (Array.isArray((a as any).appointment_services)
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  ? (a as any).appointment_services.map((s: any) => s.services?.name).filter(Boolean).join(' + ')
+                  : a.services?.name) ?? 'Atendimento';
+                const startT = new Date(a.start_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+                const endT   = new Date(a.end_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+                const dotColor = MOBILE_STATUS[a.status] ?? '#D4A04F';
+                return (
+                  <button key={a.id} type="button" onClick={() => setOpenApt(a)}
+                    className="w-full p-3 flex items-center gap-3 text-left hover:bg-bg-elevated transition-colors active:bg-bg-elevated">
+                    <div className="w-0.5 self-stretch rounded-full flex-shrink-0 min-h-[40px]" style={{ background: dotColor }} />
+                    <div className="w-12 flex-shrink-0 text-center">
+                      <p className="text-sm font-bold text-fg leading-tight">{startT}</p>
+                      <p className="text-[10px] text-fg-subtle">{endT}</p>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-fg truncate">{a.customers?.full_name ?? 'Cliente'}</p>
+                      <p className="text-xs text-fg-muted truncate">{svcName}</p>
+                      {!mobileStaffFilter && st && (
+                        <p className="text-[11px] text-fg-subtle mt-0.5">{st.display_name}</p>
+                      )}
+                    </div>
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: dotColor }} />
+                  </button>
+                );
+              });
+            })()}
+          </div>
+        </div>
+
+        {/* ═══════ DESKTOP: grade por colunas ═══════ */}
+        <div className="hidden md:block card overflow-hidden">
           <div className="overflow-x-auto">
             <div
               className="flex"
@@ -609,6 +674,7 @@ export function AgendaView({
             </div>
           </div>
         </div>
+        </>
       )}
 
       {/* ============= DRAWERS ============= */}
