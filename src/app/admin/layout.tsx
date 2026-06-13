@@ -1,6 +1,7 @@
-import { redirect } from 'next/navigation';
+﻿﻿﻿﻿import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { AdminSidebar } from './_components/sidebar';
+import { ChatFloat } from '@/components/chat-float';
 import { AdminTopbar } from './_components/topbar';
 
 export default async function AdminLayout({
@@ -25,6 +26,7 @@ export default async function AdminLayout({
     .maybeSingle();
 
   return (
+    <>
     <div className="min-h-screen bg-bg flex">
       <AdminSidebar />
 
@@ -37,5 +39,7 @@ export default async function AdminLayout({
         <main className="flex-1 p-6 lg:p-8 overflow-x-auto">{children}</main>
       </div>
     </div>
+    <ChatFloat endpoint="/api/chat/admin" title="Assistente 📊" welcomeMessage="Olá, Jonathan! Me pergunte sobre métricas, clientes, estoque ou desempenho da equipe." placeholder="Como foi o faturamento essa semana?" accentColor="#ce0056" />
+    </>
   );
 }
