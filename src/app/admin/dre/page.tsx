@@ -1,4 +1,4 @@
-import { createAdminClient } from '@/lib/supabase/admin';
+﻿import { createAdminClient } from '@/lib/supabase/admin';
 import {
   FileText,
   TrendingUp,
@@ -248,28 +248,16 @@ export default async function DREPage({ searchParams }: DREPageProps) {
           </p>
         </div>
 
-        <form className="flex items-end gap-2 no-print" method="get">
-          <div>
+        <form className="grid grid-cols-2 sm:flex sm:items-end gap-2 no-print w-full sm:w-auto" method="get">
+          <div className="min-w-0">
             <label className="label text-[10px]">De</label>
-            <input
-              type="date"
-              name="from"
-              defaultValue={fromStr}
-              className="input py-1.5 text-sm"
-            />
+            <input type="date" name="from" defaultValue={fromStr} className="input py-1.5 text-sm w-full" />
           </div>
-          <div>
+          <div className="min-w-0">
             <label className="label text-[10px]">Até</label>
-            <input
-              type="date"
-              name="to"
-              defaultValue={toStr}
-              className="input py-1.5 text-sm"
-            />
+            <input type="date" name="to" defaultValue={toStr} className="input py-1.5 text-sm w-full" />
           </div>
-          <button type="submit" className="btn-secondary py-2 text-sm">
-            Aplicar
-          </button>
+          <button type="submit" className="btn-secondary py-2 text-sm">Aplicar</button>
           <DrePdfButton />
         </form>
       </div>
@@ -320,7 +308,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
       </div>
 
       {/* KPIs RESUMO */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="card p-5">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 rounded-md bg-gold/10 text-gold">

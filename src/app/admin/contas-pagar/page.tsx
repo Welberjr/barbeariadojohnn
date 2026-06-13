@@ -1,4 +1,4 @@
-import { createAdminClient } from '@/lib/supabase/admin';
+﻿import { createAdminClient } from '@/lib/supabase/admin';
 import {
   Plus,
   Receipt,
@@ -205,7 +205,7 @@ export default async function ContasPagarPage({
       <div className="divider-gold" />
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
         <div className="card p-5">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 rounded-md bg-warning/10 text-warning">
@@ -322,7 +322,55 @@ export default async function ContasPagarPage({
         </div>
       ) : (
         <div className="card overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* MOBILE: lista de cards */}
+          <div className="md:hidden divide-y divide-border/40">
+            {bills.map((b) => {
+              const cat = b.category_id ? categoryMap.get(b.category_id) : null;
+              const isOverdue = b.status === 'pending' && b.due_date < todayStr;
+              const s = isOverdue ? statusLabel('overdue') : statusLabel(b.status);
+              return (
+                <div key={b.id} className="p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <Link href={`/admin/contas-pagar/${b.id}`} className="text-sm font-semibold text-fg hover:text-gold transition-colors block truncate">
+                        {b.description}
+                      </Link>
+                      {b.supplier && <p className="text-[11px] text-fg-subtle truncate">{b.supplier}</p>}
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${s.cls}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${isOverdue ? 'bg-danger' : b.status === 'paid' ? 'bg-success' : b.status === 'pending' ? 'bg-warning' : 'bg-fg-dim'}`} />
+                          {s.label}
+                        </span>
+                        <span className="text-[11px] text-fg-dim">·</span>
+                        <span className="text-[11px] text-fg-muted">{formatDate(b.due_date)}</span>
+                        {cat && (
+                          <>
+                            <span className="text-[11px] text-fg-dim">·</span>
+                            <span className="inline-flex items-center gap-1 text-[11px] text-fg-muted">
+                              <span className="w-2 h-2 rounded-full" style={{ background: cat.color ?? '#9CA3AF' }} />
+                              {cat.name}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-base font-bold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>
+                        {formatCurrency(Number(b.amount))}
+                      </p>
+                    </div>
+                  </div>
+                  {(b.status === 'pending' || b.status === 'overdue') && (
+                    <div className="mt-2">
+                      <QuickPayButton billId={b.id} description={b.description} amount={Number(b.amount)} />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {/* DESKTOP: tabela */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-bg-elevated">

@@ -1,4 +1,4 @@
-import { createAdminClient } from '@/lib/supabase/admin';
+﻿﻿import { createAdminClient } from '@/lib/supabase/admin';
 import { getAvailableSlots } from '@/lib/booking';
 import { bookAppointment } from '@/app/cliente/actions';
 
@@ -36,7 +36,7 @@ export async function executeClientTool(name: string, input: any, customerId: st
       return data ?? [];
     }
     case 'listar_barbeiros': {
-      const { data } = await admin.from('staff').select('id, display_name, bio, avatar_url').eq('barbershop_id', BARBERSHOP_ID).eq('active', true).in('role', ['barber', 'owner', 'manager']).order('display_name');
+      const { data } = await admin.from('staff').select('id, display_name, bio, photo_url').eq('barbershop_id', BARBERSHOP_ID).eq('active', true).order('display_name');
       return data ?? [];
     }
     case 'verificar_disponibilidade': {
@@ -54,7 +54,7 @@ export async function executeClientTool(name: string, input: any, customerId: st
       return { ok: !error, error: error?.message };
     }
     case 'listar_produtos': {
-      const { data } = await admin.from('products').select('id, name, description, price, stock_current, category').eq('barbershop_id', BARBERSHOP_ID).eq('active', true).order('name');
+      const { data } = await admin.from('products').select('id, name, description, sale_price, stock_current, brand').eq('barbershop_id', BARBERSHOP_ID).eq('active', true).gt('stock_current', 0).order('name');
       return data ?? [];
     }
     case 'abrir_comanda_produto': {
@@ -65,9 +65,9 @@ export async function executeClientTool(name: string, input: any, customerId: st
         comandaId = newC?.id;
       }
       if (!comandaId) return { ok: false, error: 'Não foi possível abrir a comanda' };
-      const { data: prod } = await admin.from('products').select('id, name, price, stock_current').eq('id', input.product_id).maybeSingle();
+      const { data: prod } = await admin.from('products').select('id, name, sale_price, stock_current').eq('id', input.product_id).maybeSingle();
       if (!prod || Number(prod.stock_current) <= 0) return { ok: false, error: 'Produto esgotado' };
-      await admin.from('comanda_items').insert({ barbershop_id: BARBERSHOP_ID, comanda_id: comandaId, item_type: 'product', product_id: prod.id, unit_price: prod.price, quantity: 1, total_price: prod.price });
+      await admin.from('comanda_items').insert({ barbershop_id: BARBERSHOP_ID, comanda_id: comandaId, item_type: 'product', product_id: prod.id, unit_price: prod.sale_price, quantity: 1, total_price: prod.sale_price });
       await admin.from('products').update({ stock_current: Number(prod.stock_current) - 1 }).eq('id', prod.id);
       return { ok: true, product: prod.name, comanda_id: comandaId };
     }

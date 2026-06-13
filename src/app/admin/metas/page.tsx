@@ -227,26 +227,18 @@ export default async function MetasPage({ searchParams }: PageProps) {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* HEADER */}
-      <div className="flex items-end justify-between flex-wrap gap-4">
+      <div className="text-center md:text-left md:flex md:items-end md:justify-between gap-4">
         <div>
-          <p className="text-[10px] text-fg-dim tracking-[0.25em] uppercase mb-1">
-            Financeiro
-          </p>
-          <h1
-            className="text-3xl text-fg font-bold"
-            style={{ fontFamily: 'var(--font-playfair), serif' }}
-          >
+          <p className="text-[10px] text-fg-dim tracking-[0.25em] uppercase mb-1">Financeiro</p>
+          <h1 className="text-2xl md:text-3xl text-fg font-bold" style={{ fontFamily: 'var(--font-playfair), serif' }}>
             Metas e Desempenho
           </h1>
-          <p className="text-sm text-fg-muted mt-2">
-            Acompanhe e gerencie metas da barbearia e profissionais
-          </p>
+          <p className="text-sm text-fg-muted mt-1">Acompanhe metas da barbearia e dos profissionais</p>
         </div>
-        <div className="text-right">
+        <div className="mt-3 md:mt-0 inline-flex md:block items-center gap-2 px-3 py-1.5 md:p-0 rounded-full md:rounded-none bg-bg-elevated md:bg-transparent">
           <p className="text-sm text-fg-muted capitalize">{monthLabel}</p>
-          <p className="text-[11px] text-fg-subtle">
-            Dia {dayOfMonth} de {daysInMonth} · {(elapsedRatio * 100).toFixed(0)}% do mês
-          </p>
+          <span className="md:hidden text-fg-dim">·</span>
+          <p className="text-[11px] text-fg-subtle">Dia {dayOfMonth}/{daysInMonth} · {(elapsedRatio * 100).toFixed(0)}%</p>
         </div>
       </div>
 

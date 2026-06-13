@@ -1,4 +1,4 @@
-﻿'use client';
+﻿﻿﻿'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import { Sparkles, Gift } from 'lucide-react';
@@ -7,13 +7,6 @@ import { cn } from '@/lib/utils';
 
 const PRIZES = [5, 10, 15, 20, 30, 50];
 
-function getWeekKey() {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), 0, 1);
-  const week = Math.ceil(((now.getTime() - start.getTime()) / 86400000 + start.getDay() + 1) / 7);
-  return `raspadinha-${now.getFullYear()}-${week}`;
-}
-
 export function Raspadinha({ customerId }: { customerId: string }) {
   const [state, setState] = useState<'idle' | 'scratching' | 'revealed' | 'used'>('idle');
   const [prize, setPrize] = useState<number>(0);
@@ -21,12 +14,21 @@ export function Raspadinha({ customerId }: { customerId: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawing = useRef(false);
   const totalPixels = useRef(0);
-  const weekKey = getWeekKey();
+  const [loading, setLoading] = useState(true);
 
+  // Verifica no servidor se já raspou esta semana (persiste entre dispositivos)
   useEffect(() => {
-    const used = localStorage.getItem(weekKey);
-    if (used) setState('used');
-  }, [weekKey]);
+    let cancelled = false;
+    fetch('/api/bonus-points')
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        if (d.used) { setState('used'); setPrize(d.points ?? 0); }
+        setLoading(false);
+      })
+      .catch(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
 
   function startScratching() {
     if (state !== 'idle') return;
@@ -90,13 +92,31 @@ export function Raspadinha({ customerId }: { customerId: string }) {
 
   async function reveal() {
     setState('revealed');
-    localStorage.setItem(weekKey, prize.toString());
-    // Creditar em background - nao bloquear a UI
-    fetch('/api/bonus-points', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ points: prize, reason: 'raspadinha_semanal' }),
-    }).catch(() => {});
+    // Creditar no servidor (idempotente por semana)
+    try {
+      const res = await fetch('/api/bonus-points', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ points: prize }),
+      });
+      // Se já tinha usado (409), apenas mantém revelado sem creditar de novo
+      if (res.status === 409) {
+        // outra aba/dispositivo já creditou - tudo certo
+      }
+    } catch {
+      // falha de rede - pontos não creditados, mas não trava a UI
+    }
+  }
+
+  // Enquanto verifica no servidor, não mostra nada (evita piscar)
+  if (loading) {
+    return (
+      <div className="card p-5 text-center border-border/40">
+        <div className="animate-pulse h-20 flex items-center justify-center">
+          <Gift className="w-7 h-7 text-fg-dim" />
+        </div>
+      </div>
+    );
   }
 
   if (state === 'used') {

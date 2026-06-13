@@ -1,4 +1,4 @@
-﻿import { requireCustomer } from '@/lib/customer-auth';
+﻿﻿import { requireCustomer } from '@/lib/customer-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { formatCurrency } from '@/lib/utils';
 import { ShoppingBag, Package, ChevronLeft, Tag } from 'lucide-react';
@@ -18,7 +18,7 @@ export default async function LojaPage() {
   const [{ data: products }, { data: categories }] = await Promise.all([
     admin
       .from('products')
-      .select('id, name, description, sale_price, stock_current, stock_minimum, category_id, image_url, active, brand')
+      .select('id, name, description, sale_price, stock_current, stock_minimum, category_id, photo_url, active, brand')
       .eq('barbershop_id', BARBERSHOP_ID)
       .eq('active', true)
       .order('name'),
@@ -91,9 +91,9 @@ export default async function LojaPage() {
                   <div key={p.id} className={cn('card overflow-hidden flex flex-col', esgotado && 'opacity-60')}>
                     {/* Imagem ou placeholder */}
                     <div className="relative bg-bg-elevated flex items-center justify-center flex-shrink-0" style={{ aspectRatio: '1/1' }}>
-                      {p.image_url ? (
+                      {p.photo_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
+                        <img src={p.photo_url} alt={p.name} className="w-full h-full object-cover" />
                       ) : (
                         <Package className="w-10 h-10 text-fg-dim" />
                       )}
