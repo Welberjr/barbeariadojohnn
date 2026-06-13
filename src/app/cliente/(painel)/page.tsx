@@ -1,4 +1,4 @@
-﻿﻿import Link from 'next/link';
+﻿﻿﻿import Link from 'next/link';
 import {
   CalendarPlus, Scissors, Clock, ChevronRight, Trophy,
   Crown, Flame, Star, Target, Zap, Gift, CheckCircle2,
@@ -9,6 +9,7 @@ import { getActiveSubscription, formatAllowedDays } from '@/lib/subscriptions';
 import { getRankings } from '@/lib/loyalty';
 import { cn, formatCurrency } from '@/lib/utils';
 import { Raspadinha } from './_components/raspadinha';
+import { UpcomingAppointments } from './_components/upcoming-appointments';
 
 export const metadata = { title: 'Início' };
 export const dynamic = 'force-dynamic';
@@ -233,35 +234,8 @@ export default async function ClienteHomePage() {
       </Link>
 
       {/* ══════════ PRÓXIMOS AGENDAMENTOS ══════════ */}
-      {nextAppts && nextAppts.length > 0 && (
-        <section className="space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-fg-muted uppercase tracking-wider flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-gold" />Próximos
-            </p>
-            <Link href="/cliente/agendamentos" className="text-[11px] text-gold flex items-center gap-0.5">
-              Ver todos <ChevronRight className="w-3 h-3" />
-            </Link>
-          </div>
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          {(nextAppts as any[]).map((a) => {
-            const svc = (a.appointment_services ?? [])
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              .map((s: any) => s.services?.name).filter(Boolean).join(' + ');
-            return (
-              <div key={a.id} className="card px-4 py-3 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-md bg-gold/10 text-gold flex items-center justify-center flex-shrink-0">
-                  <Scissors className="w-4 h-4" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-fg font-medium truncate">{svc || 'Atendimento'}</p>
-                  <p className="text-[11px] text-fg-muted">{fmtDateTime(a.start_at)} · {a.staff?.display_name ?? '—'}</p>
-                </div>
-              </div>
-            );
-          })}
-        </section>
-      )}
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+      <UpcomingAppointments appointments={(nextAppts ?? []) as any} />
       {/* ══════════ RANKING ══════════ */}
       <section className="card p-4 space-y-3">
         <div className="flex items-center justify-between">

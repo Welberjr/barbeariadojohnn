@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -7,6 +7,7 @@ import {
   CalendarPlus,
   CalendarDays,
   Trophy,
+  ShoppingBag,
   User,
   Bell,
 } from 'lucide-react';
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { href: '/cliente/agendar', label: 'Agendar', icon: CalendarPlus, exact: false },
   { href: '/cliente/agendamentos', label: 'Agenda', icon: CalendarDays, exact: false },
   { href: '/cliente/ranking', label: 'Ranking', icon: Trophy, exact: false },
+  { href: '/cliente/loja', label: 'Loja', icon: ShoppingBag, exact: false },
   { href: '/cliente/perfil', label: 'Perfil', icon: User, exact: false },
 ];
 
@@ -117,7 +119,7 @@ export function ClientBottomNav() {
 
   return (
     <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-bg/95 backdrop-blur-md border-t border-border/60 pb-[env(safe-area-inset-bottom)]">
-      <div className="grid grid-cols-5">
+      <div className="grid grid-cols-6">
         {NAV_ITEMS.map((item) => {
           const active = item.exact
             ? pathname === item.href
