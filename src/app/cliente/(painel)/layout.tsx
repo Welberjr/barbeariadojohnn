@@ -1,8 +1,16 @@
-﻿import { requireCustomer } from '@/lib/customer-auth';
+﻿﻿import { requireCustomer } from '@/lib/customer-auth';
 import { getUnreadCount } from '@/lib/notifications';
 import { ClientTopbar, ClientBottomNav } from './_components/client-nav';
 import { ChatFloat } from '@/components/chat-float';
 
+import type { Viewport } from 'next';
+
+export const viewport: Viewport = {
+  themeColor: '#D4A04F',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+};
 export const metadata = {
   title: {
     default: 'Área do Cliente | Barbearia do Johnn',

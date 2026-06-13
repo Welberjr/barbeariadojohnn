@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -379,7 +379,7 @@ export function AdminTopbar({ userEmail, userName }: AdminTopbarProps) {
 
   return (
     <header
-      className="h-16 bg-bg-surface border-b border-border flex items-center justify-between px-6 lg:px-8 flex-shrink-0 relative"
+      className="h-16 bg-bg-surface border-b border-border flex items-center justify-between pl-14 pr-4 md:px-6 lg:px-8 flex-shrink-0 relative"
       style={{
         background: 'linear-gradient(180deg, #121212 0%, #0F0F0F 100%)',
       }}

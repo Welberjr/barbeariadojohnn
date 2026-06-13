@@ -1,9 +1,26 @@
-﻿﻿﻿﻿import { redirect } from 'next/navigation';
+﻿﻿﻿﻿﻿﻿import { redirect } from 'next/navigation';
+import type { Metadata, Viewport } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { AdminSidebar } from './_components/sidebar';
 import { ChatFloat } from '@/components/chat-float';
 import { AdminTopbar } from './_components/topbar';
 
+export const viewport: Viewport = {
+  themeColor: '#D4A04F',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+};
+
+export const metadata: Metadata = {
+  title: 'Barbearia do Johnn — Gestão',
+  manifest: '/manifest-admin.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Johnn Admin',
+  },
+};
 export default async function AdminLayout({
   children,
 }: {
