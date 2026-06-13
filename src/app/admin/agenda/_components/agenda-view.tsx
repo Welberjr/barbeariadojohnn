@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿'use client';
+﻿﻿﻿﻿﻿﻿'use client';
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
@@ -254,126 +254,72 @@ export function AgendaView({
   }
 
   return (
-    <div className="space-y-4">
-      {/* ============= HEADER ============= */}
-      <div className="flex items-start justify-between flex-wrap gap-4">
-        <div>
-          <p className="text-[10px] text-gold tracking-[0.3em] uppercase font-semibold mb-1">
-            Gestão
-          </p>
-          <h1
-            className="text-2xl md:text-3xl font-bold text-fg"
-            style={{ fontFamily: 'var(--font-playfair), serif' }}
-          >
+    <div className="space-y-3">
+      {/* HEADER: titulo + botao */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h1 className="text-xl md:text-2xl font-bold text-fg leading-tight" style={{ fontFamily: "var(--font-playfair), serif" }}>
             Agenda
           </h1>
-          <p className="text-sm text-fg-muted mt-1 capitalize">
-            {dateFormatted}
-          </p>
+          <p className="text-xs text-fg-muted capitalize truncate">{dateFormatted}</p>
         </div>
+        <button type="button"
+          onClick={() => { if (staff.length > 0) setNewAptContext({ staffId: staff[0].id, startTime: '09:00' }); }}
+          className="btn-primary flex items-center gap-1.5 text-sm flex-shrink-0">
+          <Plus className="w-4 h-4" />
+          <span className="hidden sm:inline">Novo agendamento</span>
+        </button>
+      </div>
 
-        {/* Controles de navegação */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={() => changeDate(-1)}
-            className="btn-ghost p-2 rounded-md"
-            title="Dia anterior"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
+      {/* NAVEGACAO DE DATA: compacta */}
+      <div className="flex items-center gap-2">
+        <button type="button" onClick={() => changeDate(-1)} className="btn-ghost p-2 rounded-md flex-shrink-0">
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <button type="button" onClick={goToToday} className="btn-ghost text-xs px-2.5 py-1.5 flex-shrink-0">Hoje</button>
+        <input type="date" value={selectedDate}
+          onChange={(e) => router.push('/admin/agenda?date=' + e.target.value)}
+          className="input text-sm flex-1 min-w-0" />
+        <button type="button" onClick={() => changeDate(1)} className="btn-ghost p-2 rounded-md flex-shrink-0">
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
 
-          <button type="button" onClick={goToToday} className="btn-ghost text-sm">
-            Hoje
-          </button>
-
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => {
-              router.push(`/admin/agenda?date=${e.target.value}`);
-            }}
-            className="input text-sm w-44"
-          />
-
-          <button
-            type="button"
-            onClick={() => changeDate(1)}
-            className="btn-ghost p-2 rounded-md"
-            title="Próximo dia"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (staff.length > 0) {
-                setNewAptContext({
-                  staffId: staff[0].id,
-                  startTime: '09:00',
-                });
-              }
-            }}
-            className="btn-primary text-sm flex items-center gap-1.5"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Novo agendamento</span>
-          </button>
+      {/* STATS: uma linha so, compacta */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="card p-3 text-center">
+          <p className="text-[9px] uppercase tracking-wider text-fg-dim mb-1">Total</p>
+          <p className="text-2xl font-bold text-fg" style={{ fontFamily: "var(--font-playfair), serif" }}>{stats.total}</p>
+        </div>
+        <div className="card p-3 text-center">
+          <p className="text-[9px] uppercase tracking-wider text-fg-dim mb-1">Confirmados</p>
+          <p className="text-2xl font-bold text-success" style={{ fontFamily: "var(--font-playfair), serif" }}>{stats.confirmed}</p>
+        </div>
+        <div className="card p-3 text-center">
+          <p className="text-[9px] uppercase tracking-wider text-fg-dim mb-1">Concluidos</p>
+          <p className="text-2xl font-bold text-gold" style={{ fontFamily: "var(--font-playfair), serif" }}>{stats.completed}</p>
         </div>
       </div>
 
-      {/* ============= STATS RAPIDAS ============= */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        <div className="card-premium p-4">
-          <p className="text-[10px] text-fg-dim tracking-widest uppercase flex items-center gap-1">
-            Total do dia
-            <InfoTip text="Todos os agendamentos do dia selecionado, em qualquer status, incluindo cancelados e não comparecimentos." />
-          </p>
-          <p
-            className="text-2xl font-bold text-fg mt-1"
-            style={{ fontFamily: 'var(--font-playfair), serif' }}
-          >
-            {stats.total}
-          </p>
+      {/* LEGENDA: colapsada em mobile, visivel desktop */}
+      <details className="md:hidden">
+        <summary className="text-[10px] uppercase tracking-wider text-fg-dim cursor-pointer select-none py-1">
+          Legenda de status
+        </summary>
+        <div className="flex flex-wrap gap-x-3 gap-y-1.5 mt-2">
+          {Object.entries(STATUS_COLORS).map(([key, cfg]) => (
+            <span key={key} className="flex items-center gap-1.5 text-[11px] text-fg-muted">
+              <span className="w-2.5 h-2.5 rounded-full border" style={{ background: cfg.bg, borderColor: cfg.border }} />
+              {cfg.label}
+            </span>
+          ))}
         </div>
-        <div className="card-premium p-4">
-          <p className="text-[10px] text-fg-dim tracking-widest uppercase flex items-center gap-1">
-            Confirmados
-            <InfoTip text="Agendamentos confirmados ou já em atendimento. Os dourados da grade ainda aguardam confirmação." />
-          </p>
-          <p
-            className="text-2xl font-bold text-success mt-1"
-            style={{ fontFamily: 'var(--font-playfair), serif' }}
-          >
-            {stats.confirmed}
-          </p>
-        </div>
-        <div className="card-premium p-4">
-          <p className="text-[10px] text-fg-dim tracking-widest uppercase flex items-center gap-1">
-            Concluídos
-            <InfoTip text="Atendimentos do dia que já foram finalizados." />
-          </p>
-          <p
-            className="text-2xl font-bold text-gold mt-1"
-            style={{ fontFamily: 'var(--font-playfair), serif' }}
-          >
-            {stats.completed}
-          </p>
-        </div>
-      </div>
-
-      {/* ============= LEGENDA DE CORES ============= */}
-      <div className="card px-4 py-2.5 flex items-center gap-x-4 gap-y-1.5 flex-wrap">
-        <span className="text-[10px] uppercase tracking-wider text-fg-dim font-semibold">
-          Legenda
-        </span>
+      </details>
+      <div className="hidden md:flex card px-4 py-2.5 items-center gap-x-4 gap-y-1.5 flex-wrap">
+        <span className="text-[10px] uppercase tracking-wider text-fg-dim font-semibold">Legenda</span>
         {Object.entries(STATUS_COLORS).map(([key, cfg]) => (
           <span key={key} className="flex items-center gap-1.5 text-[11px] text-fg-muted">
-            <span
-              className="w-2.5 h-2.5 rounded-full border"
-              style={{ background: cfg.bg, borderColor: cfg.border }}
-            />
+            <span className="w-2.5 h-2.5 rounded-full border" style={{ background: cfg.bg, borderColor: cfg.border }} />
             {cfg.label}
           </span>
         ))}
