@@ -273,3 +273,53 @@ export async function markAllNotificationsRead() {
   revalidatePath('/cliente/notificacoes');
   return { ok: true };
 }
+
+// ============================================================
+// BONUS POINTS (raspadinha, etc.)
+// ============================================================
+export async function awardBonusPoints(
+  customerId: string,
+  points: number,
+  reason: string
+) {
+  'use server';
+  const { createAdminClient } = await import('@/lib/supabase/admin');
+  const admin = createAdminClient();
+  const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
+
+  try {
+    const { data: current } = await admin
+      .from('loyalty_points')
+      .select('id, balance, lifetime_earned')
+      .eq('customer_id', customerId)
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .maybeSingle();
+
+    if (!current) {
+      await admin.from('loyalty_points').insert({
+        barbershop_id: BARBERSHOP_ID,
+        customer_id: customerId,
+        balance: points,
+        lifetime_earned: points,
+        lifetime_redeemed: 0,
+      });
+    } else {
+      await admin.from('loyalty_points').update({
+        balance: Number(current.balance ?? 0) + points,
+        lifetime_earned: Number(current.lifetime_earned ?? 0) + points,
+      }).eq('id', current.id);
+    }
+
+    await admin.from('loyalty_points_events').insert({
+      barbershop_id: BARBERSHOP_ID,
+      customer_id: customerId,
+      event_type: 'earned_bonus',
+      points_delta: points,
+      description: reason,
+    });
+
+    return { ok: true };
+  } catch {
+    return { ok: false };
+  }
+}
