@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useConfirm } from '@/components/confirm-dialog';
 import { useState, useTransition } from 'react';
@@ -355,6 +355,14 @@ export function ServiceStaffManager({
                     <p className="text-[10px] text-fg-subtle uppercase tracking-wider">
                       {row.role}
                     </p>
+                    {/* Valores resumidos em mobile */}
+                    <div className="md:hidden flex items-center gap-2 mt-0.5">
+                      <span className="text-[10px] text-gold font-semibold">{formatCurrency(row.custom_price ?? basePrice)}</span>
+                      <span className="text-[10px] text-fg-dim">·</span>
+                      <span className="text-[10px] text-fg-muted">{row.custom_duration_minutes ?? baseDuration}min</span>
+                      <span className="text-[10px] text-fg-dim">·</span>
+                      <span className="text-[10px] text-fg-muted">{row.custom_commission_percent ?? baseCommission}%</span>
+                    </div>
                   </div>
 
                   {!isEditing && (

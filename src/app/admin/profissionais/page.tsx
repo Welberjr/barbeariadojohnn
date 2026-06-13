@@ -1,4 +1,4 @@
-﻿import { createAdminClient } from '@/lib/supabase/admin';
+﻿﻿import { createAdminClient } from '@/lib/supabase/admin';
 import { Plus, Users } from 'lucide-react';
 import { StaffList } from './_components/staff-list';
 import { NovoStaffModal } from './_components/novo-staff-modal';
@@ -64,57 +64,19 @@ export default async function ProfissionaisPage() {
 
       <div className="divider-gold" />
 
-      {/* STATS */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        <div className="card p-5">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-md bg-gold/10 text-gold">
-              <Users className="w-4 h-4" />
-            </div>
-            <p className="text-[10px] tracking-widest uppercase text-fg-muted">
-              Total
-            </p>
-          </div>
-          <p
-            className="text-3xl font-bold text-fg"
-            style={{ fontFamily: 'var(--font-playfair), serif' }}
-          >
-            {staff?.length ?? 0}
-          </p>
+      {/* STATS: barra horizontal compacta */}
+      <div className="card px-4 py-3 flex items-center divide-x divide-border/60">
+        <div className="flex-1 text-center pr-4">
+          <p className="text-[9px] uppercase tracking-widest text-fg-dim">Total</p>
+          <p className="text-2xl font-bold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>{staff?.length ?? 0}</p>
         </div>
-
-        <div className="card p-5">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-md bg-success/10 text-success">
-              <Users className="w-4 h-4" />
-            </div>
-            <p className="text-[10px] tracking-widest uppercase text-fg-muted">
-              Ativos
-            </p>
-          </div>
-          <p
-            className="text-3xl font-bold text-success"
-            style={{ fontFamily: 'var(--font-playfair), serif' }}
-          >
-            {totalAtivos}
-          </p>
+        <div className="flex-1 text-center px-4">
+          <p className="text-[9px] uppercase tracking-widest text-fg-dim">Ativos</p>
+          <p className="text-2xl font-bold text-success" style={{ fontFamily: 'var(--font-playfair), serif' }}>{totalAtivos}</p>
         </div>
-
-        <div className="card p-5">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-md bg-fg-dim/10 text-fg-subtle">
-              <Users className="w-4 h-4" />
-            </div>
-            <p className="text-[10px] tracking-widest uppercase text-fg-muted">
-              Inativos
-            </p>
-          </div>
-          <p
-            className="text-3xl font-bold text-fg-subtle"
-            style={{ fontFamily: 'var(--font-playfair), serif' }}
-          >
-            {totalInativos}
-          </p>
+        <div className="flex-1 text-center pl-4">
+          <p className="text-[9px] uppercase tracking-widest text-fg-dim">Inativos</p>
+          <p className="text-2xl font-bold text-fg-subtle" style={{ fontFamily: 'var(--font-playfair), serif' }}>{totalInativos}</p>
         </div>
       </div>
 

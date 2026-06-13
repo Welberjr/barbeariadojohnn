@@ -185,76 +185,83 @@ export function ProductsTable({ products, categories }: ProductsTableProps) {
               <div
                 key={p.id}
                 className={cn(
-                  'grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_auto] gap-3 px-4 py-3 items-center',
                   idx !== paged.length - 1 && 'border-b border-border/40',
                   !p.active && 'opacity-50'
                 )}
               >
-                <p className="text-sm text-fg font-medium">{p.name}</p>
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-bg-elevated border border-border text-fg-muted w-fit">
-                  {p.category_name || '—'}
-                </span>
-                <p className="text-sm text-fg-muted">{p.brand || '—'}</p>
-                <p className="text-sm font-semibold text-fg">
-                  {formatCurrency(p.sale_price)}
-                </p>
-                <p className="text-sm text-fg-muted">
-                  {p.cost_price > 0 ? formatCurrency(p.cost_price) : '—'}
-                </p>
-                <p className={cn(
-                  'text-sm font-semibold',
-                  esgotado ? 'text-danger' : baixo ? 'text-warning' : 'text-fg'
-                )}>
-                  {p.stock_current}
-                  {esgotado && <span className="ml-1 text-[9px]">ESGOTADO</span>}
-                  {baixo && !esgotado && <span className="ml-1 text-[9px]">BAIXO</span>}
-                </p>
-                <div className="flex items-center gap-1.5">
-                  <span className={cn(
-                    'text-[9px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full flex-shrink-0',
-                    p.active
-                      ? 'bg-success/10 text-success border border-success/30'
-                      : 'bg-fg-dim/10 text-fg-subtle border border-border'
-                  )}>
-                    {p.active ? 'Ativo' : 'Inativo'}
+                {/* MOBILE: card compacto */}
+                <div className="md:hidden flex items-center gap-3 px-3 py-2.5">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-fg truncate">{p.name}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-fg-subtle flex-wrap">
+                      {p.brand && <span>{p.brand}</span>}
+                      {p.brand && <span className="text-fg-dim mx-0.5">·</span>}
+                      <span>{p.category_name}</span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-sm font-bold text-gold">{formatCurrency(p.sale_price)}</span>
+                      <span className="text-[10px] text-fg-dim">·</span>
+                      <span className={cn('text-xs font-semibold', esgotado ? 'text-danger' : baixo ? 'text-warning' : 'text-fg-muted')}>
+                        {p.stock_current} un{esgotado ? ' · ESGOTADO' : baixo ? ' · BAIXO' : ''}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-0.5 flex-shrink-0">
+                    <span className={cn('text-[9px] uppercase font-bold px-1.5 py-0.5 rounded-full', p.active ? 'bg-success/10 text-success' : 'bg-fg-dim/10 text-fg-subtle')}>
+                      {p.active ? 'A' : 'I'}
+                    </span>
+                    <button type="button" disabled={!p.active || !p.is_sellable || esgotado}
+                      onClick={() => { setSaleModal(p); setSaleQty(1); }}
+                      className="p-2 rounded-md text-fg-subtle hover:text-success hover:bg-success/10 transition-colors disabled:opacity-30">
+                      <Percent className="w-4 h-4" />
+                    </button>
+                    <Link href={`/admin/produtos/${p.id}`}
+                      className="p-2 rounded-md text-fg-subtle hover:text-gold hover:bg-gold/10 transition-colors">
+                      <Pencil className="w-4 h-4" />
+                    </Link>
+                    <button type="button" onClick={() => handleDelete(p.id, p.name)}
+                      className="p-2 rounded-md text-fg-subtle hover:text-danger hover:bg-danger/10 transition-colors">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+                {/* DESKTOP: grid */}
+                <div className="hidden md:grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_auto] gap-3 px-4 py-3 items-center">
+                  <p className="text-sm text-fg font-medium">{p.name}</p>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-bg-elevated border border-border text-fg-muted w-fit">
+                    {p.category_name || '—'}
                   </span>
-                  <button
-                    type="button"
-                    title="Registrar venda"
-                    disabled={!p.active || !p.is_sellable || esgotado}
-                    onClick={() => { setSaleModal(p); setSaleQty(1); }}
-                    className="p-1.5 rounded-md text-fg-subtle hover:text-success hover:bg-success/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                  >
-                    <Percent className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    title="Duplicar produto"
-                    disabled={duplicatingId === p.id}
-                    onClick={() => handleDuplicate(p)}
-                    className="p-1.5 rounded-md text-fg-subtle hover:text-info hover:bg-info/10 transition-colors disabled:opacity-40"
-                  >
-                    {duplicatingId === p.id ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Copy className="w-3.5 h-3.5" />
-                    )}
-                  </button>
-                  <Link
-                    href={`/admin/produtos/${p.id}`}
-                    title="Editar"
-                    className="p-1.5 rounded-md text-fg-subtle hover:text-gold hover:bg-gold/10 transition-colors"
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                  </Link>
-                  <button
-                    type="button"
-                    title="Desativar"
-                    onClick={() => handleDelete(p.id, p.name)}
-                    className="p-1.5 rounded-md text-fg-subtle hover:text-danger hover:bg-danger/10 transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <p className="text-sm text-fg-muted">{p.brand || '—'}</p>
+                  <p className="text-sm font-semibold text-fg">{formatCurrency(p.sale_price)}</p>
+                  <p className="text-sm text-fg-muted">{p.cost_price > 0 ? formatCurrency(p.cost_price) : '—'}</p>
+                  <p className={cn('text-sm font-semibold', esgotado ? 'text-danger' : baixo ? 'text-warning' : 'text-fg')}>
+                    {p.stock_current}
+                    {esgotado && <span className="ml-1 text-[9px]">ESGOTADO</span>}
+                    {baixo && !esgotado && <span className="ml-1 text-[9px]">BAIXO</span>}
+                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <span className={cn('text-[9px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full flex-shrink-0', p.active ? 'bg-success/10 text-success border border-success/30' : 'bg-fg-dim/10 text-fg-subtle border border-border')}>
+                      {p.active ? 'Ativo' : 'Inativo'}
+                    </span>
+                    <button type="button" title="Registrar venda" disabled={!p.active || !p.is_sellable || esgotado}
+                      onClick={() => { setSaleModal(p); setSaleQty(1); }}
+                      className="p-1.5 rounded-md text-fg-subtle hover:text-success hover:bg-success/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+                      <Percent className="w-3.5 h-3.5" />
+                    </button>
+                    <button type="button" title="Duplicar produto" disabled={duplicatingId === p.id}
+                      onClick={() => handleDuplicate(p)}
+                      className="p-1.5 rounded-md text-fg-subtle hover:text-info hover:bg-info/10 transition-colors disabled:opacity-40">
+                      {duplicatingId === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                    <Link href={`/admin/produtos/${p.id}`} title="Editar"
+                      className="p-1.5 rounded-md text-fg-subtle hover:text-gold hover:bg-gold/10 transition-colors">
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Link>
+                    <button type="button" title="Desativar" onClick={() => handleDelete(p.id, p.name)}
+                      className="p-1.5 rounded-md text-fg-subtle hover:text-danger hover:bg-danger/10 transition-colors">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             );

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useTransition } from 'react';
 import { Loader2, Check } from 'lucide-react';
@@ -78,54 +78,42 @@ export function BusinessHoursForm({ initialHours }: BusinessHoursFormProps) {
             <div
               key={day.key}
               className={cn(
-                'flex items-center gap-3 p-3 rounded-md border transition-colors',
+                'flex flex-col gap-1 p-3 rounded-md border transition-colors',
                 dayHours.closed
                   ? 'border-border bg-bg-elevated opacity-60'
                   : 'border-border bg-bg-elevated'
               )}
             >
-              {/* Label do dia */}
-              <div className="w-32 flex-shrink-0">
-                <p className="text-sm font-medium text-fg">{day.label}</p>
-                <p className="text-[10px] text-fg-dim tracking-widest">{day.short}</p>
+              {/* Linha 1: nome + toggle */}
+              <div className="flex items-center justify-between w-full gap-2">
+                <div>
+                  <p className="text-sm font-medium text-fg">{day.label}</p>
+                  <p className="text-[10px] text-fg-dim tracking-widest">{day.short}</p>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!dayHours.closed}
+                    onChange={(e) => updateDay(day.key, 'closed', !e.target.checked)}
+                    className="w-4 h-4 accent-gold"
+                  />
+                  <span className={cn('text-xs uppercase tracking-wider font-semibold', dayHours.closed ? 'text-fg-subtle' : 'text-success')}>
+                    {dayHours.closed ? 'Fechado' : 'Aberto'}
+                  </span>
+                </label>
               </div>
-
-              {/* Toggle aberto/fechado */}
-              <label className="flex items-center gap-2 cursor-pointer flex-shrink-0">
-                <input
-                  type="checkbox"
-                  checked={!dayHours.closed}
-                  onChange={(e) => updateDay(day.key, 'closed', !e.target.checked)}
-                  className="w-4 h-4 accent-gold"
-                />
-                <span
-                  className={cn(
-                    'text-xs uppercase tracking-wider font-semibold',
-                    dayHours.closed ? 'text-fg-subtle' : 'text-success'
-                  )}
-                >
-                  {dayHours.closed ? 'Fechado' : 'Aberto'}
-                </span>
-              </label>
-
-              {/* Inputs de horário */}
-              <div className="flex items-center gap-2 ml-auto">
-                <input
-                  type="time"
-                  value={dayHours.open}
-                  onChange={(e) => updateDay(day.key, 'open', e.target.value)}
-                  disabled={dayHours.closed}
-                  className="input text-sm w-28"
-                />
-                <span className="text-fg-subtle text-xs">até</span>
-                <input
-                  type="time"
-                  value={dayHours.close}
-                  onChange={(e) => updateDay(day.key, 'close', e.target.value)}
-                  disabled={dayHours.closed}
-                  className="input text-sm w-28"
-                />
-              </div>
+              {/* Linha 2: horários (só quando aberto) */}
+              {!dayHours.closed && (
+                <div className="flex items-center gap-2 w-full mt-2">
+                  <input type="time" value={dayHours.open}
+                    onChange={(e) => updateDay(day.key, 'open', e.target.value)}
+                    className="input text-sm flex-1 min-w-0" />
+                  <span className="text-fg-subtle text-xs flex-shrink-0">até</span>
+                  <input type="time" value={dayHours.close}
+                    onChange={(e) => updateDay(day.key, 'close', e.target.value)}
+                    className="input text-sm flex-1 min-w-0" />
+                </div>
+              )}
             </div>
           );
         })}
