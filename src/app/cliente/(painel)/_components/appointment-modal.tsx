@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -74,12 +74,12 @@ export function AppointmentModal({ appointment, onClose }: AppointmentModalProps
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
       onClick={onClose}
     >
       <div
-        className="w-full sm:max-w-sm bg-bg border border-border/60 rounded-t-2xl sm:rounded-2xl overflow-hidden"
-        style={{ animation: 'slideUp 0.25s ease-out' }}
+        className="w-full sm:max-w-sm bg-bg border border-border/60 rounded-t-2xl sm:rounded-2xl flex flex-col"
+        style={{ animation: 'slideUp 0.25s ease-out', maxHeight: '90vh' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Handle mobile */}
@@ -98,7 +98,7 @@ export function AppointmentModal({ appointment, onClose }: AppointmentModalProps
         </div>
 
         {/* Detalhes */}
-        <div className="px-5 py-4 space-y-3">
+        <div className="px-5 py-4 space-y-3 overflow-y-auto flex-1">
           <div className="card p-4 space-y-2.5">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-md bg-gold/10 text-gold flex items-center justify-center flex-shrink-0">
@@ -126,7 +126,7 @@ export function AppointmentModal({ appointment, onClose }: AppointmentModalProps
         </div>
 
         {/* Acoes */}
-        <div className="px-5 pb-6 space-y-2">
+        <div className="px-5 pb-safe-6 space-y-2 flex-shrink-0" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}>
           {canReschedule && (
             <button
               type="button"

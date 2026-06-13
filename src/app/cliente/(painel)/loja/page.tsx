@@ -1,4 +1,4 @@
-﻿import { requireCustomer } from '@/lib/customer-auth';
+import { requireCustomer } from '@/lib/customer-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { formatCurrency } from '@/lib/utils';
 import { ShoppingBag, Package, ChevronLeft, Tag } from 'lucide-react';
@@ -14,29 +14,38 @@ export default async function LojaPage() {
   await requireCustomer();
   const admin = createAdminClient();
 
-  const { data: products } = await admin
-    .from('products')
-    .select('id, name, description, price, stock_current, stock_minimum, category, image_url, active')
-    .eq('barbershop_id', BARBERSHOP_ID)
-    .eq('active', true)
-    .order('category')
-    .order('name');
+  // Buscar produtos com join na tabela de categorias
+  const [{ data: products }, { data: categories }] = await Promise.all([
+    admin
+      .from('products')
+      .select('id, name, description, sale_price, stock_current, stock_minimum, category_id, image_url, active, is_sellable, brand')
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('active', true)
+      .eq('is_sellable', true)
+      .order('name'),
+    admin
+      .from('product_categories')
+      .select('id, name')
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .order('name'),
+  ]);
 
-  const all = products ?? [];
-  // Disponiveis primeiro, esgotados por ultimo (dentro de cada categoria)
-  const sorted = [...all].sort((a, b) => {
-    if (Number(a.stock_current) === 0 && Number(b.stock_current) > 0) return 1;
-    if (Number(a.stock_current) > 0 && Number(b.stock_current) === 0) return -1;
-    return 0;
+  const catMap = new Map((categories ?? []).map((c) => [c.id, c.name]));
+
+  // Disponiveis primeiro, esgotados por ultimo
+  const all = (products ?? []).sort((a, b) => {
+    const aOk = Number(a.stock_current) > 0 ? 0 : 1;
+    const bOk = Number(b.stock_current) > 0 ? 0 : 1;
+    return aOk - bOk;
   });
 
   // Agrupar por categoria
-  const byCategory = sorted.reduce<Record<string, typeof all>>((acc, p) => {
-    const cat = p.category ?? 'Outros';
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(p);
-    return acc;
-  }, {});
+  const byCategory: Record<string, typeof all> = {};
+  for (const p of all) {
+    const cat = catMap.get(p.category_id ?? '') ?? 'Outros';
+    if (!byCategory[cat]) byCategory[cat] = [];
+    byCategory[cat].push(p);
+  }
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -76,54 +85,62 @@ export default async function LojaPage() {
               <p className="text-xs font-semibold text-fg-muted uppercase tracking-wider">{cat}</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              {items.map((p) => (
-                <div key={p.id} className={cn('card overflow-hidden flex flex-col', Number(p.stock_current) === 0 && 'opacity-60')}>
-                  {/* Imagem ou placeholder */}
-                  <div className="relative aspect-square bg-bg-elevated flex items-center justify-center flex-shrink-0">
-                    {p.image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={p.image_url} alt={p.name}
-                        className="w-full h-full object-cover" />
-                    ) : (
-                      <Package className="w-10 h-10 text-fg-dim" />
-                    )}
-                    {Number(p.stock_current) === 0 && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
-                        <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-fg-dim/20 text-fg-muted border border-fg-dim/30">
-                          Esgotado
+              {items.map((p) => {
+                const esgotado = Number(p.stock_current) <= 0;
+                const ultimas = !esgotado && Number(p.stock_current) <= 3;
+                return (
+                  <div key={p.id} className={cn('card overflow-hidden flex flex-col', esgotado && 'opacity-60')}>
+                    {/* Imagem ou placeholder */}
+                    <div className="relative bg-bg-elevated flex items-center justify-center flex-shrink-0" style={{ aspectRatio: '1/1' }}>
+                      {p.image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <Package className="w-10 h-10 text-fg-dim" />
+                      )}
+                      {esgotado && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
+                          <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-fg-dim/20 text-fg-muted border border-fg-dim/30">
+                            Esgotado
+                          </span>
+                        </div>
+                      )}
+                      {ultimas && (
+                        <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-warning/20 text-warning border border-warning/30">
+                          Últimas {p.stock_current}
                         </span>
-                      </div>
-                    )}
-                    {Number(p.stock_current) > 0 && Number(p.stock_current) <= 3 && (
-                      <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-warning/20 text-warning border border-warning/30">
-                        Últimas {p.stock_current}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Info */}
-                  <div className="p-3 flex flex-col flex-1">
-                    <p className="text-sm font-semibold text-fg leading-tight">{p.name}</p>
-                    {p.description && (
-                      <p className="text-[10px] text-fg-subtle mt-1 leading-relaxed line-clamp-2">
-                        {p.description}
-                      </p>
-                    )}
-                    <div className="mt-auto pt-3 flex items-center justify-between gap-2">
-                      <p className="text-base font-bold text-gold" style={{ fontFamily: 'var(--font-playfair), serif' }}>
-                        {formatCurrency(Number(p.price))}
-                      </p>
+                      )}
                     </div>
-                    <p className="text-[10px] text-fg-subtle mt-1.5">Retire na barbearia</p>
+
+                    {/* Info */}
+                    <div className="p-3 flex flex-col flex-1">
+                      <p className="text-sm font-semibold text-fg leading-tight">{p.name}</p>
+                      {p.brand && (
+                        <p className="text-[10px] text-fg-subtle mt-0.5">{p.brand}</p>
+                      )}
+                      {p.description && (
+                        <p className="text-[10px] text-fg-subtle mt-1 leading-relaxed line-clamp-2">
+                          {p.description}
+                        </p>
+                      )}
+                      <div className="mt-auto pt-3">
+                        <p className="text-base font-bold text-gold" style={{ fontFamily: 'var(--font-playfair), serif' }}>
+                          {formatCurrency(Number(p.sale_price))}
+                        </p>
+                        <p className="text-[10px] text-fg-subtle mt-0.5">
+                          {esgotado ? 'Indisponível' : 'Retire na barbearia'}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </section>
         ))
       )}
 
-      {/* CTA agendar + comprar */}
+      {/* CTA agendar */}
       <div className="card p-5 space-y-3 border-gold/20">
         <p className="text-sm font-bold text-fg">Quer levar na sua próxima visita?</p>
         <p className="text-xs text-fg-muted leading-relaxed">
