@@ -1,4 +1,4 @@
-import { requireCustomer } from '@/lib/customer-auth';
+﻿import { requireCustomer } from '@/lib/customer-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { formatCurrency } from '@/lib/utils';
 import { ShoppingBag, Package, ChevronLeft, Tag } from 'lucide-react';
@@ -16,17 +16,22 @@ export default async function LojaPage() {
 
   const { data: products } = await admin
     .from('products')
-    .select('id, name, description, price, stock_current, category, image_url, active')
+    .select('id, name, description, price, stock_current, stock_minimum, category, image_url, active')
     .eq('barbershop_id', BARBERSHOP_ID)
     .eq('active', true)
-    .gt('stock_current', 0)
     .order('category')
     .order('name');
 
   const all = products ?? [];
+  // Disponiveis primeiro, esgotados por ultimo (dentro de cada categoria)
+  const sorted = [...all].sort((a, b) => {
+    if (Number(a.stock_current) === 0 && Number(b.stock_current) > 0) return 1;
+    if (Number(a.stock_current) > 0 && Number(b.stock_current) === 0) return -1;
+    return 0;
+  });
 
   // Agrupar por categoria
-  const byCategory = all.reduce<Record<string, typeof all>>((acc, p) => {
+  const byCategory = sorted.reduce<Record<string, typeof all>>((acc, p) => {
     const cat = p.category ?? 'Outros';
     if (!acc[cat]) acc[cat] = [];
     acc[cat].push(p);
@@ -72,7 +77,7 @@ export default async function LojaPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               {items.map((p) => (
-                <div key={p.id} className="card overflow-hidden flex flex-col">
+                <div key={p.id} className={cn('card overflow-hidden flex flex-col', Number(p.stock_current) === 0 && 'opacity-60')}>
                   {/* Imagem ou placeholder */}
                   <div className="relative aspect-square bg-bg-elevated flex items-center justify-center flex-shrink-0">
                     {p.image_url ? (
@@ -82,7 +87,14 @@ export default async function LojaPage() {
                     ) : (
                       <Package className="w-10 h-10 text-fg-dim" />
                     )}
-                    {Number(p.stock_current) <= 3 && (
+                    {Number(p.stock_current) === 0 && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
+                        <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-fg-dim/20 text-fg-muted border border-fg-dim/30">
+                          Esgotado
+                        </span>
+                      </div>
+                    )}
+                    {Number(p.stock_current) > 0 && Number(p.stock_current) <= 3 && (
                       <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-warning/20 text-warning border border-warning/30">
                         Últimas {p.stock_current}
                       </span>
