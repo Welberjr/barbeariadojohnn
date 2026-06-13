@@ -1,6 +1,7 @@
-import { createAdminClient } from '@/lib/supabase/admin';
+﻿import { createAdminClient } from '@/lib/supabase/admin';
 import { Plus, Users } from 'lucide-react';
 import { StaffList } from './_components/staff-list';
+import { NovoStaffModal } from './_components/novo-staff-modal';
 import Link from 'next/link';
 
 export const metadata = {
@@ -58,13 +59,7 @@ export default async function ProfissionaisPage() {
           </p>
         </div>
 
-        <Link
-          href="/admin/profissionais/novo"
-          className="btn-gold-shimmer flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Adicionar profissional</span>
-        </Link>
+        <NovoStaffModal />
       </div>
 
       <div className="divider-gold" />

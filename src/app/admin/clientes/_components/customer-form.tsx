@@ -1,4 +1,4 @@
-﻿﻿'use client';
+﻿﻿﻿'use client';
 
 import { useConfirm } from '@/components/confirm-dialog';
 import { useRef, useState, useTransition } from 'react';
@@ -49,6 +49,7 @@ interface CustomerFormProps {
   barbers?: { id: string; display_name: string }[];
   hasAccess?: boolean;
   accessEmail?: string | null;
+  onClose?: () => void;
 }
 
 export function CustomerForm({
@@ -57,6 +58,7 @@ export function CustomerForm({
   barbers = [],
   hasAccess = false,
   accessEmail = null,
+  onClose,
 }: CustomerFormProps) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -166,8 +168,7 @@ export function CustomerForm({
     const result = await deactivateCustomer(customerId);
     if (result.ok) {
       toast.success('Cliente desativado.');
-      router.push('/admin/clientes');
-      router.refresh();
+      if (onClose) { onClose(); startTransition(() => router.refresh()); } else { router.push('/admin/clientes'); router.refresh(); }
     } else {
       toast.error(result.error ?? 'Erro ao desativar.');
       setIsDeleting(false);

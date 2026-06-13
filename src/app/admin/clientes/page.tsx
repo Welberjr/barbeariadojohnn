@@ -1,7 +1,8 @@
-import { createAdminClient } from '@/lib/supabase/admin';
+﻿import { createAdminClient } from '@/lib/supabase/admin';
 import { Plus, Users, Crown, TrendingUp, Heart, Trophy } from 'lucide-react';
 import Link from 'next/link';
 import { CustomersList } from './_components/customers-list';
+import { NovoClienteModal } from './_components/novo-cliente-modal';
 import { formatCurrency } from '@/lib/utils';
 import { InfoTip } from '@/components/info-tip';
 
@@ -107,13 +108,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
           </p>
         </div>
 
-        <Link
-          href="/admin/clientes/novo"
-          className="btn-gold-shimmer flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Novo cliente</span>
-        </Link>
+        <NovoClienteModal barbers={[]} />
       </div>
 
       <div className="divider-gold" />

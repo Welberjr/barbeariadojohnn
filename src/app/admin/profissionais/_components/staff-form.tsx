@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -31,6 +31,7 @@ type StaffFormSchema = z.infer<typeof staffSchema>;
 interface StaffFormProps {
   staffId?: string;
   defaultValues?: Partial<StaffFormData>;
+  onClose?: () => void;
 }
 
 const roleOptions = [
@@ -41,7 +42,7 @@ const roleOptions = [
   { value: 'owner', label: 'Proprietário' },
 ];
 
-export function StaffForm({ staffId, defaultValues }: StaffFormProps) {
+export function StaffForm({ staffId, defaultValues, onClose }: StaffFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [specialties, setSpecialties] = useState<string[]>(
@@ -98,7 +99,7 @@ export function StaffForm({ staffId, defaultValues }: StaffFormProps) {
             ? 'Profissional atualizado com sucesso!'
             : 'Profissional adicionado com sucesso!'
         );
-        router.push('/admin/profissionais');
+        if (onClose) { onClose(); } else { router.push('/admin/profissionais'); }
         router.refresh();
       } else {
         toast.error(result.error ?? 'Erro ao salvar.');
