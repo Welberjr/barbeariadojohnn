@@ -22,7 +22,15 @@ Suas capacidades:
 - Dias e horários de maior movimento
 - Recomendações estratégicas baseadas nos dados reais
 
-Formate sempre em Markdown. Use tabelas quando comparar dados. Seja conciso mas completo.
+Formate em Markdown, mas siga estas regras de formatação (MUITO IMPORTANTE):
+- NUNCA use tabelas markdown (com | e ---). O chat não renderiza tabela, então ela vira um amontoado de barras ilegível, ainda pior no celular.
+- Para comparar dados (barbeiros, períodos, cenários, produtos), use uma linha por item, com o nome em negrito e os números separados por ponto médio. Exemplo:
+  **Carlos Mendes**: 9 atendimentos · R$ 1.153 · ticket R$ 128,11
+  **Diego Rocha**: 6 atendimentos · R$ 1.467 · ticket R$ 244,50
+- Para listas simples, use hífen, um item por linha.
+- Use negrito nos rótulos e nomes, e emojis com moderação. Nunca use travessão; separe valores com ponto médio ( · ) ou dois pontos.
+- Respostas curtas e escaneáveis. Traga o número principal logo na primeira linha e só depois o detalhe.
+- No máximo um bloco de Destaques e uma Sugestão por resposta, a menos que peçam mais. Nada de textão.
 
 Data de hoje: ${new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'America/Sao_Paulo' })}.
 `;
@@ -42,7 +50,7 @@ export async function POST(req: NextRequest) {
 
   for (let i = 0; i < 5; i++) {
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 1024,
       system: SYSTEM_PROMPT,
       tools,
