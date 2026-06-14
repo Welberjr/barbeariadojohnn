@@ -1,4 +1,4 @@
-﻿﻿import { requireCustomer } from '@/lib/customer-auth';
+import { requireCustomer } from '@/lib/customer-auth';
 import { getUnreadCount } from '@/lib/notifications';
 import { ClientTopbar, ClientBottomNav } from './_components/client-nav';
 import { ChatFloat } from '@/components/chat-float';
@@ -50,7 +50,8 @@ export default async function ClientePainelLayout({
       <ClientBottomNav />
       <ChatFloat
         endpoint="/api/chat/cliente"
-        title="Johnn Bot ✂️"
+        title="Lara"
+        avatarSrc="/lara.webp"
         welcomeMessage="Olá! Sou o assistente da Barbearia do Johnn. Posso agendar, verificar horários, mostrar serviços e muito mais. Como posso te ajudar? 😊"
         placeholder="Ex: Quero agendar um corte para amanhã..."
       />

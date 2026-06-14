@@ -43,6 +43,7 @@ interface ChatFloatProps {
   placeholder?: string;
   accentColor?: string;
   title?: string;
+  avatarSrc?: string;
 }
 
 export function ChatFloat({
@@ -51,6 +52,7 @@ export function ChatFloat({
   placeholder = 'Digite sua mensagem...',
   accentColor = '#F5C518',
   title = 'Assistente',
+  avatarSrc,
 }: ChatFloatProps) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -111,7 +113,7 @@ export function ChatFloat({
         style={{ background: `linear-gradient(135deg, #B8862A, ${accentColor})` }}
         aria-label={open ? 'Fechar chat' : 'Abrir assistente'}
       >
-        {open ? <X className="w-4 h-4 text-bg" /> : <MessageCircle className="w-4 h-4 text-bg" />}
+        {open ? <X className="w-4 h-4 text-bg" /> : (avatarSrc ? <img src={avatarSrc} alt={title} className="w-full h-full rounded-full object-cover" /> : <MessageCircle className="w-4 h-4 text-bg" />)}
         {/* Pulse quando fechado */}
         {!open && (
           <span className="absolute inset-0 rounded-full animate-ping opacity-20"
@@ -130,7 +132,11 @@ export function ChatFloat({
             style={{ background: 'linear-gradient(135deg, #0d0d0d, #1a1204)' }}>
             <div className="w-8 h-8 rounded-full flex items-center justify-center"
               style={{ background: `linear-gradient(135deg, #B8862A, ${accentColor})` }}>
-              <Scissors className="w-4 h-4 text-bg" />
+              {avatarSrc ? (
+                <img src={avatarSrc} alt={title} className="w-full h-full rounded-full object-cover" />
+              ) : (
+                <Scissors className="w-4 h-4 text-bg" />
+              )}
             </div>
             <div>
               <p className="text-sm font-bold text-fg">{title}</p>
