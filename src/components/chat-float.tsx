@@ -107,7 +107,7 @@ export function ChatFloat({
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          'fixed bottom-20 right-3 md:bottom-6 md:right-6 z-50 w-11 h-11 rounded-full shadow-lg flex items-center justify-center transition-all',
+          'fixed bottom-20 right-3 md:bottom-6 md:right-6 z-50 w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all',
           open ? 'scale-90' : 'hover:scale-110'
         )}
         style={{ background: `linear-gradient(135deg, #B8862A, ${accentColor})` }}
@@ -161,7 +161,7 @@ export function ChatFloat({
                   style={m.role === 'user' ? { background: `linear-gradient(135deg, #B8862A, ${accentColor})` } : {}}
                 >
                   {m.role === 'assistant' ? (
-                    <div className="prose prose-sm prose-invert max-w-none text-fg [&>p]:mb-1.5 [&>ul]:mb-1.5 [&>h3]:text-gold [&>h3]:mb-1 [&>table]:text-xs [&>strong]:text-fg">
+                    <div className="prose prose-sm prose-invert max-w-none text-fg [&>p]:mb-1.5 [&_ul]:mb-2 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:mb-2 [&_ol]:list-decimal [&_ol]:pl-4 [&_li]:mb-0.5 [&>h3]:text-gold [&>h3]:mb-1 [&>table]:text-xs [&>strong]:text-fg">
                       <ReactMarkdown components={mdComponents}>{m.content}</ReactMarkdown>
                     </div>
                   ) : (
