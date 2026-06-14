@@ -1,4 +1,4 @@
-﻿﻿import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getAvailableSlots } from '@/lib/booking';
 import { bookAppointment } from '@/app/cliente/actions';
 
@@ -78,6 +78,81 @@ export async function executeClientTool(name: string, input: any, customerId: st
       for (const a of data ?? []) { const d = new Date(a.start_at).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' }); byDay[d] = (byDay[d] ?? 0) + 1; }
       const sorted = Object.entries(byDay).sort((a, b) => a[1] - b[1]);
       return { mais_tranquilos: sorted.slice(0, 3), mais_movimentados: sorted.slice(-2) };
+    }
+
+    case 'listar_servicos_admin': {
+      const { data } = await admin.from('services').select('id, name, base_price, base_duration_minutes, category').eq('barbershop_id', BARBERSHOP_ID).eq('active', true).order('name');
+      return data ?? [];
+    }
+    case 'listar_barbeiros_admin': {
+      const { data } = await admin.from('staff').select('id, display_name').eq('barbershop_id', BARBERSHOP_ID).eq('active', true).order('display_name');
+      return data ?? [];
+    }
+    case 'buscar_cliente': {
+      const q = String(input.q ?? '').trim();
+      const { data } = await admin.from('customers').select('id, full_name, phone, total_spent, total_appointments').eq('barbershop_id', BARBERSHOP_ID).eq('active', true).or(`full_name.ilike.%${q}%,phone.ilike.%${q}%`).order('full_name').limit(5);
+      return data ?? [];
+    }
+    case 'consultar_agendamentos': {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let q: any = admin.from('appointments').select(`id, start_at, end_at, status, customers:customers (full_name, phone), staff:staff (display_name), appointment_services (services:services (name))`).eq('barbershop_id', BARBERSHOP_ID);
+      if (input.data) q = q.gte('start_at', `${input.data}T00:00:00-03:00`).lte('start_at', `${input.data}T23:59:59-03:00`);
+      if (input.staff_id) q = q.eq('staff_id', input.staff_id);
+      if (input.customer_id) q = q.eq('customer_id', input.customer_id);
+      if (input.status) q = q.eq('status', input.status); else q = q.in('status', ['scheduled', 'completed', 'cancelled']);
+      const { data } = await q.order('start_at', { ascending: true }).limit(20);
+      return data ?? [];
+    }
+    case 'verificar_disponibilidade_admin': {
+      return getAvailableSlots({ staffId: input.staff_id, serviceId: input.service_id, dateStr: input.date });
+    }
+    case 'criar_agendamento_admin': {
+      const startDt = new Date(input.start_iso);
+      const { data: svc } = await admin.from('services').select('base_duration_minutes').eq('id', input.service_id).single();
+      const endDt = new Date(startDt.getTime() + (svc?.base_duration_minutes ?? 30) * 60000);
+      const { data: appt, error } = await admin.from('appointments').insert({ barbershop_id: BARBERSHOP_ID, customer_id: input.customer_id, staff_id: input.staff_id, start_at: startDt.toISOString(), end_at: endDt.toISOString(), status: 'scheduled' }).select('id').single();
+      if (error) return { ok: false, error: error.message };
+      if (appt?.id) await admin.from('appointment_services').insert({ appointment_id: appt.id, service_id: input.service_id, barbershop_id: BARBERSHOP_ID });
+      return { ok: true, appointment_id: appt?.id };
+    }
+    case 'cancelar_agendamento_admin': {
+      const { error } = await admin.from('appointments').update({ status: 'cancelled' }).eq('id', input.appointment_id).eq('barbershop_id', BARBERSHOP_ID);
+      return { ok: !error, error: error?.message };
+    }
+    case 'remarcar_agendamento': {
+      const newStart = new Date(input.new_start_iso);
+      const { data: appt } = await admin.from('appointments').select('appointment_services (service_id, services:services (base_duration_minutes))').eq('id', input.appointment_id).single();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const dur = (appt as any)?.appointment_services?.[0]?.services?.base_duration_minutes ?? 30;
+      const newEnd = new Date(newStart.getTime() + dur * 60000);
+      const { error } = await admin.from('appointments').update({ start_at: newStart.toISOString(), end_at: newEnd.toISOString(), status: 'scheduled' }).eq('id', input.appointment_id).eq('barbershop_id', BARBERSHOP_ID);
+      return { ok: !error, error: error?.message };
+    }
+    case 'abrir_comanda_admin': {
+      const { data: existing } = await admin.from('comandas').select('id, subtotal, total').eq('customer_id', input.customer_id).eq('status', 'open').eq('barbershop_id', BARBERSHOP_ID).maybeSingle();
+      if (existing) return { ok: true, comanda_id: existing.id, reaproveitada: true, subtotal: existing.subtotal, total: existing.total };
+      const { data: newC, error } = await admin.from('comandas').insert({ barbershop_id: BARBERSHOP_ID, customer_id: input.customer_id, staff_id: input.staff_id ?? null, status: 'open', subtotal: 0, total: 0, net_total: 0, opened_at: new Date().toISOString() }).select('id').single();
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, comanda_id: newC?.id, reaproveitada: false };
+    }
+    case 'lancar_produto_comanda': {
+      const qty = Number(input.quantity ?? 1);
+      const { data: prod } = await admin.from('products').select('id, name, sale_price, stock_current').eq('id', input.product_id).maybeSingle();
+      if (!prod || Number(prod.stock_current) < qty) return { ok: false, error: 'Produto esgotado ou estoque insuficiente' };
+      const total = Number(prod.sale_price) * qty;
+      const { error } = await admin.from('comanda_items').insert({ barbershop_id: BARBERSHOP_ID, comanda_id: input.comanda_id, item_type: 'product', product_id: prod.id, unit_price: prod.sale_price, quantity: qty, total_price: total });
+      if (error) return { ok: false, error: error.message };
+      await admin.from('products').update({ stock_current: Number(prod.stock_current) - qty }).eq('id', prod.id);
+      const { data: items } = await admin.from('comanda_items').select('total_price').eq('comanda_id', input.comanda_id);
+      const subtotal = (items ?? []).reduce((s, i) => s + Number(i.total_price), 0);
+      await admin.from('comandas').update({ subtotal, total: subtotal, net_total: subtotal }).eq('id', input.comanda_id);
+      return { ok: true, product: prod.name, qty, total_item: total, comanda_subtotal: subtotal };
+    }
+    case 'fechar_comanda': {
+      const { data: items } = await admin.from('comanda_items').select('total_price').eq('comanda_id', input.comanda_id);
+      const total = (items ?? []).reduce((s, i) => s + Number(i.total_price), 0);
+      const { error } = await admin.from('comandas').update({ status: 'closed', total, net_total: total, subtotal: total, payment_method: input.payment_method, closed_at: new Date().toISOString() }).eq('id', input.comanda_id).eq('barbershop_id', BARBERSHOP_ID);
+      return { ok: !error, total, error: error?.message };
     }
     default: return { error: `Tool "${name}" não reconhecida` };
   }
