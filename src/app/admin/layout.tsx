@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿import { redirect } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import type { Metadata, Viewport } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { AdminSidebar } from './_components/sidebar';
@@ -56,7 +56,7 @@ export default async function AdminLayout({
         <main className="flex-1 p-6 lg:p-8 overflow-x-auto">{children}</main>
       </div>
     </div>
-    <ChatFloat endpoint="/api/chat/admin" title="Assistente 📊" welcomeMessage="Olá, Jonathan! Me pergunte sobre métricas, clientes, estoque ou desempenho da equipe." placeholder="Como foi o faturamento essa semana?" accentColor="#ce0056" />
+    <ChatFloat endpoint="/api/chat/admin" title="Assistente 📊" welcomeMessage="Opa, Jonathan, tudo bem? 👋 Tô aqui pra te ajudar com a barbearia. Quer ver o quê: faturamento, movimento, barbeiros ou produtos? E de qual período, hoje, semana ou mês?" placeholder="Como foi o faturamento essa semana?" accentColor="#ce0056" />
     </>
   );
 }

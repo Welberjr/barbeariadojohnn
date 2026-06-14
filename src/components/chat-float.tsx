@@ -1,9 +1,36 @@
-﻿﻿﻿'use client';
+'use client';
 
 import { useState, useRef, useEffect } from 'react';
 import { MessageCircle, X, Send, Loader2, Scissors } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { type Components } from 'react-markdown';
+
+type MdProps = { children?: React.ReactNode };
+
+function nodeToText(node: React.ReactNode): string {
+  if (node === null || node === undefined || node === false || node === true) return '';
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(nodeToText).join('');
+  if (typeof node === 'object' && 'props' in node) {
+    return nodeToText((node as { props?: MdProps }).props?.children);
+  }
+  return '';
+}
+
+const mdComponents: Components = {
+  blockquote({ children }) {
+    const t = nodeToText(children).trim();
+    let cls = 'border-info bg-info/10';
+    if (/^(\u2705|\ud83d\udc4d|\ud83c\udf89|\ud83d\udcc8|\ud83d\udfe2)/.test(t)) cls = 'border-success bg-success/10';
+    else if (/^(\u26a0|\ud83d\udea8|\u274c|\ud83d\udcc9|\ud83d\udd34)/.test(t)) cls = 'border-danger bg-danger/10';
+    else if (/^(\ud83d\udca1|\ud83d\udfe1|\u2b50)/.test(t)) cls = 'border-gold bg-gold/10';
+    return (
+      <div className={cn('not-prose border-l-4 rounded-md px-3 py-2 my-2 text-fg text-sm [&_p]:m-0', cls)}>
+        {children}
+      </div>
+    );
+  },
+};
 
 interface Message {
   role: 'user' | 'assistant';
@@ -129,7 +156,7 @@ export function ChatFloat({
                 >
                   {m.role === 'assistant' ? (
                     <div className="prose prose-sm prose-invert max-w-none text-fg [&>p]:mb-1.5 [&>ul]:mb-1.5 [&>h3]:text-gold [&>h3]:mb-1 [&>table]:text-xs [&>strong]:text-fg">
-                      <ReactMarkdown>{m.content}</ReactMarkdown>
+                      <ReactMarkdown components={mdComponents}>{m.content}</ReactMarkdown>
                     </div>
                   ) : (
                     <p>{m.content}</p>
