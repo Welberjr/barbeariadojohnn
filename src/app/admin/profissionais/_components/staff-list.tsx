@@ -41,16 +41,23 @@ const roleColors: Record<StaffMember['role'], string> = {
   assistant: 'text-fg-muted border-border-strong bg-bg-elevated',
 };
 
-export function StaffList({ staff }: { staff: StaffMember[] }) {
+export function StaffList({
+  staff,
+  defaultView = 'cards',
+}: {
+  staff: StaffMember[];
+  defaultView?: 'cards' | 'lista';
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const view = searchParams.get('view') === 'lista' ? 'lista' : 'cards';
+  const viewParam = searchParams.get('view');
+  const view: 'cards' | 'lista' =
+    viewParam === 'lista' ? 'lista' : viewParam === 'cards' ? 'cards' : defaultView;
 
   function selectView(v: 'cards' | 'lista') {
     const params = new URLSearchParams(searchParams.toString());
-    if (v === 'lista') params.set('view', 'lista');
-    else params.delete('view');
+    params.set('view', v);
     const qs = params.toString();
     router.replace(`${pathname}${qs ? `?${qs}` : ''}`, { scroll: false });
   }

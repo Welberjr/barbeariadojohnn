@@ -21,6 +21,26 @@ export interface AppointmentData {
 }
 
 /**
+ * Traduz erros do banco em mensagens amigaveis para o usuario.
+ * O conflito de horario vem da exclusion constraint (codigo 23P01).
+ */
+function friendlyAppointmentError(error: {
+  code?: string;
+  message?: string;
+}): string {
+  const code = error?.code;
+  const msg = error?.message ?? '';
+  if (code === '23P01' || /overlap|no_overlapping/i.test(msg)) {
+    return 'Esse profissional já tem um agendamento nesse horário. Escolha outro horário ou profissional.';
+  }
+  if (code === '23505') {
+    return 'Já existe um agendamento idêntico nesse horário.';
+  }
+  console.error('[createAppointment] erro nao mapeado:', error);
+  return 'Não foi possível criar o agendamento. Tente novamente.';
+}
+
+/**
  * Cria um agendamento.
  * - appointments NÃO tem service_id direto (foi movido para appointment_services)
  * - status default é 'scheduled' (enum appointment_status)
@@ -48,7 +68,7 @@ export async function createAppointment(data: AppointmentData) {
     .select()
     .single();
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: friendlyAppointmentError(error) };
 
   // Se um serviço foi escolhido, criar entrada em appointment_services
   if (data.service_id) {

@@ -24,6 +24,7 @@ import {
   updateAppointmentStatus,
   deleteAppointment,
 } from '../actions';
+import { startAppointmentComanda } from '../../comandas/actions';
 
 interface Appointment {
   id: string;
@@ -124,6 +125,27 @@ export function AppointmentDrawer({
       startTransition(() => router.refresh()); // sincroniza em background
     } else {
       toast.error(result.error ?? 'Erro');
+    }
+  }
+
+  async function handleStart() {
+    const result = await startAppointmentComanda(appointment.id);
+    if (result.ok) {
+      toast.success('Atendimento iniciado e comanda aberta.');
+      onClose();
+      startTransition(() => router.refresh());
+    } else {
+      toast.error(result.error ?? 'Erro ao iniciar atendimento');
+    }
+  }
+
+  async function handleFinish() {
+    const result = await startAppointmentComanda(appointment.id);
+    if (result.ok && result.comandaId) {
+      onClose();
+      router.push(`/admin/comandas/${result.comandaId}`);
+    } else {
+      toast.error(result.error ?? 'Erro ao abrir a comanda');
     }
   }
 
@@ -310,7 +332,7 @@ export function AppointmentDrawer({
                 appointment.status === 'confirmed') && (
                 <button
                   type="button"
-                  onClick={() => handleStatusChange('in_progress')}
+                  onClick={handleStart}
                   disabled={isPending}
                   className="btn-ghost text-sm flex items-center justify-center gap-1.5 py-2 hover:bg-blue-500/10 hover:text-blue-400"
                 >
@@ -322,7 +344,7 @@ export function AppointmentDrawer({
               {appointment.status === 'in_progress' && (
                 <button
                   type="button"
-                  onClick={() => handleStatusChange('completed')}
+                  onClick={handleFinish}
                   disabled={isPending}
                   className="btn-ghost text-sm flex items-center justify-center gap-1.5 py-2 hover:bg-gold/10 hover:text-gold col-span-2"
                 >

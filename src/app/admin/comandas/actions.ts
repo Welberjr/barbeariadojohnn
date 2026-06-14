@@ -75,6 +75,59 @@ export async function createComanda(data: CreateComandaData) {
 }
 
 /**
+ * Inicia o atendimento a partir da Agenda: garante a comanda do agendamento
+ * (cria e pre-popula com os servicos, ou reutiliza a existente) e coloca o
+ * agendamento em andamento. Idempotente: nunca duplica comanda.
+ */
+export async function startAppointmentComanda(appointmentId: string) {
+  const admin = createAdminClient();
+
+  const { data: appt } = await admin
+    .from('appointments')
+    .select('id, customer_id, staff_id, status')
+    .eq('id', appointmentId)
+    .maybeSingle();
+
+  if (!appt) return { ok: false as const, error: 'Agendamento não encontrado' };
+
+  // Reutiliza comanda ja vinculada ao agendamento, se houver
+  const { data: existing } = await admin
+    .from('comandas')
+    .select('id')
+    .eq('appointment_id', appointmentId)
+    .in('status', ['open', 'closed'])
+    .maybeSingle();
+
+  let comandaId: string;
+  if (existing) {
+    comandaId = existing.id as string;
+  } else {
+    const created = await createComanda({
+      customer_id: appt.customer_id as string,
+      staff_id: appt.staff_id as string,
+      appointment_id: appointmentId,
+    });
+    if (!created.ok || !created.comanda) {
+      return { ok: false as const, error: created.error ?? 'Erro ao abrir comanda' };
+    }
+    comandaId = (created.comanda as { id: string }).id;
+    await populateComandaFromAppointment(comandaId, appointmentId);
+  }
+
+  // Garante o status "em andamento" (sem mexer em concluido/cancelado)
+  if (appt.status === 'scheduled' || appt.status === 'confirmed') {
+    await admin
+      .from('appointments')
+      .update({ status: 'in_progress' })
+      .eq('id', appointmentId);
+  }
+
+  revalidatePath('/admin/agenda');
+  revalidatePath('/admin/comandas');
+  return { ok: true as const, comandaId };
+}
+
+/**
  * Pre-popula a comanda com os servicos que estavam no agendamento.
  */
 export async function populateComandaFromAppointment(
@@ -494,9 +547,41 @@ export async function closeComanda(
   if (!comanda) return { ok: false, error: 'Comanda não encontrada' };
 
   const subtotal = Number(comanda.subtotal);
-  const total = subtotal - discount + tip;
+  const safeDiscount = Math.max(0, Number(discount) || 0);
+  const safeTip = Math.max(0, Number(tip) || 0);
+
+  // Integridade financeira: o desconto nunca pode exceder o subtotal
+  // e o total liquido nunca pode ser negativo.
+  if (safeDiscount > subtotal) {
+    return {
+      ok: false,
+      error: 'O desconto não pode ser maior que o subtotal da comanda.',
+    };
+  }
+
+  const total = subtotal - safeDiscount + safeTip;
+
+  if (total < 0) {
+    return { ok: false, error: 'O total da comanda não pode ser negativo.' };
+  }
+
   const discountPct =
-    discount > 0 && subtotal > 0 ? (discount / subtotal) * 100 : 0;
+    safeDiscount > 0 && subtotal > 0 ? (safeDiscount / subtotal) * 100 : 0;
+
+  // Taxa de cartao por metodo (credito x debito), aplicada ao total cobrado.
+  const { data: feeCfg } = await admin
+    .from('barbershops')
+    .select('credit_fee_percent, debit_fee_percent')
+    .eq('id', BARBERSHOP_ID)
+    .maybeSingle();
+
+  let feePercent = 0;
+  if (method === 'credit') feePercent = Number(feeCfg?.credit_fee_percent ?? 0);
+  else if (method === 'debit') feePercent = Number(feeCfg?.debit_fee_percent ?? 0);
+  if (!(feePercent > 0)) feePercent = 0;
+
+  const feeValue = Math.round(total * feePercent) / 100;
+  const netTotal = total - feeValue;
 
   // 1. Atualiza comanda para closed
   const { error: errUpdate } = await admin
@@ -506,7 +591,8 @@ export async function closeComanda(
       discount_type: 'percentage',
       discount_value: discountPct,
       total,
-      net_total: total,
+      card_fee_total: feeValue,
+      net_total: netTotal,
       closed_at: new Date().toISOString(),
     })
     .eq('id', comandaId);
@@ -522,9 +608,9 @@ export async function closeComanda(
       method,
       amount: total,
       installments: 1,
-      fee_percent: 0,
-      fee_value: 0,
-      net_amount: total,
+      fee_percent: feePercent,
+      fee_value: feeValue,
+      net_amount: netTotal,
     }),
   ];
 

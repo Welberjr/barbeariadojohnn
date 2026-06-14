@@ -338,6 +338,10 @@ export function ComandaDetail({
       toast.error('Adicione ao menos um item antes de fechar');
       return;
     }
+    if (finalTotal < 0) {
+      toast.error('O desconto não pode ser maior que o subtotal da comanda.');
+      return;
+    }
     if (!closeForm.payment_method) {
       toast.error('Selecione a forma de pagamento');
       return;
@@ -857,7 +861,10 @@ export function ComandaDetail({
                       onChange={(e) =>
                         setCloseForm({
                           ...closeForm,
-                          discount: Number(e.target.value) || 0,
+                          discount: Math.min(
+                            calculatedTotal,
+                            Math.max(0, Number(e.target.value) || 0)
+                          ),
                         })
                       }
                     />
@@ -873,7 +880,7 @@ export function ComandaDetail({
                       onChange={(e) =>
                         setCloseForm({
                           ...closeForm,
-                          tip: Number(e.target.value) || 0,
+                          tip: Math.max(0, Number(e.target.value) || 0),
                         })
                       }
                     />

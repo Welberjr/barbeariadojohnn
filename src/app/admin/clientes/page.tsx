@@ -174,46 +174,6 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
         </p>
       </div>
 
-      {/* TOP 5 POR RECEITA */}
-      {(topCustomers ?? []).length > 0 && (
-        <section className="card p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Trophy className="w-4 h-4 text-gold" />
-              <h2 className="text-base font-semibold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>Top 5 Clientes por Receita</h2>
-            </div>
-            <p className="text-xs text-fg-muted">{formatCurrency(totalTicket)} total</p>
-          </div>
-          <div className="space-y-2">
-            {(topCustomers ?? []).map((c, i) => {
-              const ticket = c.total_appointments > 0 ? Number(c.total_spent) / c.total_appointments : 0;
-              const initials = ((c.full_name ?? '').trim().split(/\s+/).map((n: string) => n[0] ?? '').join('').slice(0, 2).toUpperCase()) || '?';
-              const medalColors = ['text-gold', 'text-gray-300', 'text-amber-600'];
-              return (
-                <Link key={c.id} href={`/admin/clientes/${c.id}`}
-                  className="flex items-center gap-3 p-3 rounded-md bg-bg-elevated border border-border/60 hover:border-gold/40 transition-colors">
-                  <span className={`w-6 text-center text-sm font-bold flex-shrink-0 ${medalColors[i] ?? 'text-fg-muted'}`}>{i + 1}</span>
-                  {c.photo_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={c.photo_url} alt={c.full_name ?? 'Cliente'} className="w-8 h-8 rounded-full object-cover border border-gold/30 flex-shrink-0" />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-bg flex-shrink-0" style={{ background: 'linear-gradient(135deg, #D4A04F 0%, #F5C518 100%)' }}>{initials}</div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-fg truncate">{c.full_name ?? 'Sem nome'}</p>
-                    <p className="text-[10px] text-fg-subtle">{c.total_appointments} atendimentos</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-fg">{formatCurrency(Number(c.total_spent))}</p>
-                    <p className="text-[10px] text-fg-subtle">Ticket: {formatCurrency(ticket)}</p>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
       {/* LISTA / EMPTY STATE */}
       {error ? (
         <div className="card p-8 text-center">
@@ -253,6 +213,46 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
           totalPages={totalPages}
           totalCount={totalCount}
         />
+      )}
+
+      {/* TOP 5 POR RECEITA */}
+      {(topCustomers ?? []).length > 0 && (
+        <section className="card p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-gold" />
+              <h2 className="text-base font-semibold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>Top 5 Clientes por Receita</h2>
+            </div>
+            <p className="text-xs text-fg-muted">{formatCurrency(totalTicket)} total</p>
+          </div>
+          <div className="space-y-2">
+            {(topCustomers ?? []).map((c, i) => {
+              const ticket = c.total_appointments > 0 ? Number(c.total_spent) / c.total_appointments : 0;
+              const initials = ((c.full_name ?? '').trim().split(/\s+/).map((n: string) => n[0] ?? '').join('').slice(0, 2).toUpperCase()) || '?';
+              const medalColors = ['text-gold', 'text-gray-300', 'text-amber-600'];
+              return (
+                <Link key={c.id} href={`/admin/clientes/${c.id}`}
+                  className="flex items-center gap-3 p-3 rounded-md bg-bg-elevated border border-border/60 hover:border-gold/40 transition-colors">
+                  <span className={`w-6 text-center text-sm font-bold flex-shrink-0 ${medalColors[i] ?? 'text-fg-muted'}`}>{i + 1}</span>
+                  {c.photo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={c.photo_url} alt={c.full_name ?? 'Cliente'} className="w-8 h-8 rounded-full object-cover border border-gold/30 flex-shrink-0" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-bg flex-shrink-0" style={{ background: 'linear-gradient(135deg, #D4A04F 0%, #F5C518 100%)' }}>{initials}</div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-fg truncate">{c.full_name ?? 'Sem nome'}</p>
+                    <p className="text-[10px] text-fg-subtle">{c.total_appointments} atendimentos</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-fg">{formatCurrency(Number(c.total_spent))}</p>
+                    <p className="text-[10px] text-fg-subtle">Ticket: {formatCurrency(ticket)}</p>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
       )}
     </div>
   );

@@ -17,8 +17,10 @@ export interface BarbershopSettings {
   logo_url?: string | null;
   primary_color?: string | null;
   credit_fee_percent?: number | null;
+  debit_fee_percent?: number | null;
   no_show_fee_enabled?: boolean | null;
   no_show_fee_amount?: number | null;
+  staff_default_view?: string | null;
 }
 
 function nullIfEmpty(v?: string | null) {
@@ -48,10 +50,14 @@ export async function updateBarbershopSettings(data: BarbershopSettings) {
     payload.primary_color = nullIfEmpty(data.primary_color);
   if (data.credit_fee_percent !== undefined && data.credit_fee_percent !== null)
     payload.credit_fee_percent = data.credit_fee_percent;
+  if (data.debit_fee_percent !== undefined && data.debit_fee_percent !== null)
+    payload.debit_fee_percent = data.debit_fee_percent;
   if (data.no_show_fee_enabled !== undefined)
     payload.no_show_fee_enabled = data.no_show_fee_enabled;
   if (data.no_show_fee_amount !== undefined && data.no_show_fee_amount !== null)
     payload.no_show_fee_amount = data.no_show_fee_amount;
+  if (data.staff_default_view !== undefined && data.staff_default_view !== null)
+    payload.staff_default_view = data.staff_default_view;
 
   if (Object.keys(payload).length === 0) {
     return { ok: true };

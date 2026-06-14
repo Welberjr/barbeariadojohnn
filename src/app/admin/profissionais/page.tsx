@@ -4,6 +4,8 @@ import { StaffList } from './_components/staff-list';
 import { NovoStaffModal } from './_components/novo-staff-modal';
 import Link from 'next/link';
 
+const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
+
 export const metadata = {
   title: 'Profissionais',
 };
@@ -36,6 +38,15 @@ export default async function ProfissionaisPage() {
     `
     )
     .order('created_at', { ascending: false });
+
+  // Preferencia de visualizacao padrao (cards | lista), definida em Configuracoes
+  const { data: shopCfg } = await supabase
+    .from('barbershops')
+    .select('staff_default_view')
+    .eq('id', BARBERSHOP_ID)
+    .maybeSingle();
+  const defaultView: 'cards' | 'lista' =
+    shopCfg?.staff_default_view === 'lista' ? 'lista' : 'cards';
 
   const totalAtivos = staff?.filter((s) => s.active).length ?? 0;
   const totalInativos = staff?.filter((s) => !s.active).length ?? 0;
@@ -112,7 +123,7 @@ export default async function ProfissionaisPage() {
         </div>
       ) : (
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        <StaffList staff={staff as any} />
+        <StaffList staff={staff as any} defaultView={defaultView} />
       )}
     </div>
   );

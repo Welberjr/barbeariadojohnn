@@ -21,8 +21,10 @@ interface Barbershop {
   logo_url?: string | null;
   primary_color?: string | null;
   credit_fee_percent?: number | null;
+  debit_fee_percent?: number | null;
   no_show_fee_enabled?: boolean | null;
   no_show_fee_amount?: number | null;
+  staff_default_view?: string | null;
 }
 
 interface ConfiguracoesFormProps {
@@ -69,10 +71,14 @@ export function ConfiguracoesForm({ barbershop }: ConfiguracoesFormProps) {
       credit_fee_percent: barbershop.credit_fee_percent != null
         ? Number(barbershop.credit_fee_percent)
         : null,
+      debit_fee_percent: barbershop.debit_fee_percent != null
+        ? Number(barbershop.debit_fee_percent)
+        : null,
       no_show_fee_enabled: barbershop.no_show_fee_enabled ?? false,
       no_show_fee_amount: barbershop.no_show_fee_amount != null
         ? Number(barbershop.no_show_fee_amount)
         : null,
+      staff_default_view: barbershop.staff_default_view ?? 'cards',
     },
   });
 
@@ -258,6 +264,17 @@ export function ConfiguracoesForm({ barbershop }: ConfiguracoesFormProps) {
               {...register('primary_color')}
             />
           </div>
+
+          <div>
+            <label className="label">Visualização padrão dos profissionais</label>
+            <select className="input" {...register('staff_default_view')}>
+              <option value="cards">Cards</option>
+              <option value="lista">Lista</option>
+            </select>
+            <p className="text-[10px] text-fg-subtle mt-1">
+              Como a tela de Profissionais abre por padrão. Dá pra alternar entre cards e lista a qualquer momento.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -287,6 +304,22 @@ export function ConfiguracoesForm({ barbershop }: ConfiguracoesFormProps) {
             />
             <p className="text-[10px] text-fg-subtle mt-1">
               Descontado do valor líquido nas vendas em cartão.
+            </p>
+          </div>
+
+          <div>
+            <label className="label">Taxa cartão débito (%)</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              max="100"
+              placeholder="1.99"
+              className="input"
+              {...register('debit_fee_percent', { valueAsNumber: true })}
+            />
+            <p className="text-[10px] text-fg-subtle mt-1">
+              Descontado do valor líquido nas vendas no débito.
             </p>
           </div>
 

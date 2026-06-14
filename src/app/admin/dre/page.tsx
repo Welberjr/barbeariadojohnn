@@ -210,6 +210,16 @@ export default async function DREPage({ searchParams }: DREPageProps) {
   const margemLiquidaPct =
     receitaBrutaTotal > 0 ? (lucroLiquido / receitaBrutaTotal) * 100 : 0;
 
+  // Composicao da receita por origem (base bruta, antes de descontos),
+  // garante que as fatias sempre somem 100%.
+  const baseComposicao = totalServicos + totalProdutosReal + txReceitas;
+  const pctServicos =
+    baseComposicao > 0 ? (totalServicos / baseComposicao) * 100 : 0;
+  const pctProdutos =
+    baseComposicao > 0 ? (totalProdutosReal / baseComposicao) * 100 : 0;
+  const pctReceitasExtras =
+    baseComposicao > 0 ? (txReceitas / baseComposicao) * 100 : 0;
+
   return (
     <div className="space-y-6 animate-fade-in print-area">
       {/* CABECALHO EXCLUSIVO DO PDF */}
@@ -535,7 +545,11 @@ export default async function DREPage({ searchParams }: DREPageProps) {
         >
           Composição da Receita
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div
+          className={`grid grid-cols-1 gap-4 ${
+            txReceitas > 0 ? 'md:grid-cols-3' : 'md:grid-cols-2'
+          }`}
+        >
           <div className="p-4 rounded-md bg-bg-elevated border border-border/60">
             <div className="flex items-center gap-2 mb-2">
               <Users className="w-4 h-4 text-info" />
@@ -550,9 +564,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
               {formatCurrency(totalServicos)}
             </p>
             <p className="text-[11px] text-fg-subtle mt-1">
-              {receitaBrutaTotal > 0
-                ? `${((totalServicos / receitaBrutaTotal) * 100).toFixed(1)}%`
-                : '—'}{' '}
+              {baseComposicao > 0 ? `${pctServicos.toFixed(1)}%` : '—'}{' '}
               da receita
             </p>
           </div>
@@ -570,12 +582,30 @@ export default async function DREPage({ searchParams }: DREPageProps) {
               {formatCurrency(totalProdutosReal)}
             </p>
             <p className="text-[11px] text-fg-subtle mt-1">
-              {receitaBrutaTotal > 0
-                ? `${((totalProdutosReal / receitaBrutaTotal) * 100).toFixed(1)}%`
-                : '—'}{' '}
+              {baseComposicao > 0 ? `${pctProdutos.toFixed(1)}%` : '—'}{' '}
               da receita
             </p>
           </div>
+          {txReceitas > 0 && (
+            <div className="p-4 rounded-md bg-bg-elevated border border-border/60">
+              <div className="flex items-center gap-2 mb-2">
+                <CircleDollarSign className="w-4 h-4 text-info" />
+                <p className="text-[10px] uppercase tracking-wider text-fg-dim">
+                  Receitas extras
+                </p>
+              </div>
+              <p
+                className="text-2xl font-bold text-fg"
+                style={{ fontFamily: 'var(--font-playfair), serif' }}
+              >
+                {formatCurrency(txReceitas)}
+              </p>
+              <p className="text-[11px] text-fg-subtle mt-1">
+                {baseComposicao > 0 ? `${pctReceitasExtras.toFixed(1)}%` : '—'}{' '}
+                da receita
+              </p>
+            </div>
+          )}
         </div>
       </section>
     </div>
