@@ -21,7 +21,7 @@ const mdComponents: Components = {
   blockquote({ children }) {
     const t = nodeToText(children).trim();
     let cls = 'border-info bg-info/10';
-    if (/^(\u2705|\ud83d\udc4d|\ud83c\udf89|\ud83d\udcc8|\ud83d\udfe2)/.test(t)) cls = 'border-success bg-success/10';
+    if (/^(\u2705|\ud83d\udc4d|\ud83c\udf89|\ud83d\udcc8|\ud83d\udfe2|\ud83c\udfc6|\ud83e\udd47|\ud83c\udf1f|\u2b50)/.test(t)) cls = 'border-success bg-success/10';
     else if (/^(\u26a0|\ud83d\udea8|\u274c|\ud83d\udcc9|\ud83d\udd34)/.test(t)) cls = 'border-danger bg-danger/10';
     else if (/^(\ud83d\udca1|\ud83d\udfe1|\u2b50)/.test(t)) cls = 'border-gold bg-gold/10';
     return (
