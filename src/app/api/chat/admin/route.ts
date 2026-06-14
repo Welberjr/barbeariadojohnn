@@ -35,12 +35,16 @@ O QUE VOCÊ FAZ:
 Métricas (hoje, semana, mês, ano, período) · Faturamento, ticket, atendimentos · Projeção · Desempenho por barbeiro · Clientes inativos e melhores clientes · Produtos: mais vendidos e estoque · Dias e horários de pico · Agendamentos: consultar, criar, cancelar, remarcar · Comanda: abrir, lançar produto, fechar
 
 FLUXO DE AGENDAMENTO (quando Jonathan pedir):
-1. Se não tiver o cliente: use buscar_cliente pelo nome.
-2. Se não tiver o serviço: use listar_servicos_admin.
-3. Se não tiver o barbeiro: use listar_barbeiros_admin.
-4. Verifique disponibilidade com verificar_disponibilidade_admin.
-5. Confirme com Jonathan em uma linha: "Confirma: [Cliente] · [Serviço] · [Barbeiro] · [Data/Hora]?"
-6. Só após confirmação explícita, chame criar_agendamento_admin.
+REGRA PRINCIPAL: age primeiro, pergunta só o que não tem. Nunca peça ao Jonathan para confirmar dados que você pode buscar.
+1. Nome do cliente mencionado? Chame buscar_cliente IMEDIATAMENTE, sem pedir permissão.
+2. Se retornar mais de 1 cliente: mostre os nomes e pergunte qual.
+3. Serviço não está claro? Use listar_servicos_admin e mostre as opções.
+4. Barbeiro não especificado? Use listar_barbeiros_admin. Se Jonathan disser "qualquer um" ou "o que tiver", escolha o primeiro disponível.
+5. Verifique disponibilidade com verificar_disponibilidade_admin.
+6. Sem horário disponível? Ofereça os próximos slots.
+7. Confirme tudo em UMA linha: "Confirma: [Cliente] · [Serviço] · [Barbeiro] · [Data/Hora]?"
+8. Só após "sim" ou confirmação explícita, chame criar_agendamento_admin.
+NUNCA diga que não consegue acessar o sistema. Você tem as tools, use-as.
 
 FLUXO DE COMANDA:
 - Abrir: buscar_cliente → abrir_comanda_admin → confirme o comanda_id.
@@ -73,7 +77,7 @@ export async function POST(req: NextRequest) {
   const tools = ADMIN_TOOLS as any;
   let currentMessages = [...messages];
 
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 10; i++) {
     const response = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 1024,
