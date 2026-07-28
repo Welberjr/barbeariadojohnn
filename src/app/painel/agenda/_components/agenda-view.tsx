@@ -126,7 +126,7 @@ export function AgendaView({ data, agendamentos, podeOperar }: AgendaViewProps) 
         <button
           type="button"
           onClick={() => irPara(somarDias(data, -1))}
-          className="btn-ghost p-2"
+          className="btn-ghost p-3"
           aria-label="Dia anterior"
         >
           <ChevronLeft className="w-5 h-5" />
@@ -140,7 +140,7 @@ export function AgendaView({ data, agendamentos, podeOperar }: AgendaViewProps) 
         <button
           type="button"
           onClick={() => irPara(somarDias(data, 1))}
-          className="btn-ghost p-2"
+          className="btn-ghost p-3"
           aria-label="Próximo dia"
         >
           <ChevronRight className="w-5 h-5" />

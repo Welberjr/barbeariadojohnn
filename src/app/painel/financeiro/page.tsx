@@ -67,11 +67,11 @@ export default async function FinanceiroPainelPage({ searchParams }: FinanceiroP
 
       {/* Navegação de mês */}
       <div className="flex items-center justify-between gap-2">
-        <Link href={`/painel/financeiro?mes=${somarMeses(mes, -1)}`} className="btn-ghost p-2">
+        <Link href={`/painel/financeiro?mes=${somarMeses(mes, -1)}`} className="btn-ghost p-3">
           <ChevronLeft className="w-5 h-5" />
         </Link>
         <p className="text-sm text-fg font-medium capitalize">{mesLegivel(mes)}</p>
-        <Link href={`/painel/financeiro?mes=${somarMeses(mes, 1)}`} className="btn-ghost p-2">
+        <Link href={`/painel/financeiro?mes=${somarMeses(mes, 1)}`} className="btn-ghost p-3">
           <ChevronRight className="w-5 h-5" />
         </Link>
       </div>
