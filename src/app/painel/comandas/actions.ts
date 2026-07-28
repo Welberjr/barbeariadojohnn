@@ -87,7 +87,21 @@ export async function abrirMinhaComanda(dados: {
 
   if (!customerId) return { ok: false, error: 'Escolha o cliente da comanda.' };
 
-  // Uma comanda aberta por cliente evita duas contas no mesmo atendimento
+  // O cliente vem da tela, então precisa ser conferido: tem que ser desta
+  // barbearia e estar ativo. Sem isso, um id qualquer viraria comanda.
+  const { data: cliente } = await admin
+    .from('customers')
+    .select('id')
+    .eq('id', customerId)
+    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('active', true)
+    .maybeSingle();
+
+  if (!cliente) return { ok: false, error: 'Cliente não encontrado.' };
+
+  // Evita o mesmo barbeiro abrir duas contas para o mesmo cliente.
+  // Dois profissionais diferentes podem ter comanda aberta para o mesmo
+  // cliente, que é o caso real de corte com um e barba com outro.
   const { data: jaAberta } = await admin
     .from('comandas')
     .select('id')
@@ -147,10 +161,14 @@ export async function lancarServico(dados: {
   const admin = createAdminClient();
   const { comanda } = dono;
 
+  // Escopo e situação conferidos: serviço inativo ou de fora não entra em
+  // comanda só porque alguém conhece o identificador dele.
   const { data: servico } = await admin
     .from('services')
     .select('name, base_price')
     .eq('id', dados.serviceId)
+    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('active', true)
     .maybeSingle();
 
   if (!servico) return { ok: false, error: 'Serviço não encontrado.' };
@@ -302,12 +320,22 @@ export async function lancarProduto(dados: {
     .from('products')
     .select('name, sale_price, stock_current, default_commission_percent')
     .eq('id', dados.productId)
+    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('active', true)
     .maybeSingle();
 
   if (!produto) return { ok: false, error: 'Produto não encontrado.' };
 
-  const estoque = Number(produto.stock_current ?? 0);
-  if (estoque < quantidade) {
+  // A baixa acontece antes do item e dentro de um UPDATE condicional: dois
+  // lancamentos ao mesmo tempo nao vendem a mesma ultima unidade.
+  const { error: erroEstoque } = await admin.rpc('painel_baixar_estoque', {
+    p_product_id: dados.productId,
+    p_barbershop_id: BARBERSHOP_ID,
+    p_quantidade: quantidade,
+  });
+
+  if (erroEstoque) {
+    const estoque = Number(produto.stock_current ?? 0);
     return {
       ok: false,
       error: estoque > 0 ? `Só restam ${estoque} no estoque.` : 'Produto sem estoque.',
@@ -332,12 +360,15 @@ export async function lancarProduto(dados: {
     commission_value: (total * percentual) / 100,
   });
 
-  if (error) return { ok: false, error: error.message };
-
-  await admin
-    .from('products')
-    .update({ stock_current: estoque - quantidade })
-    .eq('id', dados.productId);
+  if (error) {
+    // Item nao entrou: devolve o que foi baixado, senao some do estoque
+    await admin.rpc('painel_baixar_estoque', {
+      p_product_id: dados.productId,
+      p_barbershop_id: BARBERSHOP_ID,
+      p_quantidade: -quantidade,
+    });
+    return { ok: false, error: error.message };
+  }
 
   await recalcularTotal(dados.comandaId);
   revalidatePath('/painel/comandas');
@@ -451,77 +482,40 @@ export async function fecharMinhaComanda(dados: {
     taxaDebitoPercent: Number(taxas?.debit_fee_percent ?? 0),
   });
 
-  // Só fecha se ainda estiver aberta: o segundo clique não fecha de novo
-  const { data: fechada, error: erroFechar } = await admin
-    .from('comandas')
-    .update({
-      status: 'closed',
-      discount_type: 'percentage',
-      discount_value: 0,
-      subtotal,
-      total: conta.total,
-      card_fee_total: conta.taxaValor,
-      net_total: conta.liquido,
-      closed_at: new Date().toISOString(),
-      closed_by: acesso.staff.profileId,
-    })
-    .eq('id', dados.comandaId)
-    .eq('staff_id', acesso.staff.staffId)
-    .eq('status', 'open')
-    .select('id')
-    .maybeSingle();
+  // Fechar comanda, gravar pagamento, concluir o atendimento e somar os
+  // totais do cliente acontecem juntos, numa transação só. Antes disso era
+  // uma chamada atrás da outra: falha no meio deixava comanda fechada sem
+  // pagamento, que é o pior estado possível para o caixa.
+  const { data: customerId, error: erroFechar } = await admin.rpc(
+    'painel_fechar_comanda',
+    {
+      p_comanda_id: dados.comandaId,
+      p_staff_id: acesso.staff.staffId,
+      p_closed_by: acesso.staff.profileId,
+      p_metodo: metodo,
+      p_subtotal: subtotal,
+      p_total: conta.total,
+      p_taxa_percent: conta.taxaPercent,
+      p_taxa_valor: conta.taxaValor,
+      p_liquido: conta.liquido,
+    }
+  );
 
-  if (erroFechar) return { ok: false, error: erroFechar.message };
-  if (!fechada) return { ok: false, error: 'Esta comanda já foi fechada.' };
-
-  const { error: erroPagamento } = await admin.from('comanda_payments').insert({
-    barbershop_id: BARBERSHOP_ID,
-    comanda_id: dados.comandaId,
-    method: metodo,
-    amount: conta.total,
-    installments: 1,
-    fee_percent: conta.taxaPercent,
-    fee_value: conta.taxaValor,
-    net_amount: conta.liquido,
-  });
-
-  if (erroPagamento) return { ok: false, error: erroPagamento.message };
-
-  if (comanda.appointment_id) {
-    await admin
-      .from('appointments')
-      .update({
-        status: 'completed',
-        completed_at: new Date().toISOString(),
-        comanda_id: dados.comandaId,
-      })
-      .eq('id', comanda.appointment_id)
-      .eq('staff_id', acesso.staff.staffId);
+  if (erroFechar) {
+    const msg = erroFechar.message ?? '';
+    if (/JA_FECHADA/.test(msg)) return { ok: false, error: 'Esta comanda já foi fechada.' };
+    if (/NAO_E_SUA/.test(msg)) return { ok: false, error: 'Esta comanda não é sua.' };
+    return { ok: false, error: msg || 'Não foi possível fechar a comanda.' };
   }
 
-  if (comanda.customer_id) {
-    const { data: cliente } = await admin
-      .from('customers')
-      .select('total_appointments, total_spent')
-      .eq('id', comanda.customer_id)
-      .maybeSingle();
-
-    await Promise.all([
-      cliente
-        ? admin
-            .from('customers')
-            .update({
-              total_appointments: Number(cliente.total_appointments ?? 0) + 1,
-              total_spent: Number(cliente.total_spent ?? 0) + conta.total,
-            })
-            .eq('id', comanda.customer_id)
-        : Promise.resolve(),
-      awardPointsForComanda({
-        comandaId: dados.comandaId,
-        customerId: comanda.customer_id as string,
-        amount: conta.total,
-      }),
-    ]);
+  // Pontos de fidelidade ficam fora da transação de propósito: a conta já
+  // está fechada e correta, e uma falha aqui não pode desfazer o caixa.
+  if (customerId) {
+    await awardPointsForComanda({
+      comandaId: dados.comandaId,
+      customerId: customerId as string,
+      amount: conta.total,
+    });
   }
 
   revalidatePath('/painel');

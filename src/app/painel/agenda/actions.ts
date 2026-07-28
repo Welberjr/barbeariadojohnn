@@ -58,13 +58,25 @@ export async function mudarStatusAgendamento(
     payload.completed_at = new Date().toISOString();
   }
 
-  const { error } = await admin
+  // A gravação exige que o status ainda seja o que foi lido acima. Duas abas
+  // agindo ao mesmo tempo não podem escrever uma por cima da outra: a segunda
+  // não encontra linha e recebe o aviso de que a agenda mudou.
+  const { data: alterado, error } = await admin
     .from('appointments')
     .update(payload)
     .eq('id', appointmentId)
-    .eq('staff_id', acesso.staff.staffId);
+    .eq('staff_id', acesso.staff.staffId)
+    .eq('status', agendamento.status)
+    .select('id')
+    .maybeSingle();
 
   if (error) return { ok: false, error: error.message };
+  if (!alterado) {
+    return {
+      ok: false,
+      error: 'Este atendimento mudou enquanto você olhava. Atualize a agenda.',
+    };
+  }
 
   revalidatePath('/painel');
   revalidatePath('/painel/agenda');
@@ -179,17 +191,58 @@ export async function encaixarCliente(dados: {
 
   const admin = createAdminClient();
 
-  const { data: servico } = await admin
-    .from('services')
-    .select('base_price, base_duration_minutes')
-    .eq('id', dados.serviceId)
-    .maybeSingle();
+  // Cliente e serviço vêm da tela, então os dois são conferidos: precisam ser
+  // desta barbearia e estar ativos.
+  const [{ data: cliente }, { data: servico }] = await Promise.all([
+    admin
+      .from('customers')
+      .select('id')
+      .eq('id', dados.customerId)
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('active', true)
+      .maybeSingle(),
+    admin
+      .from('services')
+      .select('base_price, base_duration_minutes')
+      .eq('id', dados.serviceId)
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('active', true)
+      .maybeSingle(),
+  ]);
 
+  if (!cliente) return { ok: false, error: 'Cliente não encontrado.' };
   if (!servico) return { ok: false, error: 'Serviço não encontrado.' };
 
   const duracao = Number(servico.base_duration_minutes ?? 30);
   const inicio = new Date(dados.inicioIso);
   const fim = new Date(inicio.getTime() + duracao * 60000);
+
+  if (Number.isNaN(inicio.getTime())) {
+    return { ok: false, error: 'Horário inválido.' };
+  }
+
+  // Encaixe é para agora ou para frente. Uma folga de cinco minutos cobre o
+  // caso real de lançar o encaixe logo depois de o cliente sentar na cadeira.
+  if (inicio.getTime() < Date.now() - 5 * 60000) {
+    return { ok: false, error: 'Não dá para encaixar em um horário que já passou.' };
+  }
+
+  // Dia bloqueado por ele mesmo não recebe encaixe
+  const diaStr = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+  }).format(inicio);
+
+  const { data: folga } = await admin
+    .from('days_off')
+    .select('id')
+    .eq('staff_id', acesso.staff.staffId)
+    .lte('start_date', diaStr)
+    .gte('end_date', diaStr)
+    .maybeSingle();
+
+  if (folga) {
+    return { ok: false, error: 'Esse dia está bloqueado na sua agenda.' };
+  }
 
   const { data: criado, error } = await admin
     .from('appointments')
@@ -214,7 +267,7 @@ export async function encaixarCliente(dados: {
     return { ok: false, error: error.message };
   }
 
-  await admin.from('appointment_services').insert({
+  const { error: erroServico } = await admin.from('appointment_services').insert({
     barbershop_id: BARBERSHOP_ID,
     appointment_id: criado.id,
     service_id: dados.serviceId,
@@ -222,6 +275,18 @@ export async function encaixarCliente(dados: {
     duration_minutes: duracao,
     commission_percent: acesso.staff.commissionPercent,
   });
+
+  if (erroServico) {
+    // Atendimento sem serviço vinculado vira comissão errada depois.
+    // Melhor desfazer e pedir para tentar de novo.
+    await admin
+      .from('appointments')
+      .delete()
+      .eq('id', criado.id)
+      .eq('staff_id', acesso.staff.staffId);
+
+    return { ok: false, error: 'Não foi possível lançar o serviço. Tente de novo.' };
+  }
 
   revalidatePath('/painel');
   revalidatePath('/painel/agenda');
