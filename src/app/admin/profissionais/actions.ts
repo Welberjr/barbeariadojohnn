@@ -1,7 +1,9 @@
 'use server';
 
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createManagerClient } from '@/lib/supabase/manager';
 import { revalidatePath } from 'next/cache';
+import { getSessionStaff } from '@/lib/staff-auth';
+import { buildStaffPermissions, PRESETS_POR_PAPEL } from '@/lib/staff-permissions';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -26,8 +28,8 @@ export interface StaffFormData {
  * 3. Cria staff vinculado ao profile
  */
 export async function createStaff(data: StaffFormData) {
-  const supabase = createAdminClient();
-  const admin = createAdminClient();
+  const supabase = await createManagerClient();
+  const admin = await createManagerClient();
 
   let profileId: string;
 
@@ -76,7 +78,10 @@ export async function createStaff(data: StaffFormData) {
     }
   }
 
-  // 4. Cria staff vinculado
+  // 4. Cria staff vinculado, já com o acesso sugerido para o papel.
+  // É sugestão: o gestor ajusta no bloco de acesso logo depois.
+  const preset = PRESETS_POR_PAPEL[data.role] ?? { canManage: false, modulos: [] };
+
   const { error: staffError } = await admin.from('staff').insert({
     barbershop_id: BARBERSHOP_ID,
     profile_id: profileId,
@@ -86,6 +91,8 @@ export async function createStaff(data: StaffFormData) {
     specialties: data.specialties && data.specialties.length > 0 ? data.specialties : null,
     default_commission_percent: data.default_commission_percent,
     active: data.active,
+    can_manage: preset.canManage,
+    permissions: buildStaffPermissions(preset.modulos),
   });
 
   if (staffError) {
@@ -100,7 +107,7 @@ export async function createStaff(data: StaffFormData) {
  * Atualiza um profissional existente.
  */
 export async function updateStaff(staffId: string, data: StaffFormData) {
-  const admin = createAdminClient();
+  const admin = await createManagerClient();
 
   const { data: staff, error: staffFetchError } = await admin
     .from('staff')
@@ -152,7 +159,7 @@ export async function updateStaff(staffId: string, data: StaffFormData) {
  * Desativa um profissional (soft delete).
  */
 export async function deactivateStaff(staffId: string) {
-  const admin = createAdminClient();
+  const admin = await createManagerClient();
 
   const { error } = await admin
     .from('staff')
@@ -167,11 +174,105 @@ export async function deactivateStaff(staffId: string) {
   return { ok: true };
 }
 
+// ============================================================
+// ACESSO AO SISTEMA
+// ============================================================
+
+/**
+ * Salva o acesso de um profissional: gestao e modulos do painel.
+ *
+ * A gravacao passa pela funcao set_staff_access, que faz tudo dentro de uma
+ * transacao com trava. Isso impede que dois gestores, removendo acesso ao
+ * mesmo tempo, deixem a barbearia sem ninguem com gestao.
+ */
+export async function salvarAcessoStaff(
+  staffId: string,
+  canManage: boolean,
+  modulos: string[]
+) {
+  const admin = await createManagerClient();
+  const ator = await getSessionStaff();
+
+  const permissions = buildStaffPermissions(modulos);
+
+  const { error } = await admin.rpc('set_staff_access', {
+    p_staff_id: staffId,
+    p_can_manage: canManage,
+    p_permissions: permissions,
+    p_actor_staff_id: ator?.staffId ?? null,
+  });
+
+  if (error) {
+    // A funcao devolve mensagem pronta para o gestor ler
+    return { ok: false, error: error.message };
+  }
+
+  revalidatePath('/admin/profissionais');
+  revalidatePath(`/admin/profissionais/${staffId}`);
+  return { ok: true };
+}
+
+const PALAVRAS_SENHA = ['navalha', 'tesoura', 'pente', 'barba', 'corte', 'maquina'];
+
+/**
+ * Define uma senha de acesso para o profissional e obriga a troca no primeiro
+ * uso. A senha volta uma unica vez, para o gestor copiar e entregar.
+ */
+export async function definirSenhaAcesso(staffId: string) {
+  const admin = await createManagerClient();
+  const ator = await getSessionStaff();
+
+  const { data: staff } = await admin
+    .from('staff')
+    .select('profile_id, display_name, active, fired_at')
+    .eq('id', staffId)
+    .maybeSingle();
+
+  if (!staff?.profile_id) {
+    return { ok: false, error: 'Profissional sem usuário vinculado.' };
+  }
+  if (staff.active === false || staff.fired_at) {
+    return { ok: false, error: 'Profissional inativo não recebe senha de acesso.' };
+  }
+
+  const palavra = PALAVRAS_SENHA[Math.floor(Math.random() * PALAVRAS_SENHA.length)];
+  const numero = String(Math.floor(1000 + Math.random() * 9000));
+  const senha = `${palavra}${numero}`;
+
+  const { error: authError } = await admin.auth.admin.updateUserById(
+    staff.profile_id as string,
+    { password: senha }
+  );
+
+  if (authError) {
+    return { ok: false, error: authError.message };
+  }
+
+  const { error: flagError } = await admin
+    .from('staff')
+    .update({ must_change_password: true })
+    .eq('id', staffId);
+
+  if (flagError) {
+    return { ok: false, error: flagError.message };
+  }
+
+  await admin.from('staff_access_log').insert({
+    staff_id: staffId,
+    actor_staff_id: ator?.staffId ?? null,
+    action: 'set_password',
+    after_value: { must_change_password: true },
+  });
+
+  revalidatePath(`/admin/profissionais/${staffId}`);
+  return { ok: true, senha };
+}
+
 /**
  * Reativa um profissional.
  */
 export async function reactivateStaff(staffId: string) {
-  const admin = createAdminClient();
+  const admin = await createManagerClient();
 
   const { error } = await admin
     .from('staff')

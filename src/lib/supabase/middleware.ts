@@ -1,17 +1,52 @@
-﻿/**
- * Supabase Middleware — Refresh de sessão Auth + roteamento por papel
+/**
+ * Supabase Middleware · Refresh de sessão Auth + roteamento por papel
  *
  * Papéis:
- *  - Equipe/admin: usuários sem user_metadata.role (fluxo original /login -> /admin)
+ *  - Gestão: profissional com staff.can_manage = true (fluxo /login -> /admin)
+ *  - Equipe sem gestão: demais profissionais ativos (fluxo /login -> /painel)
  *  - Clientes: user_metadata.role === 'customer' (fluxo /cliente/login -> /cliente)
  *
  * Regras:
- *  - /admin exige login e NUNCA aceita cliente (cliente é mandado pro /cliente)
- *  - /cliente exige login (exceto /cliente/login)
+ *  - /admin exige acesso de gestão conferido no banco, nunca só o token.
+ *    Como server action é POST na própria rota, esta trava também protege as
+ *    ações do admin, além da guarda que cada action tem por dentro.
+ *  - /painel exige profissional ativo
  *  - Logado tentando acessar telas de login é redirecionado pro painel certo
  */
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+
+interface StaffAccess {
+  isStaff: boolean;
+  canManage: boolean;
+}
+
+/**
+ * Confere o acesso direto no banco. É uma consulta por navegação em área
+ * logada, e é o que faz profissional desligado perder o acesso na hora.
+ */
+async function fetchStaffAccess(userId: string): Promise<StaffAccess> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/^﻿/, '').trim();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.replace(/^﻿/, '').trim();
+  if (!url || !key) return { isStaff: false, canManage: false };
+
+  try {
+    const res = await fetch(
+      `${url}/rest/v1/staff?select=can_manage&profile_id=eq.${userId}&active=is.true&fired_at=is.null&limit=1`,
+      {
+        headers: { apikey: key, Authorization: `Bearer ${key}` },
+        cache: 'no-store',
+      }
+    );
+    if (!res.ok) return { isStaff: false, canManage: false };
+    const rows = (await res.json()) as Array<{ can_manage: boolean }>;
+    if (!rows.length) return { isStaff: false, canManage: false };
+    return { isStaff: true, canManage: rows[0].can_manage === true };
+  } catch {
+    // Falha de rede não pode virar porta aberta
+    return { isStaff: false, canManage: false };
+  }
+}
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -49,6 +84,7 @@ export async function updateSession(request: NextRequest) {
   const isCustomerUser = user?.user_metadata?.role === 'customer';
 
   const isAdminRoute = pathname.startsWith('/admin');
+  const isPanelRoute = pathname.startsWith('/painel');
   const isAdminLogin = pathname.startsWith('/login');
   const isCustomerLogin = pathname.startsWith('/cliente/login');
   const isCustomerRoute = pathname.startsWith('/cliente') && !isCustomerLogin;
@@ -60,10 +96,17 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // ----- Area administrativa -----
-  if (isAdminRoute) {
+  // ----- Areas da equipe -----
+  if (isAdminRoute || isPanelRoute) {
     if (!user) return redirectTo('/login');
     if (isCustomerUser) return redirectTo('/cliente');
+
+    const acesso = await fetchStaffAccess(user.id);
+
+    // Logado, porém não é profissional ativo desta barbearia
+    if (!acesso.isStaff) return redirectTo('/login');
+
+    if (isAdminRoute && !acesso.canManage) return redirectTo('/painel');
   }
 
   // ----- Painel do cliente -----
@@ -72,11 +115,11 @@ export async function updateSession(request: NextRequest) {
   }
 
   // ----- Telas de login com sessao ativa -----
-  if (isAdminLogin && user) {
-    return redirectTo(isCustomerUser ? '/cliente' : '/admin');
-  }
-  if (isCustomerLogin && user) {
-    return redirectTo(isCustomerUser ? '/cliente' : '/admin');
+  if ((isAdminLogin || isCustomerLogin) && user) {
+    if (isCustomerUser) return redirectTo('/cliente');
+    const acesso = await fetchStaffAccess(user.id);
+    if (!acesso.isStaff) return supabaseResponse;
+    return redirectTo(acesso.canManage ? '/admin' : '/painel');
   }
 
   return supabaseResponse;

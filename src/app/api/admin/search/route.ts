@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { exigirGestao } from '@/lib/staff-auth';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -8,15 +8,13 @@ export const dynamic = 'force-dynamic';
 
 /**
  * Busca global do painel admin: clientes, serviços e agendamentos.
- * Protegida por sessão (mesmo login do painel).
+ * Exige acesso de gestão: estar logado não basta, senão barbeiro e cliente
+ * conseguiriam varrer a base inteira de clientes por aqui.
  */
 export async function GET(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Nao autorizado' }, { status: 401 });
+  const acesso = await exigirGestao();
+  if (!acesso.ok) {
+    return NextResponse.json({ error: acesso.error }, { status: 403 });
   }
 
   const { searchParams } = new URL(request.url);

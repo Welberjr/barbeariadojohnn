@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
-import { createClient } from '@/lib/supabase/server';
+import { exigirGestao } from '@/lib/staff-auth';
 import { ADMIN_TOOLS, executeAdminTool } from '@/lib/ai/tools';
 
 export const dynamic = 'force-dynamic';
@@ -58,10 +58,10 @@ FORMATAÇÃO:
 Data de hoje: ${new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'America/Sao_Paulo' })}.`;
 
 export async function POST(req: NextRequest) {
-  // Verificar se e admin (usa cookies do Supabase)
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getSession().then((r) => ({ data: { user: r.data.session?.user ?? null } }));
-  if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
+  // A Lara do admin tem ferramentas de gestão (faturamento, comandas, clientes).
+  // Só quem tem acesso de gestão conversa com ela: estar logado não basta.
+  const acesso = await exigirGestao();
+  if (!acesso.ok) return NextResponse.json({ error: acesso.error }, { status: 403 });
 
   const { messages } = await req.json() as { messages: Anthropic.MessageParam[] };
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
