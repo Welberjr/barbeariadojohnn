@@ -160,7 +160,7 @@ export function ValesView({
                 <input
                   type="text"
                   className="input"
-                  placeholder="Ex: adiantamento para material"
+                  placeholder="Ex.: adiantamento para material"
                   value={motivo}
                   onChange={(e) => setMotivo(e.target.value)}
                   maxLength={300}

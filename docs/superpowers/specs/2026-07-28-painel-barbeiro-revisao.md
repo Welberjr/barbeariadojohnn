@@ -59,6 +59,34 @@ Este documento registra o que foi aceito, o que foi recusado e por quê.
    tela vazia é alta demais. O isolamento fica na camada de acesso a dados, onde nenhuma função
    aceita identificador de profissional vindo de fora.
 
+## Segunda rodada: revisão do código pronto
+
+O mesmo revisor recebeu o código implementado. Nove achados, todos corrigidos antes deste
+registro.
+
+| Achado | Correção |
+|---|---|
+| Fechamento da comanda em chamadas separadas: falha ao gravar o pagamento deixava comanda fechada sem pagamento | Virou a função `painel_fechar_comanda`, que fecha, cobra, conclui o atendimento e soma os totais do cliente numa transação só |
+| Totais do cliente somados no aplicativo (ler, somar, gravar) | Passaram a ser somados no próprio SQL, então dois fechamentos ao mesmo tempo não se sobrescrevem |
+| Corrida de estoque: dois lançamentos vendiam a mesma última unidade | Virou `painel_baixar_estoque`, com a conta dentro do UPDATE condicional |
+| Cliente aceito da tela sem conferência | Passa a exigir cliente da barbearia e ativo, na comanda e no encaixe |
+| Serviço e produto buscados só pelo identificador | Passam a exigir `barbershop_id` e `active` |
+| Mudança de status da agenda sem comparar o estado anterior | Gravação exige que o status ainda seja o que foi lido, com aviso quando mudou |
+| Encaixe aceitava horário passado e dia bloqueado | Recusa os dois casos |
+| Erro ao vincular o serviço do encaixe era ignorado | Passa a desfazer o agendamento e pedir para tentar de novo |
+| Comentário dizia "uma comanda aberta por cliente", mas a checagem era por cliente e profissional | Comentário corrigido: dois profissionais podem ter comanda aberta para o mesmo cliente, que é o caso real de corte com um e barba com outro |
+
+Uma sugestão foi recusada: criar índice único de uma comanda aberta por cliente em toda a
+barbearia. Isso quebraria o atendimento simultâneo por dois profissionais, que acontece de
+verdade na barbearia, e mudaria o comportamento do admin sem o Johnn ter pedido.
+
+## Adaptação feita durante a implementação
+
+O bloqueio de horário virou bloqueio de dia. O sistema guarda folga por dia (`days_off`), sem
+faixa de horário, então o painel bloqueia o dia inteiro e a tela diz isso com todas as letras.
+Bloquear faixa de horário exigiria tabela nova e mexeria na disponibilidade do site, o que não
+cabe até segunda.
+
 ## Dívidas registradas para depois da implantação
 
 1. Políticas de RLS nas tabelas do painel, como defesa em profundidade.
