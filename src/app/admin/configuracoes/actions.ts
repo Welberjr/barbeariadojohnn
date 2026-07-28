@@ -1,6 +1,6 @@
 'use server';
 
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createManagerClient } from '@/lib/supabase/manager';
 import { revalidatePath } from 'next/cache';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
@@ -30,7 +30,7 @@ function nullIfEmpty(v?: string | null) {
 }
 
 export async function updateBarbershopSettings(data: BarbershopSettings) {
-  const admin = createAdminClient();
+  const admin = await createManagerClient();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const payload: any = {};
@@ -80,7 +80,7 @@ export async function updateBarbershopSettings(data: BarbershopSettings) {
  * Upload da logo para o Storage (bucket "logos") e atualizacao do cadastro.
  */
 export async function uploadLogo(formData: FormData) {
-  const admin = createAdminClient();
+  const admin = await createManagerClient();
   const file = formData.get('file') as File | null;
 
   if (!file || file.size === 0) return { ok: false, error: 'Nenhum arquivo enviado.' };

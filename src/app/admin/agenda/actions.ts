@@ -1,6 +1,6 @@
 'use server';
 
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createManagerClient } from '@/lib/supabase/manager';
 import { revalidatePath } from 'next/cache';
 import {
   sendWhatsAppMessage,
@@ -47,7 +47,7 @@ function friendlyAppointmentError(error: {
  * - Se service_id for fornecido, cria também a entrada em appointment_services
  */
 export async function createAppointment(data: AppointmentData) {
-  const admin = createAdminClient();
+  const admin = await createManagerClient();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const payload: any = {
@@ -123,7 +123,7 @@ export async function updateAppointmentStatus(
     | 'cancelled'
     | 'no_show'
 ) {
-  const admin = createAdminClient();
+  const admin = await createManagerClient();
 
   const { error } = await admin
     .from('appointments')
@@ -142,7 +142,7 @@ export async function updateAppointmentStatus(
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function updateAppointment(id: string, data: any) {
-  const admin = createAdminClient();
+  const admin = await createManagerClient();
 
   // Remove service_id do payload se vier (deve ser tratado via appointment_services)
   const { service_id: _ignoredServiceId, ...rest } = data;
@@ -162,7 +162,7 @@ export async function updateAppointment(id: string, data: any) {
  * Deleta agendamento (e seus appointment_services via cascade do FK).
  */
 export async function deleteAppointment(id: string) {
-  const admin = createAdminClient();
+  const admin = await createManagerClient();
 
   // Tenta deletar appointment_services manualmente caso não tenha cascade
   await admin.from('appointment_services').delete().eq('appointment_id', id);

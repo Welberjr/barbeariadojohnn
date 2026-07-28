@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { exigirGestao } from '@/lib/staff-auth';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 const STALE_COMANDA_MIN = 240; // 4h aberta = alerta
@@ -28,12 +28,10 @@ function fmtElapsed(min: number): string {
  * contas a pagar vencendo/vencidas e agendamentos restantes do dia.
  */
 export async function GET() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Nao autorizado' }, { status: 401 });
+  // Alerta operacional é assunto de gestão. Estar logado não basta.
+  const acesso = await exigirGestao();
+  if (!acesso.ok) {
+    return NextResponse.json({ error: acesso.error }, { status: 403 });
   }
 
   const admin = createAdminClient();

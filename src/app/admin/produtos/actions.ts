@@ -1,6 +1,6 @@
 'use server';
 
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createManagerClient } from '@/lib/supabase/manager';
 import { revalidatePath } from 'next/cache';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
@@ -29,7 +29,7 @@ function nullIfEmpty(v?: string | null) {
 }
 
 export async function createProduct(data: ProductFormData) {
-  const admin = createAdminClient();
+  const admin = await createManagerClient();
 
   const { error } = await admin.from('products').insert({
     barbershop_id: BARBERSHOP_ID,
@@ -56,7 +56,7 @@ export async function createProduct(data: ProductFormData) {
 }
 
 export async function duplicateProductAction(productId: string) {
-  const admin = createAdminClient();
+  const admin = await createManagerClient();
 
   const { data: original, error: errFetch } = await admin
     .from('products')
@@ -100,7 +100,7 @@ export async function duplicateProductAction(productId: string) {
 }
 
 export async function updateProduct(productId: string, data: ProductFormData) {
-  const admin = createAdminClient();
+  const admin = await createManagerClient();
 
   const { error } = await admin
     .from('products')
@@ -130,7 +130,7 @@ export async function updateProduct(productId: string, data: ProductFormData) {
 }
 
 export async function deleteProduct(productId: string) {
-  const admin = createAdminClient();
+  const admin = await createManagerClient();
 
   // Soft delete: desativa
   const { error } = await admin
@@ -148,7 +148,7 @@ export async function deleteProduct(productId: string) {
  * Registra venda avulsa de produto (sem comanda). Debita estoque e cria transação.
  */
 export async function registerSale(productId: string, quantity: number) {
-  const admin = createAdminClient();
+  const admin = await createManagerClient();
 
   const { data: prod } = await admin
     .from('products')
@@ -202,7 +202,7 @@ export async function registerSale(productId: string, quantity: number) {
  * Desativa produto (soft delete) - usado pela tabela de produtos.
  */
 export async function deactivateProductAction(productId: string) {
-  const admin = createAdminClient();
+  const admin = await createManagerClient();
   const { error } = await admin
     .from('products')
     .update({ active: false })
@@ -221,7 +221,7 @@ export async function adjustStock(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _reason?: string
 ) {
-  const admin = createAdminClient();
+  const admin = await createManagerClient();
 
   // Pega estoque atual
   const { data: prod } = await admin

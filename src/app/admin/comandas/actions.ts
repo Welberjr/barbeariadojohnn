@@ -1,6 +1,6 @@
 ﻿﻿'use server';
 
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createManagerClient } from '@/lib/supabase/manager';
 import { revalidatePath } from 'next/cache';
 import { getActiveSubscription, isDayAllowed, formatAllowedDays } from '@/lib/subscriptions';
 import { awardPointsForComanda } from '@/lib/loyalty';
@@ -19,7 +19,7 @@ export interface CreateComandaData {
  * Se vinculada a um appointment, marca-o como 'in_progress' automaticamente.
  */
 export async function createComanda(data: CreateComandaData) {
-  const admin = createAdminClient();
+  const admin = await createManagerClient();
 
   // Se houver appointment, verificar se ja existe comanda vinculada
   if (data.appointment_id) {
@@ -80,7 +80,7 @@ export async function createComanda(data: CreateComandaData) {
  * agendamento em andamento. Idempotente: nunca duplica comanda.
  */
 export async function startAppointmentComanda(appointmentId: string) {
-  const admin = createAdminClient();
+  const admin = await createManagerClient();
 
   const { data: appt } = await admin
     .from('appointments')
@@ -134,7 +134,7 @@ export async function populateComandaFromAppointment(
   comandaId: string,
   appointmentId: string
 ) {
-  const admin = createAdminClient();
+  const admin = await createManagerClient();
 
   const { data: apptServices } = await admin
     .from('appointment_services')
@@ -204,7 +204,7 @@ export async function addServiceToComanda(
   quantity = 1,
   useSubscription = false
 ) {
-  const admin = createAdminClient();
+  const admin = await createManagerClient();
 
   const [{ data: service }, { data: staff }, { data: comanda }] = await Promise.all([
     admin.from('services').select('name').eq('id', serviceId).maybeSingle(),
@@ -378,7 +378,7 @@ export async function addProductToComanda(
   price: number,
   quantity = 1
 ) {
-  const admin = createAdminClient();
+  const admin = await createManagerClient();
 
   const { data: product } = await admin
     .from('products')
@@ -439,7 +439,7 @@ export async function removeComandaItem(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _type: 'service' | 'product'
 ) {
-  const admin = createAdminClient();
+  const admin = await createManagerClient();
 
   const { data: item } = await admin
     .from('comanda_items')
@@ -483,7 +483,7 @@ export async function removeComandaItem(
  * Versao rapida: recalcula o total sem roundtrip extra.
  */
 async function recalculateTotalDelta(comandaId: string) {
-  const admin = createAdminClient();
+  const admin = await createManagerClient();
   const { data: items } = await admin.from('comanda_items').select('total_price').eq('comanda_id', comandaId);
   const subtotal = items?.reduce((s, i) => s + Number(i.total_price ?? 0), 0) ?? 0;
   await admin.from('comandas').update({ subtotal, total: subtotal, net_total: subtotal }).eq('id', comandaId);
@@ -493,7 +493,7 @@ async function recalculateTotalDelta(comandaId: string) {
  * Recalcula o total da comanda (soma de comanda_items.total_price).
  */
 async function recalculateComandaTotal(comandaId: string) {
-  const admin = createAdminClient();
+  const admin = await createManagerClient();
 
   const { data: items } = await admin
     .from('comanda_items')
@@ -535,7 +535,7 @@ export async function closeComanda(
   discount = 0,
   tip = 0
 ) {
-  const admin = createAdminClient();
+  const admin = await createManagerClient();
   const method = normalizePaymentMethod(paymentMethod);
 
   const { data: comanda } = await admin
@@ -663,7 +663,7 @@ export async function closeComanda(
  * Devolve estoque dos produtos e estorna usos de assinatura nao acertados.
  */
 export async function cancelComanda(comandaId: string) {
-  const admin = createAdminClient();
+  const admin = await createManagerClient();
 
   const { data: items } = await admin
     .from('comanda_items')

@@ -1,6 +1,5 @@
-import { redirect } from 'next/navigation';
 import type { Metadata, Viewport } from 'next';
-import { createClient } from '@/lib/supabase/server';
+import { requireCanManage } from '@/lib/staff-auth';
 import { AdminSidebar } from './_components/sidebar';
 import { ChatFloat } from '@/components/chat-float';
 import { AdminTopbar } from './_components/topbar';
@@ -26,21 +25,9 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect('/login');
-  }
-
-  // Buscar o profile pra pegar o nome completo
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('full_name')
-    .eq('id', user.id)
-    .maybeSingle();
+  // Confere acesso de gestão no banco a cada carregamento.
+  // Profissional sem gestão é mandado para o painel dele.
+  const staff = await requireCanManage();
 
   return (
     <>
@@ -49,8 +36,8 @@ export default async function AdminLayout({
 
       <div className="flex-1 flex flex-col min-w-0">
         <AdminTopbar
-          userEmail={user.email ?? ''}
-          userName={profile?.full_name ?? undefined}
+          userEmail={staff.email ?? ''}
+          userName={staff.fullName ?? staff.displayName}
         />
 
         <main className="flex-1 p-6 lg:p-8 overflow-x-auto">{children}</main>
