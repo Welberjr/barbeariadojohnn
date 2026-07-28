@@ -2,6 +2,7 @@
 
 import { createManagerClient } from '@/lib/supabase/manager';
 import { revalidatePath } from 'next/cache';
+import { getSessionStaff } from '@/lib/staff-auth';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -81,23 +82,37 @@ export async function createAllowance(data: {
 
 export async function approveAllowance(id: string) {
   const supabase = await createManagerClient();
+  const gestor = await getSessionStaff();
+
   const { error } = await supabase
     .from('allowances')
-    .update({ status: 'approved', reviewed_at: new Date().toISOString() })
+    .update({
+      status: 'approved',
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: gestor?.profileId ?? null,
+    })
     .eq('id', id);
   if (error) return { ok: false, error: error.message };
   revalidatePath('/admin/financeiro');
+  revalidatePath('/painel/vales');
   return { ok: true };
 }
 
 export async function rejectAllowance(id: string) {
   const supabase = await createManagerClient();
+  const gestor = await getSessionStaff();
+
   const { error } = await supabase
     .from('allowances')
-    .update({ status: 'rejected', reviewed_at: new Date().toISOString() })
+    .update({
+      status: 'rejected',
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: gestor?.profileId ?? null,
+    })
     .eq('id', id);
   if (error) return { ok: false, error: error.message };
   revalidatePath('/admin/financeiro');
+  revalidatePath('/painel/vales');
   return { ok: true };
 }
 

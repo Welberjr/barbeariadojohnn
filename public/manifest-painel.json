@@ -1,0 +1,26 @@
+{
+  "name": "Meu Painel · Barbearia do Johnn",
+  "short_name": "Meu Painel",
+  "description": "Agenda, comissão e vales do profissional da Barbearia do Johnn.",
+  "start_url": "/painel",
+  "scope": "/painel",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0B0B0D",
+  "theme_color": "#D4A04F",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

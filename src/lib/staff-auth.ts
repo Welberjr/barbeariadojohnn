@@ -93,8 +93,15 @@ export const getSessionStaff = cache(async function getSessionStaff(): Promise<S
 /**
  * Exige profissional logado, opcionalmente com um modulo liberado.
  * Use nas paginas do painel.
+ *
+ * `ignorarTrocaSenha` existe para o layout do painel e para a propria tela de
+ * perfil: as duas moram dentro do painel, entao forcar a troca ali criaria um
+ * laco de redirecionamento. Quem obriga a troca sao as demais paginas.
  */
-export async function requireStaff(modulo?: Modulo): Promise<SessionStaff> {
+export async function requireStaff(
+  modulo?: Modulo,
+  opts: { ignorarTrocaSenha?: boolean } = {}
+): Promise<SessionStaff> {
   const staff = await getSessionStaff();
 
   if (!staff) {
@@ -108,7 +115,9 @@ export async function requireStaff(modulo?: Modulo): Promise<SessionStaff> {
   }
 
   // Senha entregue pelo gestor: nada de painel antes de trocar
-  if (staff.mustChangePassword) redirect('/painel/perfil?trocar=1');
+  if (staff.mustChangePassword && !opts.ignorarTrocaSenha) {
+    redirect('/painel/perfil?trocar=1');
+  }
 
   if (modulo && !podeModulo(staff, modulo)) redirect('/painel');
 

@@ -8,7 +8,7 @@ const STALE_COMANDA_MIN = 240; // 4h aberta = alerta
 export const dynamic = 'force-dynamic';
 
 interface NotificationItem {
-  type: 'comanda' | 'stock' | 'bill' | 'appointment';
+  type: 'comanda' | 'stock' | 'bill' | 'appointment' | 'vale';
   severity: 'danger' | 'warn' | 'info';
   title: string;
   subtitle: string;
@@ -45,7 +45,7 @@ export async function GET() {
   }).format(new Date(nowMs + 7 * 86400000));
   const dayEnd = `${todayStr}T23:59:59.999-03:00`;
 
-  const [comandasRes, productsRes, billsRes] = await Promise.all([
+  const [comandasRes, productsRes, billsRes, valesRes] = await Promise.all([
     admin
       .from('comandas')
       .select('id, opened_at, customers:customers(full_name)')
@@ -64,6 +64,14 @@ export async function GET() {
       .eq('status', 'pending')
       .lte('due_date', plus7Str)
       .order('due_date')
+      .limit(10),
+    // Vales pedidos pelo painel do barbeiro, aguardando resposta
+    admin
+      .from('allowances')
+      .select('id, amount, requested_at, staff:staff(display_name)')
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('status', 'pending')
+      .order('requested_at')
       .limit(10),
   ]);
 
@@ -87,6 +95,24 @@ export async function GET() {
   }
 
   const items: NotificationItem[] = [];
+
+  // 0. Vale aguardando resposta: o barbeiro está esperando alguém decidir
+  for (const vale of valesRes.data ?? []) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rel = vale.staff as any;
+    const nome = Array.isArray(rel) ? rel[0]?.display_name : rel?.display_name;
+    const valor = Number(vale.amount ?? 0).toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    });
+    items.push({
+      type: 'vale',
+      severity: 'warn',
+      title: `Pedido de vale de ${nome ?? 'profissional'}`,
+      subtitle: `${valor} aguardando sua resposta`,
+      href: '/admin/financeiro#vales',
+    });
+  }
 
   // 1. Comandas abertas há muito tempo
   const staleComandas = (comandasRes.data ?? []).filter((c) => {

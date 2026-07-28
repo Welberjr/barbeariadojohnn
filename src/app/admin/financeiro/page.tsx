@@ -393,8 +393,10 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
         )}
       </section>
 
-      {/* VALES / ADIANTAMENTOS */}
-      <AllowancesSection allowances={allowances} staff={staffOptions} />
+      {/* VALES / ADIANTAMENTOS (âncora usada pelo aviso de pedido no sino) */}
+      <div id="vales" className="scroll-mt-24">
+        <AllowancesSection allowances={allowances} staff={staffOptions} />
+      </div>
 
       {/* HISTORICO DE PAGAMENTOS DE COMISSAO */}
       <PayoutHistorySection payouts={payoutHistory} staff={staffOptions} />
