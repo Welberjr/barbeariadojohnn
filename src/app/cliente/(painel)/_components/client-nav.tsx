@@ -6,10 +6,9 @@ import {
   Home,
   CalendarPlus,
   CalendarDays,
-  Trophy,
   ShoppingBag,
-  User,
   Bell,
+  Gift,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/brand/logo';
@@ -22,12 +21,20 @@ interface ClientNavProps {
 
 const NAV_ITEMS = [
   { href: '/cliente', label: 'Início', icon: Home, exact: true },
-  { href: '/cliente/agendar', label: 'Agendar', icon: CalendarPlus, exact: false },
   { href: '/cliente/agendamentos', label: 'Agenda', icon: CalendarDays, exact: false },
-  { href: '/cliente/ranking', label: 'Ranking', icon: Trophy, exact: false },
+  { href: '/cliente/agendar', label: 'Agendar', icon: CalendarPlus, exact: false, primary: true },
+  { href: '/cliente/beneficios', label: 'Benefícios', icon: Gift, exact: false },
   { href: '/cliente/loja', label: 'Loja', icon: ShoppingBag, exact: false },
-  { href: '/cliente/perfil', label: 'Perfil', icon: User, exact: false },
 ];
+
+function isNavItemActive(item: (typeof NAV_ITEMS)[number], pathname: string) {
+  if (item.href === '/cliente/beneficios') {
+    return pathname.startsWith('/cliente/beneficios')
+      || pathname.startsWith('/cliente/ranking')
+      || pathname.startsWith('/cliente/clube');
+  }
+  return item.exact ? pathname === item.href : pathname.startsWith(item.href);
+}
 
 export function ClientTopbar({ customerName, photoUrl, unreadCount }: ClientNavProps) {
   const pathname = usePathname();
@@ -48,9 +55,7 @@ export function ClientTopbar({ customerName, photoUrl, unreadCount }: ClientNavP
         {/* Nav desktop */}
         <nav className="hidden md:flex items-center gap-1">
           {NAV_ITEMS.map((item) => {
-            const active = item.exact
-              ? pathname === item.href
-              : pathname.startsWith(item.href);
+            const active = isNavItemActive(item, pathname);
             const Icon = item.icon;
             return (
               <Link
@@ -58,7 +63,9 @@ export function ClientTopbar({ customerName, photoUrl, unreadCount }: ClientNavP
                 href={item.href}
                 className={cn(
                   'px-3 py-1.5 rounded-md text-xs flex items-center gap-1.5 transition-colors',
-                  active
+                  item.primary
+                    ? 'bg-gold text-bg hover:bg-gold-shimmer font-semibold'
+                    : active
                     ? 'bg-gold/15 text-gold'
                     : 'text-fg-muted hover:text-fg hover:bg-bg-elevated'
                 )}
@@ -119,11 +126,9 @@ export function ClientBottomNav() {
 
   return (
     <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-bg/95 backdrop-blur-md border-t border-border/60 pb-[env(safe-area-inset-bottom)]">
-      <div className="grid grid-cols-6">
+      <div className="grid grid-cols-5 items-end px-1">
         {NAV_ITEMS.map((item) => {
-          const active = item.exact
-            ? pathname === item.href
-            : pathname.startsWith(item.href);
+          const active = isNavItemActive(item, pathname);
           const Icon = item.icon;
           return (
             <Link
@@ -131,11 +136,18 @@ export function ClientBottomNav() {
               href={item.href}
               className={cn(
                 'flex flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] transition-colors',
-                active ? 'text-gold' : 'text-fg-subtle hover:text-fg'
+                item.primary && '-mt-5 py-0',
+                active || item.primary ? 'text-gold' : 'text-fg-subtle hover:text-fg'
               )}
             >
-              <Icon className={cn('w-5 h-5', active && 'drop-shadow-[0_0_8px_rgba(212,160,79,0.5)]')} />
-              <span className={cn(active && 'font-semibold')}>{item.label}</span>
+              {item.primary ? (
+                <span className="flex h-14 w-14 items-center justify-center rounded-full border-4 border-bg bg-gold text-bg shadow-lg shadow-gold/30 transition-transform hover:scale-105">
+                  <Icon className="h-5 w-5" />
+                </span>
+              ) : (
+                <Icon className={cn('w-5 h-5', active && 'drop-shadow-[0_0_8px_rgba(212,160,79,0.5)]')} />
+              )}
+              <span className={cn((active || item.primary) && 'font-semibold')}>{item.label}</span>
             </Link>
           );
         })}

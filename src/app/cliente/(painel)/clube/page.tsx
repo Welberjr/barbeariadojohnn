@@ -32,7 +32,7 @@ export default async function ClubeVipPage() {
   return (
     <div className="space-y-5 animate-fade-in">
       <div className="flex items-center gap-2">
-        <Link href="/cliente" className="text-fg-subtle hover:text-fg">
+        <Link href="/cliente/beneficios" className="text-fg-subtle hover:text-fg">
           <ChevronLeft className="w-5 h-5" />
         </Link>
         <p className="text-[10px] text-gold tracking-[0.3em] uppercase font-semibold">Fidelização</p>
