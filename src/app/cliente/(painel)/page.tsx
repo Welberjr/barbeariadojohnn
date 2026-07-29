@@ -8,6 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getActiveSubscription, formatAllowedDays } from '@/lib/subscriptions';
 import { getRankings } from '@/lib/loyalty';
 import { cn, formatCurrency } from '@/lib/utils';
+import { weeklyBonusReason } from '@/lib/weekly-bonus';
 import { Raspadinha } from './_components/raspadinha';
 import { UpcomingAppointments } from './_components/upcoming-appointments';
 
@@ -47,8 +48,9 @@ function positionBadge(pos: number) {
 export default async function ClienteHomePage() {
   const { customer } = await requireCustomer();
   const admin = createAdminClient();
+  const bonusReason = weeklyBonusReason();
 
-  const [{ data: loyalty }, sub, { data: nextAppts }, rankings, { data: visitas }, { data: rewards }] = await Promise.all([
+  const [{ data: loyalty }, sub, { data: nextAppts }, rankings, { data: visitas }, { data: rewards }, { data: weeklyBonus }] = await Promise.all([
     admin.from('loyalty_points').select('balance, lifetime_earned')
       .eq('customer_id', customer.id).maybeSingle(),
     getActiveSubscription(admin, customer.id),
@@ -66,6 +68,11 @@ export default async function ClienteHomePage() {
       .select('name, points_required').eq('barbershop_id', '11111111-1111-1111-1111-111111111111')
       .eq('active', true)
       .order('points_required', { ascending: true }),
+    admin.from('loyalty_transactions')
+      .select('points')
+      .eq('customer_id', customer.id)
+      .eq('reason', bonusReason)
+      .maybeSingle(),
   ]);
 
   const balance  = Number(loyalty?.balance ?? customer.loyalty_points ?? 0);
@@ -329,7 +336,12 @@ export default async function ClienteHomePage() {
       ) : null}
 
       {/* ══════════ RASPADINHA ══════════ */}
-      <Raspadinha customerId={customer.id} />
+      <Raspadinha
+        initialBonus={{
+          used: !!weeklyBonus,
+          points: weeklyBonus?.points != null ? Number(weeklyBonus.points) : null,
+        }}
+      />
 
       {/* ══════════ MISSOES ══════════ */}
       <section className="card p-4 space-y-3">

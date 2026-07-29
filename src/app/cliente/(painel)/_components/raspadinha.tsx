@@ -1,34 +1,25 @@
 ﻿﻿﻿'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Sparkles, Gift } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 
 const PRIZES = [5, 10, 15, 20, 30, 50];
 
-export function Raspadinha({ customerId }: { customerId: string }) {
-  const [state, setState] = useState<'idle' | 'scratching' | 'revealed' | 'used'>('idle');
-  const [prize, setPrize] = useState<number>(0);
+export function Raspadinha({
+  initialBonus,
+}: {
+  initialBonus: { used: boolean; points: number | null };
+}) {
+  const [state, setState] = useState<'idle' | 'scratching' | 'revealed' | 'used'>(
+    initialBonus.used ? 'used' : 'idle'
+  );
+  const [prize, setPrize] = useState<number>(initialBonus.points ?? 0);
   const [scratched, setScratched] = useState(0); // % raspado
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawing = useRef(false);
   const totalPixels = useRef(0);
-  const [loading, setLoading] = useState(true);
-
-  // Verifica no servidor se já raspou esta semana (persiste entre dispositivos)
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/bonus-points')
-      .then((r) => r.json())
-      .then((d) => {
-        if (cancelled) return;
-        if (d.used) { setState('used'); setPrize(d.points ?? 0); }
-        setLoading(false);
-      })
-      .catch(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, []);
 
   function startScratching() {
     if (state !== 'idle') return;
@@ -106,17 +97,6 @@ export function Raspadinha({ customerId }: { customerId: string }) {
     } catch {
       // falha de rede - pontos não creditados, mas não trava a UI
     }
-  }
-
-  // Enquanto verifica no servidor, não mostra nada (evita piscar)
-  if (loading) {
-    return (
-      <div className="card p-5 text-center border-border/40">
-        <div className="animate-pulse h-20 flex items-center justify-center">
-          <Gift className="w-7 h-7 text-fg-dim" />
-        </div>
-      </div>
-    );
   }
 
   if (state === 'used') {

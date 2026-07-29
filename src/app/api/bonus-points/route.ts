@@ -1,18 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionCustomer } from '@/lib/customer-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getISOWeek, weeklyBonusReason } from '@/lib/weekly-bonus';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
-// Retorna a chave ISO da semana atual (ex: "2026-W24")
-function getISOWeek(d: Date): string {
-  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  const dayNum = date.getUTCDay() || 7;
-  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
-  const weekNo = Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-  return `${date.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
-}
 
 // GET: verifica se o cliente já raspou esta semana
 export async function GET() {
@@ -21,7 +12,7 @@ export async function GET() {
 
   const admin = createAdminClient();
   const weekKey = getISOWeek(new Date());
-  const reason = `raspadinha_semanal:${weekKey}`;
+  const reason = weeklyBonusReason();
 
   const { data } = await admin
     .from('loyalty_transactions')
@@ -45,7 +36,7 @@ export async function POST(req: NextRequest) {
 
   const admin = createAdminClient();
   const weekKey = getISOWeek(new Date());
-  const reason = `raspadinha_semanal:${weekKey}`;
+  const reason = weeklyBonusReason();
 
   // Já raspou esta semana? Bloquear duplicação
   const { data: existing } = await admin
