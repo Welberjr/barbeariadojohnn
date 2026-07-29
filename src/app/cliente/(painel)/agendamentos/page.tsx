@@ -48,40 +48,39 @@ export default async function AgendamentosPage({ searchParams }: PageProps) {
 
   const nowISO = new Date().toISOString();
 
-  // Próximos (futuros, agendados)
-  const { data: upcoming } = await admin
-    .from('appointments')
-    .select(
-      `id, start_at, end_at, status, subscription_id,
-       staff:staff (display_name),
-       appointment_services ( price, services:services (name) )`
-    )
-    .eq('customer_id', customer.id)
-    .eq('status', 'scheduled')
-    .gte('start_at', nowISO)
-    .order('start_at', { ascending: true })
-    .limit(20);
-
   // Histórico paginado (tudo que não é futuro-agendado)
   const page = Math.max(1, parseInt(pageParam ?? '1', 10) || 1);
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
 
-  const {
-    data: history,
-    count,
-  } = await admin
-    .from('appointments')
-    .select(
-      `id, start_at, end_at, status, subscription_id,
-       staff:staff (display_name),
-       appointment_services ( price, services:services (name) )`,
-      { count: 'exact' }
-    )
-    .eq('customer_id', customer.id)
-    .or(`status.neq.scheduled,start_at.lt.${nowISO}`)
-    .order('start_at', { ascending: false })
-    .range(from, to);
+  // Próximos e histórico são independentes. Executar em paralelo evita somar
+  // duas viagens ao banco antes de mostrar a agenda.
+  const [{ data: upcoming }, { data: history, count }] = await Promise.all([
+    admin
+      .from('appointments')
+      .select(
+        `id, start_at, end_at, status, subscription_id,
+         staff:staff (display_name),
+         appointment_services ( price, services:services (name) )`
+      )
+      .eq('customer_id', customer.id)
+      .eq('status', 'scheduled')
+      .gte('start_at', nowISO)
+      .order('start_at', { ascending: true })
+      .limit(20),
+    admin
+      .from('appointments')
+      .select(
+        `id, start_at, end_at, status, subscription_id,
+         staff:staff (display_name),
+         appointment_services ( price, services:services (name) )`,
+        { count: 'exact' }
+      )
+      .eq('customer_id', customer.id)
+      .or(`status.neq.scheduled,start_at.lt.${nowISO}`)
+      .order('start_at', { ascending: false })
+      .range(from, to),
+  ]);
 
   const totalPages = Math.max(1, Math.ceil((count ?? 0) / PAGE_SIZE));
 

@@ -61,6 +61,7 @@ export function ClientTopbar({ customerName, photoUrl, unreadCount }: ClientNavP
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={true}
                 className={cn(
                   'px-3 py-1.5 rounded-md text-xs flex items-center gap-1.5 transition-colors',
                   item.primary
@@ -134,6 +135,7 @@ export function ClientBottomNav() {
             <Link
               key={item.href}
               href={item.href}
+              prefetch={true}
               className={cn(
                 'flex flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] transition-colors',
                 item.primary && '-mt-5 py-0',

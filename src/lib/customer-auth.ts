@@ -4,6 +4,7 @@
  * Clientes tem usuario no Supabase Auth (user_metadata.role = 'customer')
  * vinculado a customers.auth_user_id. Staff/admin continuam no fluxo /login.
  */
+import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -22,6 +23,42 @@ export interface PanelCustomer {
   created_at: string;
 }
 
+const CUSTOMER_FIELDS =
+  'id, full_name, phone, email, photo_url, birth_date, loyalty_points, loyalty_tier, total_appointments, total_spent, created_at, active';
+
+/**
+ * Resolve a sessão uma única vez por renderização no servidor. O layout e a
+ * página filha normalmente chamam requireCustomer(); sem cache, cada troca de
+ * aba fazia duas validações no Auth e duas leituras do cadastro.
+ */
+const getCustomerSession = cache(async function getCustomerSession(): Promise<{
+  customer: PanelCustomer | null;
+  userId: string | null;
+}> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { customer: null, userId: null };
+
+  const admin = createAdminClient();
+  const { data: customer } = await admin
+    .from('customers')
+    .select(CUSTOMER_FIELDS)
+    .eq('auth_user_id', user.id)
+    .maybeSingle();
+
+  if (!customer || customer.active === false) {
+    return { customer: null, userId: user.id };
+  }
+
+  return {
+    customer: customer as unknown as PanelCustomer,
+    userId: user.id,
+  };
+});
+
 /**
  * Resolve o cliente logado. Redireciona quando nao ha sessao de cliente:
  *  - sem sessao -> /cliente/login
@@ -31,49 +68,21 @@ export async function requireCustomer(): Promise<{
   customer: PanelCustomer;
   userId: string;
 }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const session = await getCustomerSession();
 
-  if (!user) redirect('/cliente/login');
+  if (!session.userId) redirect('/cliente/login');
 
-  const admin = createAdminClient();
-  const { data: customer } = await admin
-    .from('customers')
-    .select(
-      'id, full_name, phone, email, photo_url, birth_date, loyalty_points, loyalty_tier, total_appointments, total_spent, created_at, active'
-    )
-    .eq('auth_user_id', user.id)
-    .maybeSingle();
-
-  if (!customer || customer.active === false) {
+  if (!session.customer) {
     // Usuario logado sem cadastro de cliente: provavelmente equipe
     redirect('/admin');
   }
 
-  return { customer: customer as unknown as PanelCustomer, userId: user.id };
+  return { customer: session.customer, userId: session.userId };
 }
 
 /**
  * Variante para server actions: retorna null em vez de redirecionar.
  */
 export async function getSessionCustomer(): Promise<PanelCustomer | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  const admin = createAdminClient();
-  const { data: customer } = await admin
-    .from('customers')
-    .select(
-      'id, full_name, phone, email, photo_url, birth_date, loyalty_points, loyalty_tier, total_appointments, total_spent, created_at, active'
-    )
-    .eq('auth_user_id', user.id)
-    .maybeSingle();
-
-  if (!customer || customer.active === false) return null;
-  return customer as unknown as PanelCustomer;
+  return (await getCustomerSession()).customer;
 }

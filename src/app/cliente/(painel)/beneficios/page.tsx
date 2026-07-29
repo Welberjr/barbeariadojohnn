@@ -9,7 +9,6 @@ import {
   Trophy,
 } from 'lucide-react';
 import { requireCustomer } from '@/lib/customer-auth';
-import { getRankings } from '@/lib/loyalty';
 import { getActiveSubscription, formatAllowedDays } from '@/lib/subscriptions';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { cn } from '@/lib/utils';
@@ -32,7 +31,7 @@ export default async function BeneficiosPage() {
   const { customer } = await requireCustomer();
   const admin = createAdminClient();
 
-  const [{ data: loyalty }, subscription, { data: visits }, { data: rewards }, rankings] = await Promise.all([
+  const [{ data: loyalty }, subscription, { data: visits }, { data: rewards }] = await Promise.all([
     admin
       .from('loyalty_points')
       .select('balance, lifetime_earned')
@@ -52,7 +51,6 @@ export default async function BeneficiosPage() {
       .eq('barbershop_id', '11111111-1111-1111-1111-111111111111')
       .eq('active', true)
       .order('points_required', { ascending: true }),
-    getRankings({ limit: 10, highlightCustomerId: customer.id, includeSemester: false }),
   ]);
 
   const balance = Number(loyalty?.balance ?? customer.loyalty_points ?? 0);
@@ -83,7 +81,6 @@ export default async function BeneficiosPage() {
   }
 
   const totalVisits = visits?.length ?? 0;
-  const myRank = rankings.myAllTime;
   const missions = [
     { done: true, points: 0, label: 'Criar conta no app', icon: '✅' },
     { done: totalVisits >= 1, points: 100, label: 'Primeira visita registrada', icon: '💈' },
@@ -94,7 +91,6 @@ export default async function BeneficiosPage() {
     { done: streak >= 2, points: 200, label: '2 meses consecutivos', icon: '🔥' },
     { done: !!subscription, points: 300, label: 'Assinar o Clube VIP', icon: '👑' },
     { done: lifetime >= 1500, points: 0, label: 'Atingir nível Ouro', icon: '🥇' },
-    { done: !!myRank && myRank.position <= 10, points: 0, label: 'Entrar no Top 10 do ranking', icon: '🎯' },
   ];
   const completedMissions = missions.filter((mission) => mission.done).length;
 
@@ -102,7 +98,6 @@ export default async function BeneficiosPage() {
     { icon: '💈', label: 'Primeiro Corte', done: totalVisits >= 1 },
     { icon: '🔥', label: '2 Meses Seguidos', done: streak >= 2 },
     { icon: '👑', label: 'Clube VIP', done: !!subscription },
-    { icon: '🥇', label: 'Top 10 Ranking', done: !!myRank && myRank.position <= 10 },
     { icon: '💰', label: '500 Pontos', done: lifetime >= 500 },
     { icon: '💎', label: 'Nível Ouro', done: lifetime >= 1500 },
   ];
@@ -169,7 +164,7 @@ export default async function BeneficiosPage() {
           <Trophy className="h-5 w-5 text-gold" />
           <p className="mt-3 text-sm font-semibold text-fg">Ranking</p>
           <p className="mt-0.5 text-[11px] text-fg-muted">
-            {myRank ? `${myRank.position}º lugar geral` : 'Veja sua posição'}
+            Confira sua posição
           </p>
         </Link>
         <Link href="/cliente/clube" className="card card-hover p-4">
