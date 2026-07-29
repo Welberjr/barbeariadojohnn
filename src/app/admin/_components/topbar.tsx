@@ -19,7 +19,7 @@ import {
 import { toast } from 'sonner';
 
 import { createClient } from '@/lib/supabase/client';
-import { cn, formatCurrency, formatPhone } from '@/lib/utils';
+import { cn, formatCurrency, formatPhone, SHOP_TIME_ZONE } from '@/lib/utils';
 
 interface AdminTopbarProps {
   userEmail: string;
@@ -206,6 +206,7 @@ function GlobalSearch() {
                             month: '2-digit',
                             hour: '2-digit',
                             minute: '2-digit',
+                            timeZone: SHOP_TIME_ZONE,
                           })}
                         </span>
                       </button>

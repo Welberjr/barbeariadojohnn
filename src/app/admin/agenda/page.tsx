@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import { SHOP_TIME_ZONE } from '@/lib/utils';
 import { AgendaView } from './_components/agenda-view';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
@@ -16,11 +17,12 @@ export default async function AgendaPage({ searchParams }: AgendaPageProps) {
   const supabase = createAdminClient();
 
   // Data do dia que está sendo visualizada (default = hoje)
-  const today = new Date();
-  const selectedDate = dateParam
-    ? new Date(dateParam + 'T00:00:00')
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: SHOP_TIME_ZONE,
+  }).format(new Date());
+  const dateStr = /^\d{4}-\d{2}-\d{2}$/.test(dateParam ?? '')
+    ? (dateParam as string)
     : today;
-  const dateStr = selectedDate.toISOString().split('T')[0];
 
   // Início e fim do dia (UTC ajustado pra timezone de Brasília -3h)
   const dayStart = `${dateStr}T00:00:00.000-03:00`;

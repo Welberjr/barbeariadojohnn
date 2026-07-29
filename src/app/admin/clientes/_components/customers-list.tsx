@@ -18,7 +18,7 @@ import {
   LayoutGrid,
   List,
 } from 'lucide-react';
-import { cn, formatCurrency, formatPhone } from '@/lib/utils';
+import { cn, formatCurrency, formatPhone, SHOP_TIME_ZONE } from '@/lib/utils';
 
 interface Customer {
   id: string;
@@ -300,7 +300,7 @@ export function CustomersList({
                   <p className="text-[11px] text-fg-muted truncate">
                     {c.phone ? formatPhone(c.phone) : 'Sem telefone'}
                     {c.last_visit_at &&
-                      ` · última visita ${new Date(c.last_visit_at).toLocaleDateString('pt-BR')}`}
+                      ` · última visita ${new Date(c.last_visit_at).toLocaleDateString('pt-BR', { timeZone: SHOP_TIME_ZONE })}`}
                   </p>
                 </div>
 
@@ -424,7 +424,7 @@ export function CustomersList({
                     <Calendar className="w-3 h-3" />
                     <span>
                       Última visita:{' '}
-                      {new Date(c.last_visit_at).toLocaleDateString('pt-BR')}
+                      {new Date(c.last_visit_at).toLocaleDateString('pt-BR', { timeZone: SHOP_TIME_ZONE })}
                     </span>
                   </div>
                 )}

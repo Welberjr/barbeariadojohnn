@@ -17,7 +17,7 @@ import {
   Sliders,
   Users,
 } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, SHOP_TIME_ZONE } from '@/lib/utils';
 import { InfoTip } from '@/components/info-tip';
 
 import {
@@ -277,6 +277,7 @@ export function FidelidadeView({
       month: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
+      timeZone: SHOP_TIME_ZONE,
     });
 
   const TabBtn = ({

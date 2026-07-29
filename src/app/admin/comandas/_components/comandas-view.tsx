@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -17,7 +17,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn, formatCurrency, formatPhone } from '@/lib/utils';
+import { cn, formatCurrency, formatPhone, SHOP_TIME_ZONE } from '@/lib/utils';
 import { InfoTip } from '@/components/info-tip';
 import { createComanda } from '../actions';
 
@@ -71,6 +71,8 @@ interface ComandasViewProps {
   closedFilter: ClosedFilter;
   customers: Customer[];
   staff: Staff[];
+  /** Horário usado na renderização do servidor para não divergir na hidratação. */
+  renderedAt: string;
 }
 
 export function ComandasView({
@@ -80,6 +82,7 @@ export function ComandasView({
   closedFilter,
   customers,
   staff,
+  renderedAt,
 }: ComandasViewProps) {
   const router = useRouter();
   const [isPending] = useTransition();
@@ -95,6 +98,15 @@ export function ComandasView({
     staff_id: staff[0]?.id ?? '',
   });
   const [customerSearch, setCustomerSearch] = useState('');
+  const [nowMs, setNowMs] = useState(() => new Date(renderedAt).getTime());
+
+  // Depois da hidratação, mantém os indicadores de comandas abertas atualizados.
+  useEffect(() => {
+    const refreshNow = () => setNowMs(Date.now());
+    refreshNow();
+    const timer = window.setInterval(refreshNow, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   async function handleNewComanda() {
     if (!newForm.customer_id || !newForm.staff_id) {
@@ -120,7 +132,7 @@ export function ComandasView({
   const totalOpen = openComandas.reduce((sum, c) => sum + Number(c.total), 0);
   const STALE_MIN = 240; // 4 horas
   const staleCount = openComandas.filter(
-    (c) => (Date.now() - new Date(c.opened_at).getTime()) / 60000 > STALE_MIN
+    (c) => (nowMs - new Date(c.opened_at).getTime()) / 60000 > STALE_MIN
   ).length;
 
   // Filtrar clientes na busca
@@ -264,11 +276,12 @@ export function ComandasView({
             {openComandas.map((c) => {
               const openedAt = new Date(c.opened_at);
               const elapsed = Math.floor(
-                (Date.now() - openedAt.getTime()) / 60000
+                (nowMs - openedAt.getTime()) / 60000
               );
               const openedTime = openedAt.toLocaleTimeString('pt-BR', {
                 hour: '2-digit',
                 minute: '2-digit',
+                timeZone: SHOP_TIME_ZONE,
               });
               const isStale = elapsed > STALE_MIN;
               const elapsedLabel =
@@ -423,10 +436,12 @@ export function ComandasView({
               const closedTime = closedAt.toLocaleTimeString('pt-BR', {
                 hour: '2-digit',
                 minute: '2-digit',
+                timeZone: SHOP_TIME_ZONE,
               });
               const closedDate = closedAt.toLocaleDateString('pt-BR', {
                 day: '2-digit',
                 month: '2-digit',
+                timeZone: SHOP_TIME_ZONE,
               });
               const paymentLabels: Record<string, string> = {
                 cash: 'Dinheiro',

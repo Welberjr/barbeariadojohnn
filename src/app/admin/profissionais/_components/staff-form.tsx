@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -45,6 +45,7 @@ const roleOptions = [
 export function StaffForm({ staffId, defaultValues, onClose }: StaffFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [, startTransition] = useTransition();
   const [specialties, setSpecialties] = useState<string[]>(
     defaultValues?.specialties ?? []
   );
@@ -99,8 +100,12 @@ export function StaffForm({ staffId, defaultValues, onClose }: StaffFormProps) {
             ? 'Profissional atualizado com sucesso!'
             : 'Profissional adicionado com sucesso!'
         );
-        if (onClose) { onClose(); } else { router.push('/admin/profissionais'); }
-        router.refresh();
+        if (onClose) {
+          startTransition(() => router.refresh());
+          onClose();
+        } else {
+          router.replace('/admin/profissionais');
+        }
       } else {
         toast.error(result.error ?? 'Erro ao salvar.');
       }

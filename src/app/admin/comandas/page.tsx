@@ -202,6 +202,7 @@ export default async function ComandasPage({ searchParams }: PageProps) {
       }}
       customers={customers ?? []}
       staff={staff ?? []}
+      renderedAt={new Date().toISOString()}
     />
   );
 }

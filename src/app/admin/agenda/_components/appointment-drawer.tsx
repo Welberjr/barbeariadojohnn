@@ -19,7 +19,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency, SHOP_TIME_ZONE } from '@/lib/utils';
 import {
   updateAppointmentStatus,
   deleteAppointment,
@@ -94,15 +94,18 @@ export function AppointmentDrawer({
   const startTime = new Date(appointment.start_at).toLocaleTimeString('pt-BR', {
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: SHOP_TIME_ZONE,
   });
   const endTime = new Date(appointment.end_at).toLocaleTimeString('pt-BR', {
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: SHOP_TIME_ZONE,
   });
   const dateStr = new Date(appointment.start_at).toLocaleDateString('pt-BR', {
     weekday: 'long',
     day: '2-digit',
     month: 'long',
+    timeZone: SHOP_TIME_ZONE,
   });
 
   const statusConfig =

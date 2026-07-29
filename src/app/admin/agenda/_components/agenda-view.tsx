@@ -9,7 +9,7 @@ import {
   Plus,
   CalendarOff,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, SHOP_TIME_ZONE } from '@/lib/utils';
 import { InfoTip } from '@/components/info-tip';
 import { AppointmentDrawer } from './appointment-drawer';
 import { NewAppointmentDrawer } from './new-appointment-drawer';
@@ -87,6 +87,30 @@ interface AgendaViewProps {
 
 const HOUR_HEIGHT = 60;
 
+function calendarDateAtNoon(date: string) {
+  return new Date(`${date}T12:00:00-03:00`);
+}
+
+function shiftCalendarDate(date: string, days: number) {
+  const result = calendarDateAtNoon(date);
+  result.setUTCDate(result.getUTCDate() + days);
+  return result.toISOString().slice(0, 10);
+}
+
+function shopTimeParts(value: string) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: SHOP_TIME_ZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(value));
+
+  return {
+    hour: Number(parts.find((part) => part.type === 'hour')?.value ?? 0),
+    minute: Number(parts.find((part) => part.type === 'minute')?.value ?? 0),
+  };
+}
+
 
 const DAY_NAMES: Record<number, keyof BusinessHours> = {
   0: 'sunday',
@@ -159,8 +183,8 @@ export function AgendaView({
   } | null>(null);
 
   // Calcular hora de início/fim do dia
-  const date = new Date(selectedDate + 'T00:00:00');
-  const dayOfWeek = date.getDay();
+  const date = calendarDateAtNoon(selectedDate);
+  const dayOfWeek = date.getUTCDay();
   const dayHours = businessHours?.[DAY_NAMES[dayOfWeek]];
 
   const isBarbershopClosed = dayHours?.closed ?? false;
@@ -184,16 +208,16 @@ export function AgendaView({
 
   // Navegação de datas
   function changeDate(delta: number) {
-    const d = new Date(selectedDate + 'T00:00:00');
-    d.setDate(d.getDate() + delta);
-    const newDate = d.toISOString().split('T')[0];
+    const newDate = shiftCalendarDate(selectedDate, delta);
     const params = new URLSearchParams(searchParams.toString());
     params.set('date', newDate);
     router.push(`/admin/agenda?${params.toString()}`);
   }
 
   function goToToday() {
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: SHOP_TIME_ZONE,
+    }).format(new Date());
     router.push(`/admin/agenda?date=${today}`);
   }
 
@@ -203,6 +227,7 @@ export function AgendaView({
     day: '2-digit',
     month: 'long',
     year: 'numeric',
+    timeZone: SHOP_TIME_ZONE,
   });
 
   // Estatísticas do dia
@@ -235,8 +260,9 @@ export function AgendaView({
   function getAptPosition(apt: Appointment) {
     const start = new Date(apt.start_at);
     const end = new Date(apt.end_at);
+    const { hour, minute } = shopTimeParts(apt.start_at);
     const startMinFromDayStart =
-      start.getHours() * 60 + start.getMinutes() - startHour * 60;
+      hour * 60 + minute - startHour * 60;
     const durationMin = (end.getTime() - start.getTime()) / 60000;
     return {
       top: (startMinFromDayStart / 60) * HOUR_HEIGHT,
@@ -564,12 +590,14 @@ export function AgendaView({
                           .toLocaleTimeString('pt-BR', {
                             hour: '2-digit',
                             minute: '2-digit',
+                            timeZone: SHOP_TIME_ZONE,
                           });
                         const endTime = new Date(apt.end_at).toLocaleTimeString(
                           'pt-BR',
                           {
                             hour: '2-digit',
                             minute: '2-digit',
+                            timeZone: SHOP_TIME_ZONE,
                           }
                         );
 

@@ -10,6 +10,10 @@ export const metadata = {
   title: 'Profissionais',
 };
 
+// A lista é alimentada diretamente pelo banco e deve refletir inclusões/edições
+// imediatamente depois do router.refresh().
+export const dynamic = 'force-dynamic';
+
 export default async function ProfissionaisPage() {
   const supabase = createAdminClient();
 

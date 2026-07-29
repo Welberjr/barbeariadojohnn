@@ -1,6 +1,9 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+/** Fuso horário usado por toda a operação da barbearia. */
+export const SHOP_TIME_ZONE = 'America/Sao_Paulo';
+
 /**
  * Combina classes Tailwind sem conflitos.
  * Usado em todos os componentes Shadcn.
@@ -31,6 +34,7 @@ export function formatDate(date: Date | string, format: 'short' | 'long' | 'date
       day: 'numeric',
       month: 'long',
       year: 'numeric',
+      timeZone: SHOP_TIME_ZONE,
     }).format(d);
   }
   
@@ -41,10 +45,13 @@ export function formatDate(date: Date | string, format: 'short' | 'long' | 'date
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      timeZone: SHOP_TIME_ZONE,
     }).format(d);
   }
-  
-  return new Intl.DateTimeFormat('pt-BR').format(d);
+
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: SHOP_TIME_ZONE,
+  }).format(d);
 }
 
 /**

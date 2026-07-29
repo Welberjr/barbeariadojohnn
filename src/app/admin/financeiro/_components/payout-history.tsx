@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { CreditCard, Search, ChevronLeft, ChevronRight } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, SHOP_TIME_ZONE } from '@/lib/utils';
 
 interface Payout {
   id: string;
@@ -33,6 +33,7 @@ function fmtDate(d: string | null) {
     day: '2-digit',
     month: '2-digit',
     year: '2-digit',
+    timeZone: SHOP_TIME_ZONE,
   });
 }
 

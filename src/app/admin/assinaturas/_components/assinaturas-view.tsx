@@ -27,7 +27,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
-import { cn, formatCurrency, formatPhone } from '@/lib/utils';
+import { cn, formatCurrency, formatPhone, SHOP_TIME_ZONE } from '@/lib/utils';
 import { formatAllowedDays } from '@/lib/subscriptions';
 import { InfoTip } from '@/components/info-tip';
 import {
@@ -122,7 +122,9 @@ const PAYMENT_OPTIONS = [
 ];
 
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR');
+  return new Date(iso).toLocaleDateString('pt-BR', {
+    timeZone: SHOP_TIME_ZONE,
+  });
 }
 
 // ---------------------------------------------------------------------------
