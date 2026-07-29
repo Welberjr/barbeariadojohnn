@@ -143,12 +143,14 @@ export interface RankingRow {
 export async function getRankings(opts: {
   limit?: number;
   highlightCustomerId?: string;
+  includeSemester?: boolean;
 }) {
   const admin = createAdminClient();
   const limit = opts.limit ?? 20;
+  const includeSemester = opts.includeSemester ?? true;
 
   // GERAL: lifetime_earned
-  const { data: lifetimeRows } = await admin
+  const lifetimeQuery = admin
     .from('loyalty_points')
     .select(
       'customer_id, lifetime_earned, customers:customers(full_name, photo_url, active)'
@@ -156,6 +158,23 @@ export async function getRankings(opts: {
     .eq('barbershop_id', BARBERSHOP_ID)
     .order('lifetime_earned', { ascending: false })
     .limit(500);
+
+  // A página inicial não usa o ranking do semestre. Evitar essa consulta ampla
+  // reduz trabalho de banco antes do conteúdo principal aparecer.
+  const eventsQuery = includeSemester
+    ? admin
+        .from('loyalty_points_events')
+        .select('customer_id, points')
+        .eq('barbershop_id', BARBERSHOP_ID)
+        .gt('points', 0)
+        .gte('created_at', currentSemesterStart().toISOString())
+        .limit(10000)
+    : null;
+
+  const [{ data: lifetimeRows }, eventsResult] = await Promise.all([
+    lifetimeQuery,
+    eventsQuery,
+  ]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const allTime: RankingRow[] = ((lifetimeRows ?? []) as any[])
@@ -169,14 +188,7 @@ export async function getRankings(opts: {
     }));
 
   // SEMESTRAL: soma de eventos positivos na janela corrente
-  const semStart = currentSemesterStart().toISOString();
-  const { data: events } = await admin
-    .from('loyalty_points_events')
-    .select('customer_id, points')
-    .eq('barbershop_id', BARBERSHOP_ID)
-    .gt('points', 0)
-    .gte('created_at', semStart)
-    .limit(10000);
+  const events = includeSemester ? eventsResult?.data : [];
 
   const sums = new Map<string, number>();
   for (const e of events ?? []) {
@@ -187,7 +199,9 @@ export async function getRankings(opts: {
   }
   const nameMap = new Map(allTime.map((r) => [r.customer_id, r]));
   // Clientes que pontuaram no semestre mas nao vieram no top lifetime
-  const missingIds = Array.from(sums.keys()).filter((id) => !nameMap.has(id));
+  const missingIds = includeSemester
+    ? Array.from(sums.keys()).filter((id) => !nameMap.has(id))
+    : [];
   if (missingIds.length > 0) {
     const { data: extra } = await admin
       .from('customers')
@@ -204,7 +218,7 @@ export async function getRankings(opts: {
     }
   }
 
-  const semester: RankingRow[] = Array.from(sums.entries())
+  const semester: RankingRow[] = includeSemester ? Array.from(sums.entries())
     .sort((a, b) => b[1] - a[1])
     .map(([id, pts], i) => ({
       customer_id: id,
@@ -212,7 +226,7 @@ export async function getRankings(opts: {
       photo_url: nameMap.get(id)?.photo_url ?? null,
       points: pts,
       position: i + 1,
-    }));
+    })) : [];
 
   const find = (rows: RankingRow[]) =>
     opts.highlightCustomerId

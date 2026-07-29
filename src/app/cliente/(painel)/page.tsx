@@ -48,7 +48,7 @@ export default async function ClienteHomePage() {
   const { customer } = await requireCustomer();
   const admin = createAdminClient();
 
-  const [{ data: loyalty }, sub, { data: nextAppts }, rankings] = await Promise.all([
+  const [{ data: loyalty }, sub, { data: nextAppts }, rankings, { data: visitas }, { data: rewards }] = await Promise.all([
     admin.from('loyalty_points').select('balance, lifetime_earned')
       .eq('customer_id', customer.id).maybeSingle(),
     getActiveSubscription(admin, customer.id),
@@ -58,7 +58,14 @@ export default async function ClienteHomePage() {
       .eq('customer_id', customer.id).eq('status', 'scheduled')
       .gte('start_at', new Date().toISOString())
       .order('start_at', { ascending: true }).limit(2),
-    getRankings({ limit: 10, highlightCustomerId: customer.id }),
+    getRankings({ limit: 10, highlightCustomerId: customer.id, includeSemester: false }),
+    admin.from('comandas').select('closed_at')
+      .eq('customer_id', customer.id).eq('status', 'closed')
+      .order('closed_at', { ascending: false }).limit(12),
+    admin.from('loyalty_rewards')
+      .select('name, points_required').eq('barbershop_id', '11111111-1111-1111-1111-111111111111')
+      .eq('active', true)
+      .order('points_required', { ascending: true }),
   ]);
 
   const balance  = Number(loyalty?.balance ?? customer.loyalty_points ?? 0);
@@ -73,9 +80,6 @@ export default async function ClienteHomePage() {
   const ptsFaltamTier = nextTier ? Math.max(0, nextTier.min - lifetime) : 0;
 
   // Streak mensal
-  const { data: visitas } = await admin.from('comandas').select('closed_at')
-    .eq('customer_id', customer.id).eq('status', 'closed')
-    .order('closed_at', { ascending: false }).limit(12);
   let streak = 0;
   if (visitas?.length) {
     const months = new Set(visitas.map((v) => {
@@ -106,12 +110,9 @@ export default async function ClienteHomePage() {
     previsaoDias = Math.round((ideal.getTime() - hoje.getTime()) / 86400000);
   }
 
-  // Proximo premio
-  const { data: rewards } = await admin.from('loyalty_rewards')
-    .select('name, points_required').eq('barbershop_id', '11111111-1111-1111-1111-111111111111')
-    .eq('active', true).gt('points_required', balance)
-    .order('points_required', { ascending: true }).limit(1);
-  const nextReward = rewards?.[0] ?? null;
+  // Próximo prêmio: a lista costuma ser pequena e já chegou em paralelo às
+  // demais consultas, eliminando uma espera extra no carregamento inicial.
+  const nextReward = rewards?.find((reward) => Number(reward.points_required) > balance) ?? null;
   const rewardPct  = nextReward
     ? Math.min(100, (balance / nextReward.points_required) * 100) : 0;
 
