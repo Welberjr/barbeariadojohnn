@@ -27,7 +27,7 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
   const firstDay = new Date(y, m - 1, 1).toISOString();
   const lastDay = new Date(y, m, 0, 23, 59, 59).toISOString();
 
-  const [{ data: productsRaw }, { data: categoriesRaw }] =
+  const [{ data: productsRaw }, { data: categoriesRaw }, salesAttempt] =
     await Promise.all([
       supabase
         .from('products')
@@ -39,32 +39,30 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
         .select('id, name')
         .eq('barbershop_id', BARBERSHOP_ID)
         .order('name'),
+      // Vendas avulsas do mes. Tenta ler cost_amount (custo registrado na
+      // venda); se a coluna ainda nao existir, o fallback roda logo abaixo.
+      supabase
+        .from('transactions')
+        .select('amount, cost_amount')
+        .eq('barbershop_id', BARBERSHOP_ID)
+        .eq('type', 'product')
+        .gte('occurred_at', firstDay)
+        .lte('occurred_at', lastDay),
     ]);
 
-  // Vendas avulsas do mes. Tenta ler cost_amount (custo registrado na venda);
-  // se a coluna ainda nao existir no banco, cai para o select basico.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let salesRaw: any[] = [];
-  {
-    const attempt = await supabase
+  if (salesAttempt.error) {
+    const fallback = await supabase
       .from('transactions')
-      .select('amount, cost_amount')
+      .select('amount')
       .eq('barbershop_id', BARBERSHOP_ID)
       .eq('type', 'product')
       .gte('occurred_at', firstDay)
       .lte('occurred_at', lastDay);
-    if (attempt.error) {
-      const fallback = await supabase
-        .from('transactions')
-        .select('amount')
-        .eq('barbershop_id', BARBERSHOP_ID)
-        .eq('type', 'product')
-        .gte('occurred_at', firstDay)
-        .lte('occurred_at', lastDay);
-      salesRaw = fallback.data ?? [];
-    } else {
-      salesRaw = attempt.data ?? [];
-    }
+    salesRaw = fallback.data ?? [];
+  } else {
+    salesRaw = salesAttempt.data ?? [];
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

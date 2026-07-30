@@ -214,26 +214,65 @@ export async function financeiroDoPeriodo(
   const inicio = `${fromStr}T00:00:00.000-03:00`;
   const fim = `${toStr}T23:59:59.999-03:00`;
 
-  const { data: comandas } = await admin
-    .from('comandas')
-    .select('id')
-    .eq('barbershop_id', BARBERSHOP_ID)
-    .eq('staff_id', staff.staffId)
-    .eq('status', 'closed')
-    .gte('closed_at', inicio)
-    .lte('closed_at', fim);
+  // Nenhuma consulta depende da outra, entao as seis vao juntas: e o que faz
+  // a aba Financeiro (e o Hoje) abrir de uma vez em vez de esperar em fila.
+  const [
+    { data: comandas },
+    { data: itens },
+    { data: vales },
+    { data: payouts },
+    { data: usos },
+    { data: potinhoItens },
+  ] = await Promise.all([
+    admin
+      .from('comandas')
+      .select('id')
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('staff_id', staff.staffId)
+      .eq('status', 'closed')
+      .gte('closed_at', inicio)
+      .lte('closed_at', fim),
+    // Os itens sao filtrados pelo staff do ITEM: numa comanda de outro
+    // profissional, o barbeiro so leva o que ele mesmo executou.
+    admin
+      .from('comanda_items')
+      .select('item_type, total_price, commission_value, comanda_id')
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('staff_id', staff.staffId)
+      .gte('created_at', inicio)
+      .lte('created_at', fim),
+    admin
+      .from('allowances')
+      .select('amount, status, requested_at')
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('staff_id', staff.staffId)
+      .eq('status', 'approved')
+      .gte('requested_at', inicio)
+      .lte('requested_at', fim),
+    admin
+      .from('commission_payouts')
+      .select('amount_paid, payment_date')
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('staff_id', staff.staffId)
+      .gte('payment_date', fromStr)
+      .lte('payment_date', toStr),
+    admin
+      .from('subscription_usages')
+      .select('id, subscription_id, settled_payout_id')
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('staff_id', staff.staffId)
+      .gte('used_at', inicio)
+      .lte('used_at', fim),
+    admin
+      .from('subscription_payout_items')
+      .select('amount, created_at')
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('staff_id', staff.staffId)
+      .gte('created_at', inicio)
+      .lte('created_at', fim),
+  ]);
 
   const comandaIds = (comandas ?? []).map((c) => c.id as string);
-
-  // Os itens sao filtrados pelo staff do ITEM: numa comanda de outro
-  // profissional, o barbeiro so leva o que ele mesmo executou.
-  const { data: itens } = await admin
-    .from('comanda_items')
-    .select('item_type, total_price, commission_value, comanda_id')
-    .eq('barbershop_id', BARBERSHOP_ID)
-    .eq('staff_id', staff.staffId)
-    .gte('created_at', inicio)
-    .lte('created_at', fim);
 
   let producaoServicos = 0;
   let producaoProdutos = 0;
@@ -245,39 +284,6 @@ export async function financeiroDoPeriodo(
     if (item.item_type === 'service') producaoServicos += valor;
     else producaoProdutos += valor;
   }
-
-  const [{ data: vales }, { data: payouts }, { data: usos }, { data: potinhoItens }] =
-    await Promise.all([
-      admin
-        .from('allowances')
-        .select('amount, status, requested_at')
-        .eq('barbershop_id', BARBERSHOP_ID)
-        .eq('staff_id', staff.staffId)
-        .eq('status', 'approved')
-        .gte('requested_at', inicio)
-        .lte('requested_at', fim),
-      admin
-        .from('commission_payouts')
-        .select('amount_paid, payment_date')
-        .eq('barbershop_id', BARBERSHOP_ID)
-        .eq('staff_id', staff.staffId)
-        .gte('payment_date', fromStr)
-        .lte('payment_date', toStr),
-      admin
-        .from('subscription_usages')
-        .select('id, subscription_id, settled_payout_id')
-        .eq('barbershop_id', BARBERSHOP_ID)
-        .eq('staff_id', staff.staffId)
-        .gte('used_at', inicio)
-        .lte('used_at', fim),
-      admin
-        .from('subscription_payout_items')
-        .select('amount, created_at')
-        .eq('barbershop_id', BARBERSHOP_ID)
-        .eq('staff_id', staff.staffId)
-        .gte('created_at', inicio)
-        .lte('created_at', fim),
-    ]);
 
   const valesDescontados = (vales ?? []).reduce((s, v) => s + Number(v.amount ?? 0), 0);
   const jaPago = (payouts ?? []).reduce((s, p) => s + Number(p.amount_paid ?? 0), 0);

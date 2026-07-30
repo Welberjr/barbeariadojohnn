@@ -70,6 +70,7 @@ export function PainelTopbar({ displayName, modulos }: NavProps) {
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={true}
                 className={cn(
                   'px-3 py-1.5 rounded-md text-xs flex items-center gap-1.5 transition-colors',
                   ativo
@@ -86,6 +87,7 @@ export function PainelTopbar({ displayName, modulos }: NavProps) {
 
         <Link
           href="/painel/perfil"
+          prefetch={true}
           className={cn(
             'w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold transition-colors',
             pathname.startsWith('/painel/perfil')
@@ -118,6 +120,7 @@ export function PainelBottomNav({ modulos }: { modulos: Modulo[] }) {
             <Link
               key={item.href}
               href={item.href}
+              prefetch={true}
               className={cn(
                 'flex-1 flex flex-col items-center gap-1 py-2.5 text-[10px] transition-colors',
                 ativo ? 'text-gold' : 'text-fg-muted'
@@ -130,6 +133,7 @@ export function PainelBottomNav({ modulos }: { modulos: Modulo[] }) {
         })}
         <Link
           href="/painel/perfil"
+          prefetch={true}
           className={cn(
             'flex-1 flex flex-col items-center gap-1 py-2.5 text-[10px] transition-colors',
             pathname.startsWith('/painel/perfil') ? 'text-gold' : 'text-fg-muted'

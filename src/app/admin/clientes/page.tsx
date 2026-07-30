@@ -51,15 +51,11 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
     query = query.eq('tier', tier);
   }
 
-  const { data: customers, count, error } = await query.range(from, to);
-
-  const totalCount = count ?? 0;
-  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
-
-  // Stats globais (independentes da busca)
+  // A página filtrada e as stats globais não dependem uma da outra: tudo junto.
   const admin = createAdminClient();
-  const [{ count: totalAll }, { count: vips }, { count: regulars }, { count: news }, { data: topCustomers }, { data: shopConfig }] =
+  const [{ data: customers, count, error }, { count: totalAll }, { count: vips }, { count: regulars }, { count: news }, { data: topCustomers }, { data: shopConfig }] =
     await Promise.all([
+      query.range(from, to),
       supabase.from('customers').select('id', { count: 'exact', head: true }).eq('barbershop_id', BARBERSHOP_ID),
       supabase.from('customers').select('id', { count: 'exact', head: true }).eq('barbershop_id', BARBERSHOP_ID).eq('tier', 'vip'),
       supabase.from('customers').select('id', { count: 'exact', head: true }).eq('barbershop_id', BARBERSHOP_ID).eq('tier', 'active'),
@@ -77,6 +73,9 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
         .eq('id', '11111111-1111-1111-1111-111111111111')
         .maybeSingle(),
     ]);
+
+  const totalCount = count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   const vipThreshold = Number(shopConfig?.vip_total_spent_threshold ?? 500);
   const totalTicket = (topCustomers ?? []).reduce((s, c) => s + Number(c.total_spent ?? 0), 0);

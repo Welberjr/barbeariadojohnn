@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import {
   HelpCircle, LayoutDashboard, Calendar, Users, Scissors,
@@ -49,7 +49,6 @@ const groupedMenu = menuItems.reduce<Record<string, MenuItem[]>>((acc, item) => 
 // ── Conteúdo interno (reutilizado no desktop e mobile) ───────────────────────
 function SidebarContent({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
-  const router = useRouter();
 
   return (
     <div className="flex flex-col h-full">
@@ -80,8 +79,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  prefetch={false}
-                  onMouseEnter={() => router.prefetch(item.href)}
+                  prefetch={true}
                   onClick={onClose}
                   className={cn(
                     'group flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all relative overflow-hidden',

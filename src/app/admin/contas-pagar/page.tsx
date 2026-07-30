@@ -91,32 +91,38 @@ export default async function ContasPagarPage({
   }
 
   const from = (page - 1) * PAGE_SIZE;
-  const { data: billsRaw, count: billsCount } = await query
-    .order('status', { ascending: true }) // pending primeiro
-    .order('due_date', { ascending: true })
-    .range(from, from + PAGE_SIZE - 1);
+
+  // Página filtrada, categorias e KPIs não dependem um do outro: tudo junto.
+  const [
+    { data: billsRaw, count: billsCount },
+    { data: categoriesRaw },
+    { data: allBills },
+  ] = await Promise.all([
+    query
+      .order('status', { ascending: true }) // pending primeiro
+      .order('due_date', { ascending: true })
+      .range(from, from + PAGE_SIZE - 1),
+    // Categorias
+    supabase
+      .from('expense_categories')
+      .select('id, name, color')
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('active', true)
+      .order('display_order')
+      .order('name'),
+    // KPIs (sobre TODAS as bills, sem filtro)
+    supabase
+      .from('bills')
+      .select('amount, due_date, paid_at, status')
+      .eq('barbershop_id', BARBERSHOP_ID),
+  ]);
 
   const bills = (billsRaw ?? []) as Bill[];
   const totalCount = billsCount ?? bills.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
-  // Categorias
-  const { data: categoriesRaw } = await supabase
-    .from('expense_categories')
-    .select('id, name, color')
-    .eq('barbershop_id', BARBERSHOP_ID)
-    .eq('active', true)
-    .order('display_order')
-    .order('name');
-
   const categories = (categoriesRaw ?? []) as Category[];
   const categoryMap = new Map(categories.map((c) => [c.id, c]));
-
-  // KPIs (sobre TODAS as bills, sem filtro)
-  const { data: allBills } = await supabase
-    .from('bills')
-    .select('amount, due_date, paid_at, status')
-    .eq('barbershop_id', BARBERSHOP_ID);
 
   const todayStr = new Date().toISOString().split('T')[0];
   const sevenDaysFromNow = new Date(

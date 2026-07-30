@@ -58,21 +58,24 @@ export const getSessionStaff = cache(async function getSessionStaff(): Promise<S
   if (user.user_metadata?.role === 'customer') return null;
 
   const admin = createAdminClient();
-  const { data: staff } = await admin
-    .from('staff')
-    .select(CAMPOS_STAFF)
-    .eq('profile_id', user.id)
-    .eq('active', true)
-    .is('fired_at', null)
-    .maybeSingle();
+  // As duas consultas dependem so do user.id, entao vao juntas: e uma ida a
+  // menos ao banco em toda requisicao do /admin e do /painel.
+  const [{ data: staff }, { data: profile }] = await Promise.all([
+    admin
+      .from('staff')
+      .select(CAMPOS_STAFF)
+      .eq('profile_id', user.id)
+      .eq('active', true)
+      .is('fired_at', null)
+      .maybeSingle(),
+    admin
+      .from('profiles')
+      .select('full_name, email')
+      .eq('id', user.id)
+      .maybeSingle(),
+  ]);
 
   if (!staff) return null;
-
-  const { data: profile } = await admin
-    .from('profiles')
-    .select('full_name, email')
-    .eq('id', user.id)
-    .maybeSingle();
 
   return {
     staffId: staff.id as string,

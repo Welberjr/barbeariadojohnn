@@ -46,51 +46,72 @@ interface Transaction {
 export default async function FidelidadePage() {
   const supabase = createAdminClient();
 
-  // Config da barbearia
-  const { data: bs } = await supabase
-    .from('barbershops')
-    .select('loyalty_enabled, loyalty_points_per_brl')
-    .eq('id', BARBERSHOP_ID)
-    .maybeSingle();
+  // Primeira leva: tudo que não depende de nada, de uma vez só.
+  const [
+    { data: bs },
+    { data: rewardsRaw },
+    { data: services },
+    { data: products },
+    { data: pointsRaw },
+    { data: allCustomers },
+    { data: txRaw },
+  ] = await Promise.all([
+    // Config da barbearia
+    supabase
+      .from('barbershops')
+      .select('loyalty_enabled, loyalty_points_per_brl')
+      .eq('id', BARBERSHOP_ID)
+      .maybeSingle(),
+    // Prêmios
+    supabase
+      .from('loyalty_rewards')
+      .select('*')
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .order('display_order')
+      .order('points_required'),
+    // Serviços e produtos pra dropdown de prêmios
+    supabase
+      .from('services')
+      .select('id, name')
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('active', true)
+      .order('name'),
+    supabase
+      .from('products')
+      .select('id, name')
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('active', true)
+      .order('name'),
+    // Saldos
+    supabase
+      .from('loyalty_points')
+      .select('customer_id, balance, lifetime_earned, lifetime_redeemed')
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .order('balance', { ascending: false }),
+    // Todos os clientes (pra ajuste de pontos)
+    supabase
+      .from('customers')
+      .select('id, full_name, phone')
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('active', true)
+      .order('full_name')
+      .limit(500),
+    // Histórico recente de transações
+    supabase
+      .from('loyalty_transactions')
+      .select('id, customer_id, type, points, reason, created_at')
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .order('created_at', { ascending: false })
+      .limit(50),
+  ]);
 
   const loyaltyEnabled = bs?.loyalty_enabled ?? false;
   const pointsPerBrl = Number(bs?.loyalty_points_per_brl ?? 1);
-
-  // Prêmios
-  const { data: rewardsRaw } = await supabase
-    .from('loyalty_rewards')
-    .select('*')
-    .eq('barbershop_id', BARBERSHOP_ID)
-    .order('display_order')
-    .order('points_required');
-
   const rewards = (rewardsRaw ?? []) as Reward[];
-
-  // Serviços e produtos pra dropdown de prêmios
-  const { data: services } = await supabase
-    .from('services')
-    .select('id, name')
-    .eq('barbershop_id', BARBERSHOP_ID)
-    .eq('active', true)
-    .order('name');
-
-  const { data: products } = await supabase
-    .from('products')
-    .select('id, name')
-    .eq('barbershop_id', BARBERSHOP_ID)
-    .eq('active', true)
-    .order('name');
-
-  // Saldos
-  const { data: pointsRaw } = await supabase
-    .from('loyalty_points')
-    .select('customer_id, balance, lifetime_earned, lifetime_redeemed')
-    .eq('barbershop_id', BARBERSHOP_ID)
-    .order('balance', { ascending: false });
-
   const points = (pointsRaw ?? []) as LoyaltyPoint[];
+  const transactions = (txRaw ?? []) as Transaction[];
 
-  // Clientes referenciados
+  // Segunda leva: nomes dos clientes com saldo, resolvidos a partir da primeira.
   const customerIds = Array.from(new Set(points.map((p) => p.customer_id)));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let customersData: any[] = [];
@@ -107,25 +128,6 @@ export default async function FidelidadePage() {
       { name: c.full_name as string, phone: ((c.phone as string | null) ?? null) },
     ])
   );
-
-  // Todos os clientes (pra ajuste de pontos)
-  const { data: allCustomers } = await supabase
-    .from('customers')
-    .select('id, full_name, phone')
-    .eq('barbershop_id', BARBERSHOP_ID)
-    .eq('active', true)
-    .order('full_name')
-    .limit(500);
-
-  // Histórico recente de transações
-  const { data: txRaw } = await supabase
-    .from('loyalty_transactions')
-    .select('id, customer_id, type, points, reason, created_at')
-    .eq('barbershop_id', BARBERSHOP_ID)
-    .order('created_at', { ascending: false })
-    .limit(50);
-
-  const transactions = (txRaw ?? []) as Transaction[];
 
   // Nomes dos clientes nas transações (pode haver IDs fora do balanceMap)
   const txCustomerIds = Array.from(

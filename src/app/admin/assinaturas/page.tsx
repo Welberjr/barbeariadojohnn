@@ -28,15 +28,54 @@ function monthlyEquivalent(price: number, period: string): number {
 export default async function AssinaturasPage() {
   const admin = createAdminClient();
 
-  // Planos (modelo normalizado)
-  const { data: plansRaw } = await admin
-    .from('subscription_plans')
-    .select(
-      'id, name, description, price, period, allowed_days, included_uses, barber_share_percent, accumulate_unused, show_on_public_menu, active, display_order'
-    )
-    .eq('barbershop_id', BARBERSHOP_ID)
-    .order('display_order')
-    .order('name');
+  // Primeira leva: planos, assinaturas, repasses e clientes não dependem
+  // um do outro, então vão juntos ao banco.
+  const [
+    { data: plansRaw },
+    { data: subsRaw },
+    { data: payoutsRaw },
+    { data: allCustomers },
+  ] = await Promise.all([
+    // Planos (modelo normalizado)
+    admin
+      .from('subscription_plans')
+      .select(
+        'id, name, description, price, period, allowed_days, included_uses, barber_share_percent, accumulate_unused, show_on_public_menu, active, display_order'
+      )
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .order('display_order')
+      .order('name'),
+    // Assinaturas com cliente + plano
+    admin
+      .from('subscriptions')
+      .select(
+        `id, status, customer_id, plan_id, started_at, cancelled_at,
+       current_period_start, current_period_end, next_billing_at, current_price, notes,
+       customer:customers (full_name, phone, photo_url),
+       plan:subscription_plans (name, price, period, allowed_days, included_uses, barber_share_percent)`
+      )
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .order('created_at', { ascending: false }),
+    // Repasses recentes (potinho fechado)
+    admin
+      .from('subscription_payouts')
+      .select(
+        `id, created_at, period_start, period_end, plan_price, barber_share_percent,
+       pool_amount, total_uses,
+       subscription:subscriptions ( customer:customers (full_name) )`
+      )
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .order('created_at', { ascending: false })
+      .limit(20),
+    // Clientes ativos (dropdown de nova assinatura)
+    admin
+      .from('customers')
+      .select('id, full_name, phone')
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('active', true)
+      .order('full_name')
+      .limit(500),
+  ]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const plans = (plansRaw ?? []).map((p: any) => ({
@@ -47,37 +86,41 @@ export default async function AssinaturasPage() {
     allowed_days: (p.allowed_days ?? []) as number[],
   }));
 
-  // Assinaturas com cliente + plano
-  const { data: subsRaw } = await admin
-    .from('subscriptions')
-    .select(
-      `id, status, customer_id, plan_id, started_at, cancelled_at,
-       current_period_start, current_period_end, next_billing_at, current_price, notes,
-       customer:customers (full_name, phone, photo_url),
-       plan:subscription_plans (name, price, period, allowed_days, included_uses, barber_share_percent)`
-    )
-    .eq('barbershop_id', BARBERSHOP_ID)
-    .order('created_at', { ascending: false });
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const subsList = (subsRaw ?? []) as any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const payoutRows = (payoutsRaw ?? []) as any[];
+
+  // Segunda leva: usos do ciclo e itens de repasse dependem dos ids da primeira.
+  const subIds = subsList.map((s) => s.id);
+  const payoutIds = payoutRows.map((p) => p.id);
+  const [usagesResult, payoutItemsResult] = await Promise.all([
+    subIds.length > 0
+      ? admin
+          .from('subscription_usages')
+          .select('subscription_id')
+          .in('subscription_id', subIds)
+          .is('settled_payout_id', null)
+      : Promise.resolve({ data: [] as { subscription_id: string }[] }),
+    payoutIds.length > 0
+      ? admin
+          .from('subscription_payout_items')
+          .select('payout_id, uses_count, amount, staff:staff (display_name)')
+          .in('payout_id', payoutIds)
+      : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        Promise.resolve({ data: [] as any[] }),
+  ]);
 
   // Contagem de usos nao acertados (ciclo corrente) por assinatura
-  const subIds = subsList.map((s) => s.id);
   const usageCount = new Map<string, number>();
-  if (subIds.length > 0) {
-    const { data: usages } = await admin
-      .from('subscription_usages')
-      .select('subscription_id')
-      .in('subscription_id', subIds)
-      .is('settled_payout_id', null);
-    for (const u of usages ?? []) {
-      usageCount.set(
-        u.subscription_id as string,
-        (usageCount.get(u.subscription_id as string) ?? 0) + 1
-      );
-    }
+  for (const u of usagesResult.data ?? []) {
+    usageCount.set(
+      u.subscription_id as string,
+      (usageCount.get(u.subscription_id as string) ?? 0) + 1
+    );
   }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const payoutItems: any[] = payoutItemsResult.data ?? [];
 
   const now = new Date();
   const subscriptions = subsList.map((s) => {
@@ -109,31 +152,6 @@ export default async function AssinaturasPage() {
     };
   });
 
-  // Repasses recentes (potinho fechado)
-  const { data: payoutsRaw } = await admin
-    .from('subscription_payouts')
-    .select(
-      `id, created_at, period_start, period_end, plan_price, barber_share_percent,
-       pool_amount, total_uses,
-       subscription:subscriptions ( customer:customers (full_name) )`
-    )
-    .eq('barbershop_id', BARBERSHOP_ID)
-    .order('created_at', { ascending: false })
-    .limit(20);
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const payoutRows = (payoutsRaw ?? []) as any[];
-  const payoutIds = payoutRows.map((p) => p.id);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let payoutItems: any[] = [];
-  if (payoutIds.length > 0) {
-    const { data: itemsRaw } = await admin
-      .from('subscription_payout_items')
-      .select('payout_id, uses_count, amount, staff:staff (display_name)')
-      .in('payout_id', payoutIds);
-    payoutItems = itemsRaw ?? [];
-  }
-
   const payouts = payoutRows.map((p) => ({
     id: p.id as string,
     created_at: p.created_at as string,
@@ -153,15 +171,6 @@ export default async function AssinaturasPage() {
         amount: Number(i.amount),
       })),
   }));
-
-  // Clientes ativos (dropdown de nova assinatura)
-  const { data: allCustomers } = await admin
-    .from('customers')
-    .select('id, full_name, phone')
-    .eq('barbershop_id', BARBERSHOP_ID)
-    .eq('active', true)
-    .order('full_name')
-    .limit(500);
 
   // KPIs
   const activeSubs = subscriptions.filter((s) =>

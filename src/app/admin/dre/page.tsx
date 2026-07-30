@@ -40,14 +40,41 @@ export default async function DREPage({ searchParams }: DREPageProps) {
   const periodStart = `${fromStr}T00:00:00.000-03:00`;
   const periodEnd = `${toStr}T23:59:59.999-03:00`;
 
-  // 1. RECEITAS — comandas fechadas no período
-  const { data: comandasRaw } = await supabase
-    .from('comandas')
-    .select('id, total, net_total, card_fee_total')
-    .eq('barbershop_id', BARBERSHOP_ID)
-    .eq('status', 'closed')
-    .gte('closed_at', periodStart)
-    .lte('closed_at', periodEnd);
+  // Primeira leva: receitas, despesas, lançamentos manuais e categorias não
+  // dependem um do outro, então vão juntos ao banco.
+  const [{ data: comandasRaw }, { data: billsRaw }, txAttempt, { data: categoriesRaw }] =
+    await Promise.all([
+      // 1. RECEITAS — comandas fechadas no período
+      supabase
+        .from('comandas')
+        .select('id, total, net_total, card_fee_total')
+        .eq('barbershop_id', BARBERSHOP_ID)
+        .eq('status', 'closed')
+        .gte('closed_at', periodStart)
+        .lte('closed_at', periodEnd),
+      // 4. DESPESAS — bills pagas no período
+      supabase
+        .from('bills')
+        .select('amount, paid_amount, paid_at, category_id, description')
+        .eq('barbershop_id', BARBERSHOP_ID)
+        .eq('status', 'paid')
+        .gte('paid_at', periodStart)
+        .lte('paid_at', periodEnd),
+      // 4b. Transacoes manuais: tenta ler cost_amount; se a coluna nao
+      // existir, o fallback com select basico roda logo abaixo.
+      supabase
+        .from('transactions')
+        .select('type, amount, cost_amount')
+        .eq('barbershop_id', BARBERSHOP_ID)
+        .in('type', ['product', 'expense', 'other'])
+        .gte('occurred_at', periodStart)
+        .lte('occurred_at', periodEnd),
+      // Categorias de despesa
+      supabase
+        .from('expense_categories')
+        .select('id, name, color')
+        .eq('barbershop_id', BARBERSHOP_ID),
+    ]);
 
   const comandas = comandasRaw ?? [];
   const comandaIds = comandas.map((c) => c.id);
@@ -116,15 +143,6 @@ export default async function DREPage({ searchParams }: DREPageProps) {
     }
   }
 
-  // 4. DESPESAS — bills pagas no período
-  const { data: billsRaw } = await supabase
-    .from('bills')
-    .select('amount, paid_amount, paid_at, category_id, description')
-    .eq('barbershop_id', BARBERSHOP_ID)
-    .eq('status', 'paid')
-    .gte('paid_at', periodStart)
-    .lte('paid_at', periodEnd);
-
   const bills = billsRaw ?? [];
   const totalDespesasBills = bills.reduce(
     (s, b) => s + Number(b.paid_amount ?? b.amount ?? 0),
@@ -132,29 +150,19 @@ export default async function DREPage({ searchParams }: DREPageProps) {
   );
 
   // 4b. Transacoes manuais do periodo (lancamentos avulsos do modulo Financeiro)
-  // Tenta ler cost_amount (custo das vendas avulsas); se a coluna nao existir, select basico.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let txRows: any[] = [];
-  {
-    const attempt = await supabase
+  if (txAttempt.error) {
+    const fallback = await supabase
       .from('transactions')
-      .select('type, amount, cost_amount')
+      .select('type, amount')
       .eq('barbershop_id', BARBERSHOP_ID)
       .in('type', ['product', 'expense', 'other'])
       .gte('occurred_at', periodStart)
       .lte('occurred_at', periodEnd);
-    if (attempt.error) {
-      const fallback = await supabase
-        .from('transactions')
-        .select('type, amount')
-        .eq('barbershop_id', BARBERSHOP_ID)
-        .in('type', ['product', 'expense', 'other'])
-        .gte('occurred_at', periodStart)
-        .lte('occurred_at', periodEnd);
-      txRows = fallback.data ?? [];
-    } else {
-      txRows = attempt.data ?? [];
-    }
+    txRows = fallback.data ?? [];
+  } else {
+    txRows = txAttempt.data ?? [];
   }
   const txProdutos   = txRows.filter((t) => t.type === 'product').reduce((s, t) => s + Number(t.amount ?? 0), 0);
   const txReceitas   = txRows.filter((t) => t.type === 'other').reduce((s, t) => s + Number(t.amount ?? 0), 0);
@@ -167,10 +175,6 @@ export default async function DREPage({ searchParams }: DREPageProps) {
   const totalDespesas = totalDespesasBills + txDespesas;
 
   // Agrupa despesas por categoria
-  const { data: categoriesRaw } = await supabase
-    .from('expense_categories')
-    .select('id, name, color')
-    .eq('barbershop_id', BARBERSHOP_ID);
   const categoryMap = new Map(
     (categoriesRaw ?? []).map((c) => [
       c.id as string,

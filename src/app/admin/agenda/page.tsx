@@ -28,19 +28,28 @@ export default async function AgendaPage({ searchParams }: AgendaPageProps) {
   const dayStart = `${dateStr}T00:00:00.000-03:00`;
   const dayEnd = `${dateStr}T23:59:59.999-03:00`;
 
-  // Buscar profissionais ativos
-  const { data: staff } = await supabase
-    .from('staff')
-    .select('id, display_name, role, profile_id')
-    .eq('active', true)
-    .in('role', ['barber', 'owner', 'manager'])
-    .order('display_name');
-
-  // Buscar appointments do dia (SEM service_id direto — usa appointment_services)
-  const { data: appointmentsRaw } = await supabase
-    .from('appointments')
-    .select(
-      `
+  // Nenhuma destas consultas depende da outra: todas de uma vez, a aba abre
+  // no tempo da mais lenta em vez da soma das seis.
+  const [
+    { data: staff },
+    { data: appointmentsRaw },
+    { data: barbershop },
+    { data: daysOff },
+    { data: customers },
+    { data: services },
+  ] = await Promise.all([
+    // Profissionais ativos
+    supabase
+      .from('staff')
+      .select('id, display_name, role, profile_id')
+      .eq('active', true)
+      .in('role', ['barber', 'owner', 'manager'])
+      .order('display_name'),
+    // Appointments do dia (SEM service_id direto — usa appointment_services)
+    supabase
+      .from('appointments')
+      .select(
+        `
       id,
       customer_id,
       staff_id,
@@ -50,11 +59,39 @@ export default async function AgendaPage({ searchParams }: AgendaPageProps) {
       notes,
       customers:customers ( full_name, phone )
     `
-    )
-    .eq('barbershop_id', BARBERSHOP_ID)
-    .gte('start_at', dayStart)
-    .lte('start_at', dayEnd)
-    .order('start_at');
+      )
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .gte('start_at', dayStart)
+      .lte('start_at', dayEnd)
+      .order('start_at'),
+    // Barbershop pra pegar horários de funcionamento
+    supabase
+      .from('barbershops')
+      .select('business_hours')
+      .eq('id', BARBERSHOP_ID)
+      .maybeSingle(),
+    // Folgas do dia
+    supabase
+      .from('days_off')
+      .select('staff_id, start_date, end_date, reason, type')
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .lte('start_date', dateStr)
+      .gte('end_date', dateStr),
+    // Clientes pra dropdown de criar agendamento
+    supabase
+      .from('customers')
+      .select('id, full_name, phone')
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('active', true)
+      .order('full_name')
+      .limit(500),
+    // Serviços pra dropdown
+    supabase
+      .from('services')
+      .select('id, name, base_price, base_duration_minutes, category')
+      .eq('active', true)
+      .order('display_order'),
+  ]);
 
   // Buscar appointment_services correspondentes (pode ter 1 ou + serviços por appointment)
   const apptIds = (appointmentsRaw ?? []).map((a) => a.id);
@@ -93,37 +130,6 @@ export default async function AgendaPage({ searchParams }: AgendaPageProps) {
     service_id: servicesByAppointment[a.id]?.service_id ?? null,
     services: servicesByAppointment[a.id]?.services ?? null,
   }));
-
-  // Buscar barbershop pra pegar horários de funcionamento
-  const { data: barbershop } = await supabase
-    .from('barbershops')
-    .select('business_hours')
-    .eq('id', BARBERSHOP_ID)
-    .maybeSingle();
-
-  // Buscar folgas do dia
-  const { data: daysOff } = await supabase
-    .from('days_off')
-    .select('staff_id, start_date, end_date, reason, type')
-    .eq('barbershop_id', BARBERSHOP_ID)
-    .lte('start_date', dateStr)
-    .gte('end_date', dateStr);
-
-  // Buscar clientes pra dropdown de criar agendamento
-  const { data: customers } = await supabase
-    .from('customers')
-    .select('id, full_name, phone')
-    .eq('barbershop_id', BARBERSHOP_ID)
-    .eq('active', true)
-    .order('full_name')
-    .limit(500);
-
-  // Buscar serviços pra dropdown
-  const { data: services } = await supabase
-    .from('services')
-    .select('id, name, base_price, base_duration_minutes, category')
-    .eq('active', true)
-    .order('display_order');
 
   return (
     <AgendaView

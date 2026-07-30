@@ -15,26 +15,33 @@ export default async function ComandaPage({ params }: ComandaPageProps) {
   const { id } = await params;
   const supabase = createAdminClient();
 
-  // 1. Comanda + relações
-  const { data: comandaRaw } = await supabase
-    .from('comandas')
-    .select(
-      `
+  // Tudo aqui filtra pelo id da comanda ou é catálogo fixo: uma ida só ao
+  // banco, e a comanda abre no tempo da consulta mais lenta.
+  const [
+    { data: comandaRaw },
+    { data: comandaItems },
+    { data: payments },
+    { data: services },
+    { data: productsRaw },
+    { data: staff },
+  ] = await Promise.all([
+    // 1. Comanda + relações
+    supabase
+      .from('comandas')
+      .select(
+        `
       *,
       customers:customers ( id, full_name, phone ),
       staff:staff ( id, display_name )
     `
-    )
-    .eq('id', id)
-    .maybeSingle();
-
-  if (!comandaRaw) notFound();
-
-  // 2. Itens da comanda (tabela unificada comanda_items)
-  const { data: comandaItems } = await supabase
-    .from('comanda_items')
-    .select(
-      `
+      )
+      .eq('id', id)
+      .maybeSingle(),
+    // 2. Itens da comanda (tabela unificada comanda_items)
+    supabase
+      .from('comanda_items')
+      .select(
+        `
       id,
       item_type,
       service_id,
@@ -48,9 +55,39 @@ export default async function ComandaPage({ params }: ComandaPageProps) {
       products:products ( name ),
       staff:staff ( display_name )
     `
-    )
-    .eq('comanda_id', id)
-    .order('created_at');
+      )
+      .eq('comanda_id', id)
+      .order('created_at'),
+    // 4. Pagamento (se existir, comanda fechada)
+    supabase
+      .from('comanda_payments')
+      .select('method')
+      .eq('comanda_id', id)
+      .order('created_at', { ascending: false })
+      .limit(1),
+    // 6. Catálogos auxiliares
+    supabase
+      .from('services')
+      .select('id, name, base_price, base_duration_minutes, category')
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('active', true)
+      .order('display_order'),
+    supabase
+      .from('products')
+      .select('id, name, sale_price, product_categories ( name )')
+      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('active', true)
+      .eq('is_sellable', true)
+      .order('name'),
+    supabase
+      .from('staff')
+      .select('id, display_name')
+      .eq('active', true)
+      .in('role', ['barber', 'owner', 'manager'])
+      .order('display_name'),
+  ]);
+
+  if (!comandaRaw) notFound();
 
   // 3. Separar em services e products para manter compatibilidade com o ComandaDetail
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -80,14 +117,6 @@ export default async function ComandaPage({ params }: ComandaPageProps) {
       products: i.products,
     }));
 
-  // 4. Buscar pagamento (se existir, comanda fechada)
-  const { data: payments } = await supabase
-    .from('comanda_payments')
-    .select('method')
-    .eq('comanda_id', id)
-    .order('created_at', { ascending: false })
-    .limit(1);
-
   const paymentMethod = payments?.[0]?.method ?? null;
 
   // 5. Montar objeto comanda compatível com a interface do ComandaDetail
@@ -111,21 +140,6 @@ export default async function ComandaPage({ params }: ComandaPageProps) {
     tip: 0,
   };
 
-  // 6. Catálogos auxiliares
-  const { data: services } = await supabase
-    .from('services')
-    .select('id, name, base_price, base_duration_minutes, category')
-    .eq('barbershop_id', BARBERSHOP_ID)
-    .eq('active', true)
-    .order('display_order');
-
-  const { data: productsRaw } = await supabase
-    .from('products')
-    .select('id, name, sale_price, product_categories ( name )')
-    .eq('barbershop_id', BARBERSHOP_ID)
-    .eq('active', true)
-    .eq('is_sellable', true)
-    .order('name');
   // Mapeia sale_price -> price (interface do ComandaDetail usa "price")
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const products = ((productsRaw ?? []) as any[]).map((p) => {
@@ -138,13 +152,6 @@ export default async function ComandaPage({ params }: ComandaPageProps) {
       category: (categoryName as string | undefined) ?? null,
     };
   });
-
-  const { data: staff } = await supabase
-    .from('staff')
-    .select('id, display_name')
-    .eq('active', true)
-    .in('role', ['barber', 'owner', 'manager'])
-    .order('display_name');
 
   // 7. Assinatura ativa do cliente (para cobrir servicos pelo clube)
   const admin = createAdminClient();

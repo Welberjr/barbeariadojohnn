@@ -22,20 +22,22 @@ const DEFAULT_HOURS = {
 export default async function DisponibilidadePage() {
   const supabase = createAdminClient();
 
-  // Buscar configuração de horários da barbearia
-  const { data: barbershop } = await supabase
-    .from('barbershops')
-    .select('business_hours')
-    .eq('id', BARBERSHOP_ID)
-    .maybeSingle();
-
-  // Buscar folgas futuras (próximos 90 dias)
   const today = new Date().toISOString().split('T')[0];
 
-  const { data: daysOff } = await supabase
-    .from('days_off')
-    .select(
-      `
+  // As três consultas não dependem uma da outra: tudo junto ao banco.
+  const [{ data: barbershop }, { data: daysOff }, { data: staff }] =
+    await Promise.all([
+      // Configuração de horários da barbearia
+      supabase
+        .from('barbershops')
+        .select('business_hours')
+        .eq('id', BARBERSHOP_ID)
+        .maybeSingle(),
+      // Folgas futuras (próximos 90 dias)
+      supabase
+        .from('days_off')
+        .select(
+          `
       id,
       staff_id,
       start_date,
@@ -46,17 +48,17 @@ export default async function DisponibilidadePage() {
         display_name
       )
     `
-    )
-    .gte('end_date', today)
-    .order('start_date', { ascending: true });
-
-  // Buscar todos profissionais ativos
-  const { data: staff } = await supabase
-    .from('staff')
-    .select('id, display_name, role')
-    .eq('active', true)
-    .in('role', ['barber', 'owner', 'manager'])
-    .order('display_name');
+        )
+        .gte('end_date', today)
+        .order('start_date', { ascending: true }),
+      // Todos profissionais ativos
+      supabase
+        .from('staff')
+        .select('id, display_name, role')
+        .eq('active', true)
+        .in('role', ['barber', 'owner', 'manager'])
+        .order('display_name'),
+    ]);
 
   const businessHours = (barbershop?.business_hours as typeof DEFAULT_HOURS) ?? DEFAULT_HOURS;
 
