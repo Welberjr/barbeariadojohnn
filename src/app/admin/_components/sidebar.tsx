@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import {
   HelpCircle, LayoutDashboard, Calendar, Users, Scissors,
   Package, CircleDollarSign, Target, Crown, UserCog,
-  Settings, Trophy, FileText, Receipt,
+  Settings, Trophy, FileText, Receipt, UserMinus,
   Clock, ClipboardList, Menu, X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -34,6 +34,7 @@ const menuItems: MenuItem[] = [
   { label: 'Contas a Pagar',  icon: Receipt,         href: '/admin/contas-pagar',        section: 'Financeiro' },
   { label: 'Assinaturas',     icon: Crown,           href: '/admin/assinaturas',         section: 'Marketing' },
   { label: 'Fidelidade',      icon: Trophy,          href: '/admin/fidelidade',          section: 'Marketing' },
+  { label: 'Clientes sumidos',icon: UserMinus,       href: '/admin/clientes-sumidos',    section: 'Marketing' },
   // WhatsApp fora do menu enquanto não for usado. A tela continua existindo
   // em /admin/whatsapp, então é só devolver esta linha quando for a hora.
   { label: 'Configurações',   icon: Settings,        href: '/admin/configuracoes',       section: 'Sistema' },
