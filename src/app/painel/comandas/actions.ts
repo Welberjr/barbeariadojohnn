@@ -18,7 +18,11 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { exigirModulo, type SessionStaff } from '@/lib/staff-auth';
 import { BARBERSHOP_ID } from '@/lib/painel/dados';
 import { getActiveSubscription, isDayAllowed, formatAllowedDays } from '@/lib/subscriptions';
-import { calcularFechamento, normalizarMetodo } from '@/lib/painel/comanda-calculo';
+import {
+  calcularFechamento,
+  normalizarMetodo,
+  JANELA_CORRECAO_MINUTOS,
+} from '@/lib/painel/comanda-calculo';
 import { awardPointsForComanda } from '@/lib/loyalty';
 import { notifyCustomer } from '@/lib/notifications';
 
@@ -527,9 +531,6 @@ export async function fecharMinhaComanda(dados: {
 // ------------------------------------------------------------------
 // Correcao da propria comanda
 // ------------------------------------------------------------------
-
-/** Quanto tempo o barbeiro tem para corrigir a comanda que ele mesmo fechou. */
-export const JANELA_CORRECAO_MINUTOS = 60;
 
 /**
  * Reabre a comanda para correcao, dentro da janela.

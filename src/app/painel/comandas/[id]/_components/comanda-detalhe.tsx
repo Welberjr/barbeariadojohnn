@@ -20,11 +20,14 @@ import {
   removerItem,
   fecharMinhaComanda,
   reabrirMinhaComanda,
-  JANELA_CORRECAO_MINUTOS,
 } from '../../actions';
 import { formatCurrency } from '@/lib/utils';
 import { corDoSelo, type Selo } from '@/lib/painel/assinatura-selo';
-import { calcularFechamento, type MetodoPagamento } from '@/lib/painel/comanda-calculo';
+import {
+  calcularFechamento,
+  JANELA_CORRECAO_MINUTOS,
+  type MetodoPagamento,
+} from '@/lib/painel/comanda-calculo';
 
 interface Item {
   id: string;

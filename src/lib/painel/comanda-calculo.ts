@@ -8,6 +8,16 @@
 
 export type MetodoPagamento = 'cash' | 'pix' | 'credit' | 'debit';
 
+/**
+ * Quanto tempo o barbeiro tem para corrigir a comanda que ele mesmo fechou.
+ * Passada a janela, a correcao vira assunto da gestao, por estorno.
+ *
+ * Fica aqui, e nao no arquivo de acoes, porque arquivo de acoes do servidor
+ * so pode exportar funcao, e a tela precisa do numero para mostrar o tempo
+ * restante.
+ */
+export const JANELA_CORRECAO_MINUTOS = 60;
+
 export interface EntradaFechamento {
   subtotal: number;
   metodo: MetodoPagamento;
