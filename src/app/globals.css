@@ -330,6 +330,11 @@
   from { transform: translateY(100%); opacity: 0; }
   to   { transform: translateY(0);    opacity: 1; }
 }
+/* Traco que corre enquanto a proxima tela nao chega */
+@keyframes correr {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
 /* =========================================================================
    DOCUMENTO IMPRESSO (DRE e futuros relatorios)
 

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/brand/logo';
+import { LinkNavegando } from '@/components/link-navegando';
 
 interface MenuItem {
   label: string;
@@ -91,8 +92,10 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
                   {isActive && (
                     <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-gradient-to-b from-gold to-gold-shimmer rounded-r-full" />
                   )}
-                  <Icon className={cn('w-4 h-4 flex-shrink-0 transition-colors', isActive ? 'text-gold' : 'text-fg-subtle group-hover:text-gold/70')} />
-                  <span>{item.label}</span>
+                  <LinkNavegando>
+                    <Icon className={cn('w-4 h-4 flex-shrink-0 transition-colors', isActive ? 'text-gold' : 'text-fg-subtle group-hover:text-gold/70')} />
+                    <span>{item.label}</span>
+                  </LinkNavegando>
                   {!isActive && (
                     <span className="absolute inset-0 bg-gradient-to-r from-gold/0 via-gold/0 to-gold/0 group-hover:via-gold/5 transition-all pointer-events-none rounded-md" />
                   )}

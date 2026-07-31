@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/brand/logo';
+import { LinkNavegando } from '@/components/link-navegando';
 import type { Modulo } from '@/lib/staff-permissions';
 
 interface ItemNav {
@@ -78,8 +79,10 @@ export function PainelTopbar({ displayName, modulos }: NavProps) {
                     : 'text-fg-muted hover:text-fg hover:bg-bg-elevated'
                 )}
               >
-                <Icon className="w-3.5 h-3.5" />
-                <span>{item.label}</span>
+                <LinkNavegando>
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{item.label}</span>
+                </LinkNavegando>
               </Link>
             );
           })}
@@ -126,8 +129,10 @@ export function PainelBottomNav({ modulos }: { modulos: Modulo[] }) {
                 ativo ? 'text-gold' : 'text-fg-muted'
               )}
             >
-              <Icon className="w-5 h-5" />
-              <span>{item.label}</span>
+              <LinkNavegando>
+                <Icon className="w-5 h-5" />
+                <span>{item.label}</span>
+              </LinkNavegando>
             </Link>
           );
         })}
@@ -139,8 +144,10 @@ export function PainelBottomNav({ modulos }: { modulos: Modulo[] }) {
             pathname.startsWith('/painel/perfil') ? 'text-gold' : 'text-fg-muted'
           )}
         >
-          <User className="w-5 h-5" />
-          <span>Perfil</span>
+          <LinkNavegando>
+            <User className="w-5 h-5" />
+            <span>Perfil</span>
+          </LinkNavegando>
         </Link>
       </div>
     </nav>

@@ -89,6 +89,26 @@ export async function updateSession(request: NextRequest) {
   const isCustomerLogin = pathname.startsWith('/cliente/login');
   const isCustomerRoute = pathname.startsWith('/cliente') && !isCustomerLogin;
 
+  /**
+   * Conta redirecionamentos seguidos.
+   *
+   * Cookie de sessao quebrado ainda existe no navegador de quem ja passou pelo
+   * problema, e um navegador nunca se cura sozinho: ele repete o mesmo cookie
+   * podre em toda tentativa. Passando de tres saltos seguidos, a sessao e
+   * apagada e a pessoa cai no login limpa, em vez de bater na parede do
+   * "redirecionamento em excesso".
+   */
+  const saltos = Number(request.cookies.get('bj_saltos')?.value ?? 0);
+
+  /** Apaga o cookie de sessao do Supabase, que vem partido em pedacos. */
+  function limparSessao(resposta: NextResponse) {
+    for (const cookie of request.cookies.getAll()) {
+      if (cookie.name.startsWith('sb-')) {
+        resposta.cookies.set(cookie.name, '', { maxAge: 0, path: '/' });
+      }
+    }
+  }
+
   function redirectTo(path: string) {
     const url = request.nextUrl.clone();
     url.pathname = path;
@@ -104,6 +124,19 @@ export async function updateSession(request: NextRequest) {
       resposta.cookies.set(cookie);
     }
 
+    if (saltos >= 3) {
+      limparSessao(resposta);
+      resposta.cookies.set('bj_saltos', '', { maxAge: 0, path: '/' });
+      const login = request.nextUrl.clone();
+      login.pathname = isCustomerRoute || isCustomerLogin ? '/cliente/login' : '/login';
+      login.search = '';
+      const paraLogin = NextResponse.redirect(login);
+      limparSessao(paraLogin);
+      paraLogin.cookies.set('bj_saltos', '', { maxAge: 0, path: '/' });
+      return paraLogin;
+    }
+
+    resposta.cookies.set('bj_saltos', String(saltos + 1), { maxAge: 10, path: '/' });
     return resposta;
   }
 
@@ -129,9 +162,17 @@ export async function updateSession(request: NextRequest) {
   if ((isAdminLogin || isCustomerLogin) && user) {
     if (isCustomerUser) return redirectTo('/cliente');
     const acesso = await fetchStaffAccess(user.id);
-    if (!acesso.isStaff) return supabaseResponse;
+    if (!acesso.isStaff) return entregar();
     return redirectTo(acesso.canManage ? '/admin' : '/painel');
   }
 
-  return supabaseResponse;
+  return entregar();
+
+  /** Tela entregue de verdade: a contagem de saltos morre aqui. */
+  function entregar() {
+    if (saltos > 0) {
+      supabaseResponse.cookies.set('bj_saltos', '', { maxAge: 0, path: '/' });
+    }
+    return supabaseResponse;
+  }
 }

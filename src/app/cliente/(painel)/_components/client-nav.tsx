@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/brand/logo';
+import { LinkNavegando } from '@/components/link-navegando';
 
 interface ClientNavProps {
   customerName: string;
@@ -71,8 +72,10 @@ export function ClientTopbar({ customerName, photoUrl, unreadCount }: ClientNavP
                     : 'text-fg-muted hover:text-fg hover:bg-bg-elevated'
                 )}
               >
-                <Icon className="w-3.5 h-3.5" />
-                <span>{item.label}</span>
+                <LinkNavegando>
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{item.label}</span>
+                </LinkNavegando>
               </Link>
             );
           })}
@@ -142,14 +145,16 @@ export function ClientBottomNav() {
                 active || item.primary ? 'text-gold' : 'text-fg-subtle hover:text-fg'
               )}
             >
-              {item.primary ? (
-                <span className="flex h-14 w-14 items-center justify-center rounded-full border-4 border-bg bg-gold text-bg shadow-lg shadow-gold/30 transition-transform hover:scale-105">
-                  <Icon className="h-5 w-5" />
-                </span>
-              ) : (
-                <Icon className={cn('w-5 h-5', active && 'drop-shadow-[0_0_8px_rgba(212,160,79,0.5)]')} />
-              )}
-              <span className={cn((active || item.primary) && 'font-semibold')}>{item.label}</span>
+              <LinkNavegando>
+                {item.primary ? (
+                  <span className="flex h-14 w-14 items-center justify-center rounded-full border-4 border-bg bg-gold text-bg shadow-lg shadow-gold/30 transition-transform hover:scale-105">
+                    <Icon className="h-5 w-5" />
+                  </span>
+                ) : (
+                  <Icon className={cn('w-5 h-5', active && 'drop-shadow-[0_0_8px_rgba(212,160,79,0.5)]')} />
+                )}
+                <span className={cn((active || item.primary) && 'font-semibold')}>{item.label}</span>
+              </LinkNavegando>
             </Link>
           );
         })}
