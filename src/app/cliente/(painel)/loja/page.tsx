@@ -90,10 +90,14 @@ export default async function LojaPage() {
                 return (
                   <div key={p.id} className={cn('card overflow-hidden flex flex-col', esgotado && 'opacity-60')}>
                     {/* Imagem ou placeholder */}
-                    <div className="relative bg-bg-elevated flex items-center justify-center flex-shrink-0" style={{ aspectRatio: '1/1' }}>
+                    <div className="relative h-28 sm:h-32 bg-bg-elevated flex items-center justify-center flex-shrink-0">
                       {p.photo_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={p.photo_url} alt={p.name} className="w-full h-full object-cover" />
+                        <img
+                          src={p.photo_url}
+                          alt={p.name}
+                          className="w-full h-full object-contain p-2.5"
+                        />
                       ) : (
                         <Package className="w-10 h-10 text-fg-dim" />
                       )}
