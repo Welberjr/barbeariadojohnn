@@ -320,11 +320,28 @@
 }
 
 @media print {
+  /* O tema do sistema declara color-scheme: dark, e o navegador pinta a
+     FOLHA inteira com a cor do esquema escuro, margens incluidas. Isso nao e
+     fundo de CSS, e o proprio papel, entao nenhum background: #fff resolvia:
+     era essa a moldura preta em volta do relatorio salvo em PDF. */
+  :root,
+  html {
+    color-scheme: light !important;
+  }
+
   html,
   body {
     background: #fff !important;
+    background-image: none !important;
     margin: 0 !important;
     padding: 0 !important;
+  }
+
+  /* Sem largura de tela amarrando o documento, senao a coluna de valores
+     fica cortada na margem direita da folha */
+  .doc {
+    width: auto !important;
+    max-width: 100% !important;
   }
 
   @page {
