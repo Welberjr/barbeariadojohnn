@@ -245,3 +245,47 @@ export async function adjustStock(
   revalidatePath(`/admin/produtos/${productId}`);
   return { ok: true, new_stock: newStock };
 }
+
+// =============================================================================
+// FOTO DO PRODUTO (Supabase Storage, bucket publico product-photos)
+// =============================================================================
+
+const TIPOS_FOTO_ACEITOS: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
+const MAX_FOTO_BYTES = 5 * 1024 * 1024; // 5MB
+
+/**
+ * Sobe a foto do produto e devolve a URL publica.
+ * A foto aparece na lista de produtos, na comanda e na loja do cliente, entao
+ * vale a pena o barbeiro conseguir tirar do celular na hora do cadastro.
+ */
+export async function uploadProductPhoto(formData: FormData) {
+  const file = formData.get('photo');
+  if (!file || !(file instanceof File)) {
+    return { ok: false as const, error: 'Nenhum arquivo enviado' };
+  }
+
+  const ext = TIPOS_FOTO_ACEITOS[file.type];
+  if (!ext) {
+    return { ok: false as const, error: 'Formato inválido. Use JPG, PNG ou WEBP.' };
+  }
+  if (file.size > MAX_FOTO_BYTES) {
+    return { ok: false as const, error: 'Imagem muito grande. O limite é 5MB.' };
+  }
+
+  const admin = await createManagerClient();
+  const path = `${crypto.randomUUID()}.${ext}`;
+  const bytes = await file.arrayBuffer();
+
+  const { error } = await admin.storage
+    .from('product-photos')
+    .upload(path, bytes, { contentType: file.type, upsert: true });
+
+  if (error) return { ok: false as const, error: error.message };
+
+  const { data: pub } = admin.storage.from('product-photos').getPublicUrl(path);
+  return { ok: true as const, url: pub.publicUrl };
+}

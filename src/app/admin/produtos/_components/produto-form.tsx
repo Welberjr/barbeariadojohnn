@@ -1,13 +1,23 @@
 'use client';
 
 import { useConfirm } from '@/components/confirm-dialog';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Loader2, Save, ArrowLeft, Trash2, Plus, Minus } from 'lucide-react';
+import {
+  Loader2,
+  Save,
+  ArrowLeft,
+  Trash2,
+  Plus,
+  Minus,
+  Upload,
+  X,
+  Image as ImageIcon,
+} from 'lucide-react';
 import Link from 'next/link';
 
 import {
@@ -15,6 +25,7 @@ import {
   updateProduct,
   deleteProduct,
   adjustStock,
+  uploadProductPhoto,
 } from '../actions';
 import type { ProductFormData } from '../actions';
 
@@ -57,11 +68,15 @@ export function ProductForm({
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isAdjusting, setIsAdjusting] = useState(false);
+  const [fotoUrl, setFotoUrl] = useState(defaultValues?.photo_url ?? '');
+  const [enviandoFoto, setEnviandoFoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<ProductFormSchema>({
     resolver: zodResolver(productSchema),
@@ -90,6 +105,35 @@ export function ProductForm({
   const lucroPorUnidade = salePrice - costPrice;
 
   const confirmDialog = useConfirm();
+
+  /**
+   * Envia a imagem escolhida e guarda a URL no formulário.
+   * A foto sobe na hora, então o gestor já vê a prévia antes de salvar o
+   * produto. Se ele desistir e sair sem salvar, sobra apenas o arquivo no
+   * armazenamento, sem sujar o cadastro.
+   */
+  async function enviarFoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setEnviandoFoto(true);
+    try {
+      const fd = new FormData();
+      fd.append('photo', file);
+      const res = await uploadProductPhoto(fd);
+
+      if (res.ok && res.url) {
+        setFotoUrl(res.url);
+        setValue('photo_url', res.url);
+        toast.success('Foto enviada.');
+      } else {
+        toast.error(res.error ?? 'Não foi possível enviar a foto.');
+      }
+    } finally {
+      setEnviandoFoto(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }
 
   async function onSubmit(data: ProductFormSchema) {
     setIsLoading(true);
@@ -251,14 +295,87 @@ export function ProductForm({
               />
             </div>
 
-            <div className="md:col-span-2">
-              <label className="label">URL da foto</label>
+            <div className="md:col-span-2 space-y-3">
+              <label className="label">Foto do produto</label>
+
+              <div className="flex items-start gap-4 flex-wrap">
+                {/* Prévia */}
+                <div className="w-24 h-24 rounded-md border border-border bg-bg-elevated overflow-hidden flex items-center justify-center shrink-0">
+                  {fotoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={fotoUrl}
+                      alt="Foto do produto"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <ImageIcon className="w-7 h-7 text-fg-dim" />
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={enviandoFoto}
+                      className="btn-gold-outline text-xs"
+                    >
+                      {enviandoFoto ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Upload className="w-4 h-4" />
+                      )}
+                      {fotoUrl ? 'Trocar foto' : 'Escolher foto'}
+                    </button>
+
+                    {fotoUrl && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFotoUrl('');
+                          setValue('photo_url', '');
+                        }}
+                        className="btn-ghost text-xs text-danger"
+                      >
+                        <X className="w-4 h-4" />
+                        Remover
+                      </button>
+                    )}
+                  </div>
+
+                  <p className="text-[10px] text-fg-subtle">
+                    JPG, PNG ou WEBP, até 5MB. No celular dá para tirar a foto na hora.
+                  </p>
+                </div>
+              </div>
+
               <input
-                type="url"
-                placeholder="https://..."
-                className="input"
-                {...register('photo_url')}
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={enviarFoto}
               />
+
+              {/* Guarda o valor no formulário e permite colar um endereço */}
+              <input type="hidden" {...register('photo_url')} />
+
+              <details className="text-xs text-fg-muted">
+                <summary className="cursor-pointer text-fg-subtle">
+                  Preferir colar o endereço de uma imagem
+                </summary>
+                <input
+                  type="url"
+                  placeholder="https://..."
+                  className="input mt-2"
+                  value={fotoUrl}
+                  onChange={(e) => {
+                    setFotoUrl(e.target.value);
+                    setValue('photo_url', e.target.value);
+                  }}
+                />
+              </details>
             </div>
           </div>
         </section>

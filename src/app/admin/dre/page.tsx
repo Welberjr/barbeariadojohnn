@@ -16,7 +16,7 @@ import { DrePdfButton } from './_components/dre-pdf-button';
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
 export const metadata = {
-  title: 'DRE — Demonstrativo de Resultados',
+  title: 'DRE, o demonstrativo de resultados',
 };
 
 interface DREPageProps {
@@ -44,7 +44,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
   // dependem um do outro, então vão juntos ao banco.
   const [{ data: comandasRaw }, { data: billsRaw }, txAttempt, { data: categoriesRaw }] =
     await Promise.all([
-      // 1. RECEITAS — comandas fechadas no período
+      // 1. RECEITAS: comandas fechadas no período
       supabase
         .from('comandas')
         .select('id, total, net_total, card_fee_total')
@@ -52,7 +52,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
         .eq('status', 'closed')
         .gte('closed_at', periodStart)
         .lte('closed_at', periodEnd),
-      // 4. DESPESAS — bills pagas no período
+      // 4. DESPESAS: bills pagas no período
       supabase
         .from('bills')
         .select('amount, paid_amount, paid_at, category_id, description')
@@ -92,7 +92,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
     0
   );
 
-  // 2. ITENS — comissões e custos de produtos
+  // 2. ITENS: comissões e custos de produtos
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let items: any[] = [];
   if (comandaIds.length > 0) {
@@ -227,22 +227,30 @@ export default async function DREPage({ searchParams }: DREPageProps) {
   return (
     <div className="space-y-6 animate-fade-in print-area">
       {/* CABECALHO EXCLUSIVO DO PDF */}
-      <div className="hidden print:block border-b-2 border-black pb-3">
-        <h1 className="text-2xl font-bold" style={{ fontFamily: 'var(--font-playfair), serif' }}>
-          Barbearia do Johnn
-        </h1>
-        <p className="text-sm font-semibold mt-1">DRE — Demonstrativo de Resultados</p>
-        <p className="text-xs mt-1">
-          Período: {fromStr.split('-').reverse().join('/')} a {toStr.split('-').reverse().join('/')} · Emitido em{' '}
-          {new Date().toLocaleString('pt-BR', {
-            timeZone: 'America/Sao_Paulo',
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
-        </p>
+      <div className="hidden print:flex items-end justify-between gap-4 border-b-2 border-black pb-3">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ fontFamily: 'var(--font-playfair), serif' }}>
+            Barbearia do Johnn
+          </h1>
+          <p className="text-sm font-semibold mt-1">Demonstrativo de resultados</p>
+        </div>
+
+        <div className="text-right text-xs leading-snug">
+          <p className="font-semibold">
+            {fromStr.split('-').reverse().join('/')} a {toStr.split('-').reverse().join('/')}
+          </p>
+          <p>
+            Emitido em{' '}
+            {new Date().toLocaleString('pt-BR', {
+              timeZone: 'America/Sao_Paulo',
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </p>
+        </div>
       </div>
 
       {/* HEADER */}
@@ -255,7 +263,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
             className="text-3xl text-fg font-bold"
             style={{ fontFamily: 'var(--font-playfair), serif' }}
           >
-            DRE — Demonstrativo de Resultados
+            DRE, o demonstrativo de resultados
           </h1>
           <p className="text-sm text-fg-muted mt-2">
             Receitas, custos, despesas e lucro do período.
@@ -568,7 +576,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
               {formatCurrency(totalServicos)}
             </p>
             <p className="text-[11px] text-fg-subtle mt-1">
-              {baseComposicao > 0 ? `${pctServicos.toFixed(1)}%` : '—'}{' '}
+              {baseComposicao > 0 ? `${pctServicos.toFixed(1)}%` : 'sem dados'}{' '}
               da receita
             </p>
           </div>
@@ -586,7 +594,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
               {formatCurrency(totalProdutosReal)}
             </p>
             <p className="text-[11px] text-fg-subtle mt-1">
-              {baseComposicao > 0 ? `${pctProdutos.toFixed(1)}%` : '—'}{' '}
+              {baseComposicao > 0 ? `${pctProdutos.toFixed(1)}%` : 'sem dados'}{' '}
               da receita
             </p>
           </div>
@@ -605,13 +613,21 @@ export default async function DREPage({ searchParams }: DREPageProps) {
                 {formatCurrency(txReceitas)}
               </p>
               <p className="text-[11px] text-fg-subtle mt-1">
-                {baseComposicao > 0 ? `${pctReceitasExtras.toFixed(1)}%` : '—'}{' '}
+                {baseComposicao > 0 ? `${pctReceitasExtras.toFixed(1)}%` : 'sem dados'}{' '}
                 da receita
               </p>
             </div>
           )}
         </div>
       </section>
+
+      {/* Assinatura do documento, só no papel */}
+      <div className="print-footer">
+        <p>
+          Barbearia do Johnn · Documento gerado pelo sistema de gestão · Período de{' '}
+          {fromStr.split('-').reverse().join('/')} a {toStr.split('-').reverse().join('/')}
+        </p>
+      </div>
     </div>
   );
 }

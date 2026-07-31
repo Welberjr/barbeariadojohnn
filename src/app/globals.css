@@ -344,6 +344,123 @@
     text-decoration: none !important;
   }
 }
+
+/* ===== Relatorio impresso: caber em uma folha e parecer documento =====
+   O DRE saia em duas paginas, com bloco cortado no meio e espaco sobrando.
+   Aqui o conteudo e compactado, a hierarquia fica pelo peso da fonte e as
+   cores viram tons de cinza que sobrevivem a impressora preto e branco. */
+@media print {
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  @page {
+    margin: 12mm 14mm;
+  }
+
+  .print-area {
+    font-size: 10.5pt;
+    line-height: 1.35;
+  }
+
+  /* Espacamento vertical proporcional ao papel, nao a tela */
+  .print-area > * + * {
+    margin-top: 10px !important;
+  }
+  .print-area .card,
+  .print-area .card-premium,
+  .print-area section {
+    padding: 10px 12px !important;
+    margin: 0 !important;
+  }
+  .print-area .space-y-6 > * + *,
+  .print-area .space-y-4 > * + * {
+    margin-top: 8px !important;
+  }
+
+  /* Titulos: menores que na tela, ainda com hierarquia clara */
+  .print-area h1 {
+    font-size: 17pt !important;
+    line-height: 1.2 !important;
+  }
+  .print-area h2 {
+    font-size: 11.5pt !important;
+    margin-bottom: 4px !important;
+  }
+  .print-area .text-2xl,
+  .print-area .text-3xl {
+    font-size: 13pt !important;
+    line-height: 1.2 !important;
+  }
+  .print-area .text-xs,
+  .print-area .text-\[10px\],
+  .print-area .text-\[11px\] {
+    font-size: 8.5pt !important;
+  }
+
+  /* Numeros e rotulos em tons de cinza, nao em cores que somem no P&B */
+  .print-area .text-gold,
+  .print-area .text-success,
+  .print-area .text-danger,
+  .print-area .text-warn {
+    color: #000 !important;
+    font-weight: 600;
+  }
+  .print-area .text-fg-muted,
+  .print-area .text-fg-dim,
+  .print-area .text-fg-subtle {
+    color: #555 !important;
+  }
+
+  /* Tabelas com cara de relatorio */
+  .print-area table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 9.5pt !important;
+  }
+  .print-area thead tr {
+    border-bottom: 1px solid #999 !important;
+  }
+  .print-area th {
+    font-size: 8pt !important;
+    letter-spacing: 0.06em;
+    color: #333 !important;
+    padding: 3px 4px !important;
+  }
+  .print-area td {
+    padding: 3px 4px !important;
+    border-bottom: 1px solid #eee !important;
+  }
+
+  /* Os tres indicadores do topo ficam lado a lado, sem esticar */
+  .print-area .grid {
+    gap: 8px !important;
+  }
+
+  /* Grafico e area decorativa nao ajudam no papel e comem meia folha */
+  .print-area canvas,
+  .print-area svg.recharts-surface,
+  .print-area .recharts-wrapper,
+  .print-area .print-hide {
+    display: none !important;
+  }
+
+  /* Assinatura do documento no rodape da ultima pagina */
+  .print-footer {
+    display: block !important;
+    margin-top: 14px;
+    padding-top: 6px;
+    border-top: 1px solid #ccc;
+    font-size: 8pt;
+    color: #666 !important;
+  }
+}
+
+/* O rodape do relatorio so existe no papel */
+.print-footer {
+  display: none;
+}
 /* Animacao do SlideModal */
 @keyframes slideInRight {
   from { transform: translateX(100%); opacity: 0; }
