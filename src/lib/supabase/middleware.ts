@@ -93,7 +93,18 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = path;
     url.search = '';
-    return NextResponse.redirect(url);
+    const resposta = NextResponse.redirect(url);
+
+    // Leva junto o cookie de sessao renovado.
+    // Sem isto, quando o token de uma hora vence, a sessao e renovada aqui mas
+    // o cookie novo morre com a resposta descartada. O navegador continua com o
+    // cookie velho, ja consumido, e as telas ficam trocando redirecionamento
+    // entre si ate o navegador desistir com "redirecionamento em excesso".
+    for (const cookie of supabaseResponse.cookies.getAll()) {
+      resposta.cookies.set(cookie);
+    }
+
+    return resposta;
   }
 
   // ----- Areas da equipe -----

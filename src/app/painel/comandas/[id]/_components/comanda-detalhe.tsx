@@ -12,6 +12,7 @@ import {
   CreditCard,
   Crown,
   RotateCcw,
+  XCircle,
 } from 'lucide-react';
 
 import {
@@ -20,6 +21,7 @@ import {
   removerItem,
   fecharMinhaComanda,
   reabrirMinhaComanda,
+  cancelarMinhaComanda,
 } from '../../actions';
 import { formatCurrency } from '@/lib/utils';
 import { corDoSelo, type Selo } from '@/lib/painel/assinatura-selo';
@@ -49,6 +51,8 @@ interface ComandaDetalheProps {
   comandaId: string;
   cliente: string;
   aberta: boolean;
+  /** Cancelada antes de virar dinheiro: nao tem o que corrigir nem estornar */
+  cancelada?: boolean;
   /** Quando foi fechada, para saber se ainda dá tempo de corrigir */
   fechadaEm?: string | null;
   itens: Item[];
@@ -71,6 +75,7 @@ export function ComandaDetalhe({
   comandaId,
   cliente,
   aberta,
+  cancelada = false,
   fechadaEm,
   itens,
   subtotal,
@@ -83,6 +88,8 @@ export function ComandaDetalhe({
   const router = useRouter();
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [confirmandoCorrecao, setConfirmandoCorrecao] = useState(false);
+  const [confirmandoCancelar, setConfirmandoCancelar] = useState(false);
+  const [motivoCancelar, setMotivoCancelar] = useState('');
 
   // Minutos que ainda restam da janela de correção. Calculado no navegador
   // para o contador não nascer errado por causa do cache da página.
@@ -144,6 +151,16 @@ export function ComandaDetalhe({
     );
     if (res?.ok) {
       toast.success('Comanda fechada.');
+      router.push('/painel/comandas');
+    }
+  }
+
+  async function cancelar() {
+    const res = await executar('cancelar', () =>
+      cancelarMinhaComanda(comandaId, motivoCancelar)
+    );
+    if (res?.ok) {
+      toast.success('Comanda cancelada.');
       router.push('/painel/comandas');
     }
   }
@@ -387,10 +404,83 @@ export function ComandaDetalhe({
               </div>
             )}
           </section>
+
+          {/* Cancelar: o cliente foi embora antes de ser atendido */}
+          <section className="card p-5 space-y-3">
+            {!confirmandoCancelar ? (
+              <>
+                <p className="text-xs text-fg-muted">
+                  O cliente foi embora e não vai ser atendido? Cancele a comanda em vez de
+                  lançar alguma coisa só para poder fechar.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setConfirmandoCancelar(true)}
+                  className="btn-ghost w-full text-xs text-danger hover:text-danger"
+                >
+                  <XCircle className="w-4 h-4" />
+                  Cancelar esta comanda
+                </button>
+              </>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-fg">Cancelar a comanda de {cliente}?</p>
+
+                {itens.length > 0 && (
+                  <p className="text-xs text-warn">
+                    Os {itens.length} {itens.length === 1 ? 'item lançado sai' : 'itens lançados saem'}{' '}
+                    da comanda. Produto volta para o estoque e uso de assinatura volta para o
+                    cliente.
+                  </p>
+                )}
+
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="Motivo (o cliente precisou sair, desistiu...)"
+                  value={motivoCancelar}
+                  onChange={(e) => setMotivoCancelar(e.target.value)}
+                  maxLength={120}
+                />
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={cancelar}
+                    disabled={!!ocupado}
+                    className="btn-secondary flex-1 text-danger"
+                  >
+                    {ocupado === 'cancelar' ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <XCircle className="w-4 h-4" />
+                    )}
+                    Cancelar comanda
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmandoCancelar(false)}
+                    className="btn-primary flex-1"
+                  >
+                    Voltar
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
         </>
       )}
 
-      {!aberta && (
+      {!aberta && cancelada && (
+        <section className="card p-5">
+          <p className="text-sm text-fg-muted">
+            Comanda cancelada. Nada foi cobrado do cliente. Se ele voltar, abra uma comanda
+            nova.
+          </p>
+        </section>
+      )}
+
+      {!aberta && !cancelada && (
         <section className="card p-5 space-y-3">
           {minutosRestantes !== null && minutosRestantes > 0 ? (
             <>

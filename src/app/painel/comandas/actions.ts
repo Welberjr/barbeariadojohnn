@@ -529,6 +529,117 @@ export async function fecharMinhaComanda(dados: {
 }
 
 // ------------------------------------------------------------------
+// Cancelamento de comanda aberta
+// ------------------------------------------------------------------
+
+/**
+ * Cancela uma comanda que ainda esta aberta.
+ *
+ * Caso real do dia a dia: o cliente sentou, a comanda foi aberta e ele
+ * precisou ir embora. Sem isto o barbeiro fica com uma comanda aberta pendurada
+ * ou e obrigado a lancar e cobrar alguma coisa que nao aconteceu, que e pior.
+ *
+ * Comanda aberta ainda nao virou dinheiro: nao ha pagamento, nao ha comissao
+ * fechada, nao ha ponto de fidelidade. Cancelar aqui nao mexe no caixa. O que
+ * existe de efeito e o estoque dos produtos ja lancados e o uso de assinatura
+ * ja debitado, e os dois sao devolvidos.
+ *
+ * Nada e apagado: a comanda fica gravada como cancelada, com o motivo e a hora,
+ * para a gestao enxergar depois quem abre e desiste demais.
+ */
+export async function cancelarMinhaComanda(comandaId: string, motivo: string) {
+  const acesso = await exigirModulo('comanda');
+  if (!acesso.ok) return { ok: false, error: acesso.error };
+
+  const dono = await minhaComandaAberta(comandaId, acesso.staff);
+  if (!dono.ok) return { ok: false, error: dono.error };
+
+  const admin = createAdminClient();
+
+  const { data: itens } = await admin
+    .from('comanda_items')
+    .select('id, item_type, product_id, quantity, staff_id, subscription_usage_id')
+    .eq('comanda_id', comandaId);
+
+  // Item de outro profissional nao se apaga por aqui, do mesmo jeito que a
+  // comanda com item de terceiro nao fecha por aqui.
+  const deOutro = (itens ?? []).some(
+    (i) => i.staff_id && i.staff_id !== acesso.staff.staffId
+  );
+  if (deOutro) {
+    return {
+      ok: false,
+      error:
+        'Esta comanda tem item de outro profissional. Peça para a gestão cancelar.',
+    };
+  }
+
+  for (const item of itens ?? []) {
+    // Produto volta para a prateleira
+    if (item.item_type === 'product' && item.product_id) {
+      await admin.rpc('painel_baixar_estoque', {
+        p_product_id: item.product_id,
+        p_barbershop_id: BARBERSHOP_ID,
+        p_quantidade: -Number(item.quantity ?? 0),
+      });
+    }
+
+    // Uso de assinatura volta para o saldo do cliente
+    if (item.subscription_usage_id) {
+      await admin
+        .from('subscription_usages')
+        .delete()
+        .eq('id', item.subscription_usage_id)
+        .is('settled_payout_id', null);
+    }
+  }
+
+  if ((itens ?? []).length > 0) {
+    await admin.from('comanda_items').delete().eq('comanda_id', comandaId);
+  }
+
+  // O status so muda se a comanda ainda estiver aberta. Dois cliques em rede
+  // ruim, ou fechar numa aba e cancelar na outra, param aqui.
+  const { data: cancelada, error } = await admin
+    .from('comandas')
+    .update({
+      status: 'cancelled',
+      subtotal: 0,
+      total: 0,
+      net_total: 0,
+      reversed_at: new Date().toISOString(),
+      reversed_by: acesso.staff.profileId,
+      reversal_reason: motivo.trim() || 'Cancelada pelo profissional',
+      closed_at: new Date().toISOString(),
+    })
+    .eq('id', comandaId)
+    .eq('staff_id', acesso.staff.staffId)
+    .eq('status', 'open')
+    .select('id, appointment_id')
+    .maybeSingle();
+
+  if (error) return { ok: false, error: error.message };
+  if (!cancelada) {
+    return { ok: false, error: 'Esta comanda mudou enquanto você olhava.' };
+  }
+
+  // O atendimento volta a ficar sem comanda, para o barbeiro poder abrir outra
+  // se o cliente voltar mais tarde.
+  if (cancelada.appointment_id) {
+    await admin
+      .from('appointments')
+      .update({ comanda_id: null })
+      .eq('id', cancelada.appointment_id)
+      .eq('staff_id', acesso.staff.staffId);
+  }
+
+  revalidatePath('/painel');
+  revalidatePath('/painel/comandas');
+  revalidatePath('/painel/agenda');
+  return { ok: true };
+}
+
+// ------------------------------------------------------------------
 // Correcao da propria comanda
 // ------------------------------------------------------------------
 

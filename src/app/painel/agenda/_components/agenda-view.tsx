@@ -24,6 +24,7 @@ import {
 } from '@/lib/painel/agenda-estados';
 import { montarSelo, corDoSelo, type AssinaturaResumo } from '@/lib/painel/assinatura-selo';
 import { useAcaoRapida } from '@/lib/use-acao-rapida';
+import { EncaixarCliente } from './encaixar-cliente';
 
 interface AgendamentoView {
   id: string;
@@ -41,6 +42,7 @@ interface AgendaViewProps {
   data: string;
   agendamentos: AgendamentoView[];
   podeOperar: boolean;
+  servicos: Array<{ id: string; nome: string; preco: number; minutos: number }>;
 }
 
 const ACAO_INFO: Record<AcaoAgenda, { label: string; icon: typeof Check }> = {
@@ -79,7 +81,7 @@ function hora(iso: string) {
   });
 }
 
-export function AgendaView({ data, agendamentos, podeOperar }: AgendaViewProps) {
+export function AgendaView({ data, agendamentos, podeOperar, servicos }: AgendaViewProps) {
   const router = useRouter();
   const [pendente, startTransition] = useTransition();
   const { executar: executarRapido } = useAcaoRapida();
@@ -245,6 +247,8 @@ export function AgendaView({ data, agendamentos, podeOperar }: AgendaViewProps) 
           })}
         </div>
       )}
+
+      {podeOperar && <EncaixarCliente data={data} servicos={servicos} />}
 
       {podeOperar && (
         <button

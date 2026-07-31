@@ -88,7 +88,31 @@
     box-shadow: 0 0 30px rgba(212, 160, 79, 0.15);
   }
   
-  /* BOTÕES */
+  /* BOTÕES
+     Todo botão do sistema fica na mesma forma: ícone e texto lado a lado,
+     no meio, com o mesmo respiro entre eles. Sem isto o ícone vira um bloco
+     solto acima do texto, encostado na esquerda, porque o reset do Tailwind
+     transforma todo svg em elemento de bloco. */
+  .btn-primary,
+  .btn-gold-shimmer,
+  .btn-gold-outline,
+  .btn-secondary,
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    text-align: center;
+    line-height: 1.25;
+  }
+  .btn-primary > svg,
+  .btn-gold-shimmer > svg,
+  .btn-gold-outline > svg,
+  .btn-secondary > svg,
+  .btn-ghost > svg {
+    flex-shrink: 0;
+  }
+
   .btn-primary {
     position: relative;
     background-color: #D4A04F;

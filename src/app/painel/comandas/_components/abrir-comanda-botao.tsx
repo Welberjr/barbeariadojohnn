@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Loader2, Plus, Search, X } from 'lucide-react';
+import { Loader2, Plus, Search, X, UserPlus } from 'lucide-react';
 import { abrirMinhaComanda } from '../actions';
 import { buscarClienteParaComanda } from '../buscar-actions';
+import { cadastrarClienteRapido } from '../../clientes/actions';
 
 interface AbrirComandaBotaoProps {
   appointmentId?: string;
@@ -28,6 +29,27 @@ export function AbrirComandaBotao({
   const [clientes, setClientes] = useState<
     Array<{ id: string; full_name: string; phone: string | null }>
   >([]);
+  const [cadastrando, setCadastrando] = useState(false);
+  const [nomeNovo, setNomeNovo] = useState('');
+  const [telefoneNovo, setTelefoneNovo] = useState('');
+
+  /** Cliente que chegou sem cadastro: nasce aqui e a comanda abre em seguida. */
+  async function cadastrarEAbrir() {
+    setAbrindo(true);
+    try {
+      const res = await cadastrarClienteRapido({ nome: nomeNovo, telefone: telefoneNovo });
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      if (res.jaExistia) {
+        toast.success(`${res.cliente.full_name} já era cliente. Abrindo a comanda dele.`);
+      }
+      await abrir(res.cliente.id);
+    } finally {
+      setAbrindo(false);
+    }
+  }
 
   async function abrir(customerId?: string) {
     setAbrindo(true);
@@ -111,12 +133,6 @@ export function AbrirComandaBotao({
 
           {buscando && <p className="text-xs text-fg-dim">Procurando...</p>}
 
-          {!buscando && termo.trim().length >= 3 && clientes.length === 0 && (
-            <p className="text-xs text-fg-muted">
-              Nenhum cliente encontrado. Cliente novo é cadastrado pela recepção.
-            </p>
-          )}
-
           <div className="space-y-2">
             {clientes.map((c) => (
               <button
@@ -131,6 +147,65 @@ export function AbrirComandaBotao({
               </button>
             ))}
           </div>
+
+          {/* Cliente novo, cadastrado na hora pelo próprio barbeiro */}
+          {!cadastrando ? (
+            <button
+              type="button"
+              onClick={() => {
+                setNomeNovo(termo.trim().replace(/\d/g, '').trim());
+                setTelefoneNovo('');
+                setCadastrando(true);
+              }}
+              className="btn-gold-outline w-full text-xs"
+            >
+              <UserPlus className="w-4 h-4" />
+              {termo.trim().length >= 3 && clientes.length === 0 && !buscando
+                ? 'Não achei. Cadastrar cliente novo'
+                : 'Cadastrar cliente novo'}
+            </button>
+          ) : (
+            <div className="space-y-3 pt-1">
+              <input
+                type="text"
+                className="input"
+                placeholder="Nome do cliente"
+                value={nomeNovo}
+                onChange={(e) => setNomeNovo(e.target.value)}
+                autoFocus
+              />
+              <input
+                type="tel"
+                inputMode="numeric"
+                className="input"
+                placeholder="Telefone com DDD"
+                value={telefoneNovo}
+                onChange={(e) => setTelefoneNovo(e.target.value)}
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={cadastrarEAbrir}
+                  disabled={abrindo || nomeNovo.trim().length < 3}
+                  className="btn-primary flex-1"
+                >
+                  {abrindo ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <UserPlus className="w-4 h-4" />
+                  )}
+                  Cadastrar e abrir
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCadastrando(false)}
+                  className="btn-secondary flex-1"
+                >
+                  Voltar
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

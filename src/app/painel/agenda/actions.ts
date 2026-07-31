@@ -253,7 +253,9 @@ export async function encaixarCliente(dados: {
       start_at: inicio.toISOString(),
       end_at: fim.toISOString(),
       status: 'confirmed',
-      source: 'painel_barbeiro',
+      // O enum appointment_source nao tem valor proprio para o painel, e
+      // encaixe e marcacao feita por gente da casa, igual ao que a recepcao faz
+      source: 'manual',
       notes: dados.observacao || null,
     })
     .select('id')

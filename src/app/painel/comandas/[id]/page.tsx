@@ -84,6 +84,7 @@ export default async function ComandaPainelPage({ params }: ComandaPageProps) {
         comandaId={comanda.id as string}
         cliente={cliente?.full_name ?? 'Cliente'}
         aberta={comanda.status === 'open'}
+        cancelada={comanda.status === 'cancelled'}
         fechadaEm={(comanda.closed_at as string) ?? null}
         subtotal={subtotal}
         selo={selo}

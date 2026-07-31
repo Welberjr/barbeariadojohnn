@@ -1,6 +1,7 @@
 import { requireStaff } from '@/lib/staff-auth';
 import { podeModulo } from '@/lib/staff-permissions';
-import { agendaDoDia, hojeStr } from '@/lib/painel/dados';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { agendaDoDia, hojeStr, BARBERSHOP_ID } from '@/lib/painel/dados';
 import { AgendaView } from './_components/agenda-view';
 
 export const metadata = { title: 'Minha agenda' };
@@ -15,7 +16,22 @@ export default async function AgendaPainelPage({ searchParams }: AgendaPageProps
   const staff = await requireStaff();
 
   const data = dataParam && /^\d{4}-\d{2}-\d{2}$/.test(dataParam) ? dataParam : hojeStr();
-  const agendamentos = await agendaDoDia(staff, data);
+  const podeOperar = podeModulo(staff, 'agenda_operar');
+
+  // Os serviços vêm junto com a página para o encaixe abrir já preenchido:
+  // no balcão, com o cliente esperando em pé, não dá para o barbeiro ficar
+  // olhando uma lista carregar depois do clique.
+  const [agendamentos, { data: servicos }] = await Promise.all([
+    agendaDoDia(staff, data),
+    podeOperar
+      ? createAdminClient()
+          .from('services')
+          .select('id, name, base_price, base_duration_minutes')
+          .eq('barbershop_id', BARBERSHOP_ID)
+          .eq('active', true)
+          .order('name')
+      : Promise.resolve({ data: [] }),
+  ]);
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -31,7 +47,13 @@ export default async function AgendaPainelPage({ searchParams }: AgendaPageProps
 
       <AgendaView
         data={data}
-        podeOperar={podeModulo(staff, 'agenda_operar')}
+        podeOperar={podeOperar}
+        servicos={(servicos ?? []).map((s) => ({
+          id: s.id as string,
+          nome: s.name as string,
+          preco: Number(s.base_price ?? 0),
+          minutos: Number(s.base_duration_minutes ?? 30),
+        }))}
         agendamentos={agendamentos.map((a) => ({
           id: a.id,
           cliente: a.cliente,
