@@ -3,6 +3,7 @@ import { Crown, Plus, Users, TrendingUp, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
 import { AssinaturasView } from './_components/assinaturas-view';
+import { SobrasSection } from './_components/sobras-section';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -40,7 +41,7 @@ export default async function AssinaturasPage() {
     admin
       .from('subscription_plans')
       .select(
-        'id, name, description, price, period, allowed_days, included_uses, barber_share_percent, accumulate_unused, show_on_public_menu, active, display_order'
+        'id, name, description, price, period, allowed_days, included_uses, barber_share_percent, accumulate_unused, show_on_public_menu, active, display_order, leftover_destination'
       )
       .eq('barbershop_id', BARBERSHOP_ID)
       .order('display_order')
@@ -61,7 +62,7 @@ export default async function AssinaturasPage() {
       .from('subscription_payouts')
       .select(
         `id, created_at, period_start, period_end, plan_price, barber_share_percent,
-       pool_amount, total_uses,
+       pool_amount, total_uses, included_uses, unused_uses, leftover_amount, leftover_destination,
        subscription:subscriptions ( customer:customers (full_name) )`
       )
       .eq('barbershop_id', BARBERSHOP_ID)
@@ -161,6 +162,10 @@ export default async function AssinaturasPage() {
     share_percent: Number(p.barber_share_percent),
     pool_amount: Number(p.pool_amount),
     total_uses: Number(p.total_uses),
+    included_uses: Number(p.included_uses ?? 0),
+    unused_uses: Number(p.unused_uses ?? 0),
+    leftover_amount: Number(p.leftover_amount ?? 0),
+    leftover_destination: (p.leftover_destination as string) ?? 'barbearia',
     customer_name:
       (p.subscription?.customer?.full_name as string) ?? 'Cliente',
     items: payoutItems
@@ -171,6 +176,36 @@ export default async function AssinaturasPage() {
         amount: Number(i.amount),
       })),
   }));
+
+  // Sobra prevista do ciclo em aberto, por cliente. É o que o Johnn precisa
+  // ver para saber quanto ainda não foi repassado enquanto o ciclo corre.
+  const sobrasEmAberto = subscriptions
+    .filter((s) => ['active', 'past_due'].includes(s.status))
+    .map((s) => {
+      const plano = plans.find((p) => p.name === s.plan_name);
+      const share = Number(plano?.barber_share_percent ?? 50);
+      const poolCents = Math.round(s.plan_price * 100 * (share / 100));
+      const valorPorUsoCents =
+        s.included_uses > 0 ? Math.floor(poolCents / s.included_uses) : 0;
+      const usados = Math.min(s.used_in_cycle, s.included_uses);
+      const sobraCents = poolCents - usados * valorPorUsoCents;
+
+      return {
+        assinaturaId: s.id,
+        cliente: s.customer_name,
+        plano: s.plan_name,
+        usados: s.used_in_cycle,
+        inclusos: s.included_uses,
+        naoUsados: Math.max(0, s.included_uses - usados),
+        valorPorUso: valorPorUsoCents / 100,
+        aRepassar: (usados * valorPorUsoCents) / 100,
+        sobra: sobraCents / 100,
+        fimDoCiclo: s.current_period_end,
+        vencida: s.is_expired,
+        destino: (plano?.leftover_destination as string) ?? 'barbearia',
+      };
+    })
+    .sort((a, b) => b.sobra - a.sobra);
 
   // KPIs
   const activeSubs = subscriptions.filter((s) =>
@@ -296,6 +331,9 @@ export default async function AssinaturasPage() {
           </p>
         </div>
       </div>
+
+      {/* SOBRA DAS ASSINATURAS */}
+      <SobrasSection sobras={sobrasEmAberto} fechados={payouts} />
 
       {/* TABS: PLANOS / ASSINANTES / REPASSES */}
       <AssinaturasView

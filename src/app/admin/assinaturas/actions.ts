@@ -15,11 +15,15 @@ import { revalidatePath } from 'next/cache';
 import {
   addBillingPeriod,
   nextCycle,
-  splitPool,
   toCents,
   centsToBRL,
   formatAllowedDays,
 } from '@/lib/subscriptions';
+import {
+  ratearPotinho,
+  lerDestinoSobra,
+  type DestinoSobra,
+} from '@/lib/subscriptions-rateio';
 import { notifyCustomer } from '@/lib/notifications';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
@@ -55,6 +59,8 @@ export interface PlanFormData {
   show_on_public_menu?: boolean;
   active?: boolean;
   display_order?: number;
+  /** O que fazer com o valor dos cortes que o cliente nao usou no ciclo */
+  leftover_destination?: string;
 }
 
 export async function createPlan(data: PlanFormData) {
@@ -73,6 +79,7 @@ export async function createPlan(data: PlanFormData) {
     show_on_public_menu: data.show_on_public_menu ?? true,
     active: data.active ?? true,
     display_order: data.display_order ?? 0,
+    leftover_destination: lerDestinoSobra(data.leftover_destination),
   });
 
   if (error) return { ok: false, error: error.message };
@@ -98,6 +105,7 @@ export async function updatePlan(planId: string, data: PlanFormData) {
       show_on_public_menu: data.show_on_public_menu ?? true,
       active: data.active ?? true,
       display_order: data.display_order ?? 0,
+      leftover_destination: lerDestinoSobra(data.leftover_destination),
     })
     .eq('id', planId);
 
@@ -279,6 +287,13 @@ export interface SettlementPreview {
   totalUses?: number;
   items?: Array<{ staff_id: string; staff_name: string; uses: number; amount: number }>;
   newPeriodEnd?: string;
+  /** Quanto vale cada corte incluso do plano */
+  valorPorUso?: number;
+  /** Cortes inclusos que o cliente nao usou */
+  usosNaoUsados?: number;
+  /** Quanto sobrou e fica com a barbearia */
+  sobra?: number;
+  destinoSobra?: DestinoSobra;
 }
 
 /**
@@ -292,7 +307,7 @@ export async function previewSettlement(subscriptionId: string): Promise<Settlem
     .from('subscriptions')
     .select(
       `id, current_period_end, current_price, customer_id,
-       plan:subscription_plans (name, price, period, barber_share_percent),
+       plan:subscription_plans (name, price, period, barber_share_percent, included_uses, leftover_destination),
        customer:customers (full_name)`
     )
     .eq('id', subscriptionId)
@@ -323,11 +338,15 @@ export async function previewSettlement(subscriptionId: string): Promise<Settlem
   const price = Number(s.current_price ?? s.plan.price);
   const sharePercent = Number(s.plan.barber_share_percent ?? 50);
   const poolCents = Math.round(toCents(price) * (sharePercent / 100));
+  const includedUses = Number(s.plan.included_uses ?? 0);
+  const destinoSobra = lerDestinoSobra(s.plan.leftover_destination);
 
-  const split = splitPool(
+  const rateio = ratearPotinho({
     poolCents,
-    Array.from(byStaff.entries()).map(([staff_id, v]) => ({ staff_id, uses: v.uses }))
-  );
+    includedUses,
+    byStaff: Array.from(byStaff.entries()).map(([staff_id, v]) => ({ staff_id, uses: v.uses })),
+    destinoSobra,
+  });
 
   const cycle = nextCycle(new Date(s.current_period_end), s.plan.period as string);
 
@@ -339,7 +358,11 @@ export async function previewSettlement(subscriptionId: string): Promise<Settlem
     sharePercent,
     poolAmount: centsToBRL(poolCents),
     totalUses: (usages ?? []).length,
-    items: split.map((i) => ({
+    valorPorUso: centsToBRL(rateio.valorPorUsoCents),
+    usosNaoUsados: rateio.usosNaoUsados,
+    sobra: centsToBRL(rateio.sobraDaBarbeariaCents),
+    destinoSobra,
+    items: rateio.items.map((i) => ({
       staff_id: i.staff_id,
       staff_name: byStaff.get(i.staff_id)?.name ?? 'Profissional',
       uses: i.uses,
@@ -369,7 +392,7 @@ export async function registerSubscriptionPayment(
     .from('subscriptions')
     .select(
       `id, status, customer_id, current_period_start, current_period_end, current_price,
-       plan:subscription_plans (id, name, price, period, included_uses, barber_share_percent),
+       plan:subscription_plans (id, name, price, period, included_uses, barber_share_percent, leftover_destination),
        customer:customers (full_name)`
     )
     .eq('id', subscriptionId)
@@ -386,6 +409,8 @@ export async function registerSubscriptionPayment(
   const price = Number(sub.current_price ?? sub.plan.price);
   const sharePercent = Number(sub.plan.barber_share_percent ?? 50);
   const poolCents = Math.round(toCents(price) * (sharePercent / 100));
+  const includedUses = Number(sub.plan.included_uses ?? 0);
+  const destinoSobra = lerDestinoSobra(sub.plan.leftover_destination);
 
   // ---- 1. Fechamento do ciclo anterior (usos nao acertados) ----
   const { data: usages } = await admin
@@ -411,10 +436,14 @@ export async function registerSubscriptionPayment(
   const payoutSummary: Array<{ staff_name: string; uses: number; amount: number }> = [];
 
   if (usageRows.length > 0 && poolCents > 0) {
-    const split = splitPool(
+    // Rateio por corte usado: o profissional leva pelo que atendeu e o que o
+    // cliente nao usou vira sobra, com o destino escolhido no plano.
+    const rateio = ratearPotinho({
       poolCents,
-      Array.from(byStaff.entries()).map(([staff_id, v]) => ({ staff_id, uses: v.uses }))
-    );
+      includedUses,
+      byStaff: Array.from(byStaff.entries()).map(([staff_id, v]) => ({ staff_id, uses: v.uses })),
+      destinoSobra,
+    });
 
     const { data: payout, error: errPayout } = await admin
       .from('subscription_payouts')
@@ -427,6 +456,12 @@ export async function registerSubscriptionPayment(
         barber_share_percent: sharePercent,
         pool_amount: centsToBRL(poolCents),
         total_uses: usageRows.length,
+        included_uses: includedUses,
+        unused_uses: rateio.usosNaoUsados,
+        leftover_amount: centsToBRL(rateio.sobraDaBarbeariaCents),
+        // Guarda o destino aplicado: se o plano mudar depois, o historico
+        // continua explicando o que foi feito naquele fechamento
+        leftover_destination: destinoSobra,
       })
       .select('id')
       .single();
@@ -436,7 +471,7 @@ export async function registerSubscriptionPayment(
     }
     payoutId = payout.id;
 
-    for (const item of split) {
+    for (const item of rateio.items) {
       const staffName = byStaff.get(item.staff_id)?.name ?? 'Profissional';
       const amount = centsToBRL(item.amountCents);
 
@@ -462,6 +497,8 @@ export async function registerSubscriptionPayment(
         staff_id: item.staff_id,
         uses_count: item.uses,
         amount,
+        base_amount: centsToBRL(item.baseCents),
+        leftover_amount: centsToBRL(item.sobraCents),
         transaction_id: tx?.id ?? null,
       });
 

@@ -14,7 +14,8 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { SessionStaff } from '@/lib/staff-auth';
-import { splitPool, toCents, centsToBRL } from '@/lib/subscriptions';
+import { toCents, centsToBRL } from '@/lib/subscriptions';
+import { ratearPotinho, lerDestinoSobra } from '@/lib/subscriptions-rateio';
 import type { AssinaturaResumo } from './assinatura-selo';
 
 export const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
@@ -317,10 +318,11 @@ export async function financeiroDoPeriodo(
 /**
  * Estimativa do potinho dos ciclos ainda abertos.
  *
- * Usa a mesma funcao de rateio do fechamento (splitPool), entao a estimativa
- * e consistente com o que sera pago. Continua sendo estimativa: se um colega
- * atender o mesmo assinante antes do fechamento, a fatia de cada um muda. A
- * tela deixa isso escrito.
+ * Usa a mesma funcao de rateio do fechamento, entao a estimativa e consistente
+ * com o que sera pago: cada corte incluso vale uma fatia fixa e o barbeiro
+ * leva pelo que atendeu. Continua sendo estimativa porque a sobra pode mudar
+ * de destino ou o colega pode atender o mesmo assinante antes do fechamento.
+ * A tela deixa isso escrito.
  */
 async function estimarPotinhoEmAberto(
   staff: SessionStaff,
@@ -334,7 +336,9 @@ async function estimarPotinhoEmAberto(
   const [{ data: subs }, { data: todosUsos }] = await Promise.all([
     admin
       .from('subscriptions')
-      .select('id, current_price, plan:subscription_plans ( price, barber_share_percent )')
+      .select(
+        'id, current_price, plan:subscription_plans ( price, barber_share_percent, included_uses, leftover_destination )'
+      )
       .in('id', subscriptionIds),
     admin
       .from('subscription_usages')
@@ -365,12 +369,14 @@ async function estimarPotinhoEmAberto(
     }
 
     const poolCents = Math.round(toCents(preco) * (share / 100));
-    const fatias = splitPool(
+    const rateio = ratearPotinho({
       poolCents,
-      Array.from(porStaff.entries()).map(([staff_id, uses]) => ({ staff_id, uses }))
-    );
+      includedUses: Number(plano?.included_uses ?? 0),
+      byStaff: Array.from(porStaff.entries()).map(([staff_id, uses]) => ({ staff_id, uses })),
+      destinoSobra: lerDestinoSobra(plano?.leftover_destination),
+    });
 
-    const minha = fatias.find((f) => f.staff_id === staff.staffId);
+    const minha = rateio.items.find((f) => f.staff_id === staff.staffId);
     if (minha) total += centsToBRL(minha.amountCents);
   }
 
