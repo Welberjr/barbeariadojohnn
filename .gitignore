@@ -42,3 +42,6 @@ dev-server.log
 # Vercel debug files
 .env.vercel-debug
 .env.vercel-check
+
+# Backups do banco (dados de cliente, nunca vao para o repositorio)
+backups/
