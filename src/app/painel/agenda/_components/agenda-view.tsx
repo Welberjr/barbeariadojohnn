@@ -24,6 +24,11 @@ import {
 } from '@/lib/painel/agenda-estados';
 import { montarSelo, corDoSelo, type AssinaturaResumo } from '@/lib/painel/assinatura-selo';
 import { useAcaoRapida } from '@/lib/use-acao-rapida';
+import {
+  situacao as situacaoConfirmacao,
+  rotuloSituacao as rotuloConfirmacao,
+  corSituacao as corConfirmacao,
+} from '@/lib/confirmacao-agendamento';
 import { EncaixarCliente } from './encaixar-cliente';
 
 interface AgendamentoView {
@@ -36,6 +41,8 @@ interface AgendamentoView {
   servicos: string[];
   observacao: string | null;
   assinatura: AssinaturaResumo | null;
+  confirmacaoPedidaEm: string | null;
+  confirmadaPeloClienteEm: string | null;
 }
 
 interface AgendaViewProps {
@@ -197,15 +204,40 @@ export function AgendaView({ data, agendamentos, podeOperar, servicos }: AgendaV
                   </span>
                 </div>
 
-                {selo.situacao !== 'sem_assinatura' && (
-                  <span
-                    className={`inline-block text-xs px-2 py-1 rounded-md border ${corDoSelo(
-                      selo.situacao
-                    )}`}
-                  >
-                    {selo.texto}
-                  </span>
-                )}
+                <div className="flex flex-wrap gap-2">
+                  {selo.situacao !== 'sem_assinatura' && (
+                    <span
+                      className={`inline-block text-xs px-2 py-1 rounded-md border ${corDoSelo(
+                        selo.situacao
+                      )}`}
+                    >
+                      {selo.texto}
+                    </span>
+                  )}
+
+                  {/* Confirmação de presença: só aparece depois de perguntar */}
+                  {(() => {
+                    const s = situacaoConfirmacao(
+                      {
+                        status,
+                        inicio: new Date(a.inicio),
+                        pedidaEm: a.confirmacaoPedidaEm ? new Date(a.confirmacaoPedidaEm) : null,
+                        confirmadaEm: a.confirmadaPeloClienteEm
+                          ? new Date(a.confirmadaPeloClienteEm)
+                          : null,
+                      },
+                      agora
+                    );
+                    if (s === 'nao_pedida') return null;
+                    return (
+                      <span
+                        className={`inline-block text-xs px-2 py-1 rounded-md border ${corConfirmacao(s)}`}
+                      >
+                        {rotuloConfirmacao(s)}
+                      </span>
+                    );
+                  })()}
+                </div>
 
                 {a.observacao && (
                   <p className="text-xs text-fg-muted italic">{a.observacao}</p>

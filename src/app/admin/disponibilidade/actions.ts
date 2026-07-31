@@ -2,6 +2,11 @@
 
 import { createManagerClient } from '@/lib/supabase/manager';
 import { revalidatePath } from 'next/cache';
+import {
+  validarJornada,
+  paraHorarioSemanal,
+  type JornadaSimples,
+} from '@/lib/jornada';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -84,5 +89,50 @@ export async function deleteDayOff(id: string) {
 
   revalidatePath('/admin/disponibilidade');
   revalidatePath('/admin/agenda');
+  return { ok: true };
+}
+
+// =============================================================
+// JORNADA DO PROFISSIONAL — horario proprio e almoco
+// =============================================================
+
+/**
+ * Grava a jornada de um profissional.
+ *
+ * Quem segue a barbearia nao guarda horario proprio: o campo fica nulo, e no dia
+ * em que a loja mudar o expediente ele muda junto, sem ninguem lembrar de
+ * atualizar sete cadastros na mao.
+ */
+export async function salvarJornada(dados: {
+  staffId: string;
+  segueALoja: boolean;
+  jornada: JornadaSimples;
+}) {
+  const admin = await createManagerClient();
+
+  if (!dados.segueALoja) {
+    const problema = validarJornada(dados.jornada);
+    if (problema) return { ok: false, error: problema };
+  }
+
+  const temAlmoco = !!dados.jornada.almocoInicio && !!dados.jornada.almocoFim;
+
+  const { error } = await admin
+    .from('staff')
+    .update({
+      use_barbershop_hours: dados.segueALoja,
+      custom_hours: dados.segueALoja ? null : paraHorarioSemanal(dados.jornada),
+      // O almoco vale mesmo para quem segue o horario da loja: a barbearia
+      // fica aberta, mas aquela pessoa nao esta na cadeira.
+      lunch_start: temAlmoco ? dados.jornada.almocoInicio : null,
+      lunch_end: temAlmoco ? dados.jornada.almocoFim : null,
+    })
+    .eq('id', dados.staffId);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath('/admin/disponibilidade');
+  revalidatePath('/admin/agenda');
+  revalidatePath('/cliente/agendar');
   return { ok: true };
 }

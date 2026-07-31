@@ -119,6 +119,10 @@ export interface AgendamentoPainel {
   observacao: string | null;
   comandaId: string | null;
   assinatura: AssinaturaResumo | null;
+  /** Quando a barbearia pediu para o cliente confirmar que vem */
+  confirmacaoPedidaEm: string | null;
+  /** Quando o proprio cliente confirmou, pelo aplicativo dele */
+  confirmadaPeloClienteEm: string | null;
 }
 
 export async function agendaDoDia(
@@ -132,6 +136,7 @@ export async function agendaDoDia(
     .from('appointments')
     .select(
       `id, customer_id, start_at, end_at, status, notes, comanda_id,
+       confirmation_requested_at, confirmed_by_customer_at,
        customers:customers ( full_name, phone )`
     )
     .eq('barbershop_id', BARBERSHOP_ID)
@@ -183,6 +188,8 @@ export async function agendaDoDia(
       assinatura: a.customer_id
         ? assinaturas.get(a.customer_id as string) ?? null
         : null,
+      confirmacaoPedidaEm: (a.confirmation_requested_at as string) ?? null,
+      confirmadaPeloClienteEm: (a.confirmed_by_customer_at as string) ?? null,
     };
   });
 }

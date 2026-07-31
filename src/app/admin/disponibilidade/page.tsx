@@ -1,7 +1,9 @@
 import { createAdminClient } from '@/lib/supabase/admin';
-import { Clock, CalendarOff, Plus } from 'lucide-react';
+import { Clock, CalendarOff, Plus, UserRoundCog } from 'lucide-react';
+import { daJornadaGravada } from '@/lib/jornada';
 import { BusinessHoursForm } from './_components/business-hours-form';
 import { DaysOffList } from './_components/days-off-list';
+import { JornadaProfissionais } from './_components/jornada-profissionais';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -54,7 +56,9 @@ export default async function DisponibilidadePage() {
       // Todos profissionais ativos
       supabase
         .from('staff')
-        .select('id, display_name, role')
+        .select(
+          'id, display_name, role, use_barbershop_hours, custom_hours, lunch_start, lunch_end'
+        )
         .eq('active', true)
         .in('role', ['barber', 'owner', 'manager'])
         .order('display_name'),
@@ -96,6 +100,39 @@ export default async function DisponibilidadePage() {
         </p>
 
         <BusinessHoursForm initialHours={businessHours} />
+      </section>
+
+      {/* ============= JORNADA DE CADA PROFISSIONAL ============= */}
+      <section className="card p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <UserRoundCog className="h-5 w-5 text-gold" />
+          <h2
+            className="text-lg font-semibold text-fg"
+            style={{ fontFamily: 'var(--font-playfair), serif' }}
+          >
+            Jornada de cada profissional
+          </h2>
+        </div>
+        <p className="mb-5 text-xs text-fg-muted">
+          Quem entra mais tarde, quem sai mais cedo, quem não trabalha domingo e quem para
+          para almoçar. O cliente só consegue marcar dentro do horário de quem vai atender.
+        </p>
+
+        <JornadaProfissionais
+          lista={(staff ?? []).map((s) => ({
+            id: s.id as string,
+            nome: s.display_name as string,
+            segueALoja: s.use_barbershop_hours !== false,
+            jornada: daJornadaGravada(
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (s.custom_hours as any) ?? null,
+              {
+                inicio: (s.lunch_start as string) ?? null,
+                fim: (s.lunch_end as string) ?? null,
+              }
+            ),
+          }))}
+        />
       </section>
 
       {/* ============= FOLGAS / BLOQUEIOS ============= */}

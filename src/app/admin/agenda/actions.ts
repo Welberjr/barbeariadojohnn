@@ -18,6 +18,8 @@ export interface AppointmentData {
   notes?: string | null;
   status?: string;
   source?: string;
+  /** Liga os atendimentos de quem chegou junto e vai ser atendido junto */
+  group_id?: string | null;
 }
 
 /**
@@ -61,6 +63,7 @@ export async function createAppointment(data: AppointmentData) {
   };
 
   if (data.notes) payload.notes = data.notes;
+  if (data.group_id) payload.group_id = data.group_id;
 
   const { data: created, error } = await admin
     .from('appointments')
@@ -107,6 +110,77 @@ export async function createAppointment(data: AppointmentData) {
   revalidatePath('/admin/agenda');
   revalidatePath('/admin');
   return { ok: true, appointment: created };
+}
+
+/**
+ * Marca duas ou mais pessoas para o mesmo horario, cada uma com o seu barbeiro.
+ *
+ * E o caso do pai que traz o filho, dos dois amigos que chegam juntos e da
+ * turma antes do casamento: ninguem quer ficar esperando o outro terminar.
+ * Antes era preciso lancar um por um e torcer para nao dar conflito no meio.
+ *
+ * Ou entra o grupo inteiro, ou nao entra ninguem: metade do grupo marcado e
+ * pior do que nenhum, porque alguem chega e descobre na hora que ficou de fora.
+ */
+export async function createGroupAppointment(dados: {
+  start_at: string;
+  end_at: string;
+  notes?: string | null;
+  pessoas: Array<{
+    customer_id: string;
+    staff_id: string;
+    service_id?: string | null;
+  }>;
+}) {
+  if (dados.pessoas.length < 2) {
+    return { ok: false, error: 'Um grupo precisa de pelo menos duas pessoas.' };
+  }
+
+  const semProfissional = dados.pessoas.some((p) => !p.customer_id || !p.staff_id);
+  if (semProfissional) {
+    return { ok: false, error: 'Escolha o cliente e o profissional de cada pessoa.' };
+  }
+
+  // Duas pessoas do grupo com o mesmo barbeiro no mesmo horario e impossivel, e
+  // o banco recusaria a segunda. Melhor avisar antes com uma frase que explica.
+  const barbeiros = dados.pessoas.map((p) => p.staff_id);
+  if (new Set(barbeiros).size !== barbeiros.length) {
+    return {
+      ok: false,
+      error: 'Cada pessoa do grupo precisa de um profissional diferente, senão não dá para atender ao mesmo tempo.',
+    };
+  }
+
+  const grupoId = crypto.randomUUID();
+  const criados: string[] = [];
+
+  for (const pessoa of dados.pessoas) {
+    const res = await createAppointment({
+      customer_id: pessoa.customer_id,
+      staff_id: pessoa.staff_id,
+      service_id: pessoa.service_id ?? null,
+      start_at: dados.start_at,
+      end_at: dados.end_at,
+      notes: dados.notes ?? null,
+      group_id: grupoId,
+    });
+
+    if (!res.ok || !res.appointment) {
+      // Desfaz o que ja entrou: grupo pela metade nao serve para ninguem
+      const admin = await createManagerClient();
+      for (const id of criados) {
+        await admin.from('appointment_services').delete().eq('appointment_id', id);
+        await admin.from('appointments').delete().eq('id', id);
+      }
+      return { ok: false, error: res.error ?? 'Não foi possível marcar o grupo.' };
+    }
+
+    criados.push(res.appointment.id as string);
+  }
+
+  revalidatePath('/admin/agenda');
+  revalidatePath('/admin');
+  return { ok: true, grupoId, quantidade: criados.length };
 }
 
 /**

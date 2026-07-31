@@ -11,6 +11,7 @@ import { requireCustomer } from '@/lib/customer-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { cn } from '@/lib/utils';
 import { CancelAppointmentButton } from './_components/cancel-appointment-button';
+import { ConfirmarPresenca } from './_components/confirmar-presenca';
 
 export const metadata = { title: 'Meus agendamentos' };
 export const dynamic = 'force-dynamic';
@@ -31,6 +32,7 @@ function fmtDateTime(iso: string) {
 
 const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
   scheduled: { label: 'Agendado', cls: 'bg-gold/10 text-gold border-gold/30' },
+  confirmed: { label: 'Confirmado', cls: 'bg-success/10 text-success border-success/30' },
   in_progress: { label: 'Em atendimento', cls: 'bg-info/10 text-info border-info/30' },
   completed: { label: 'Concluído', cls: 'bg-success/10 text-success border-success/30' },
   cancelled: { label: 'Cancelado', cls: 'bg-fg-dim/10 text-fg-subtle border-border-strong' },
@@ -60,11 +62,14 @@ export default async function AgendamentosPage({ searchParams }: PageProps) {
       .from('appointments')
       .select(
         `id, start_at, end_at, status, subscription_id,
+         confirmation_requested_at, confirmed_by_customer_at,
          staff:staff (display_name),
          appointment_services ( price, services:services (name) )`
       )
       .eq('customer_id', customer.id)
-      .eq('status', 'scheduled')
+      // 'confirmed' entra junto: quem ja confirmou continua tendo o horario
+      // dele nos proximos, senao o atendimento sumia da tela ao confirmar.
+      .in('status', ['scheduled', 'confirmed'])
       .gte('start_at', nowISO)
       .order('start_at', { ascending: true })
       .limit(20),
@@ -72,12 +77,15 @@ export default async function AgendamentosPage({ searchParams }: PageProps) {
       .from('appointments')
       .select(
         `id, start_at, end_at, status, subscription_id,
+         confirmation_requested_at, confirmed_by_customer_at,
          staff:staff (display_name),
          appointment_services ( price, services:services (name) )`,
         { count: 'exact' }
       )
       .eq('customer_id', customer.id)
-      .or(`status.neq.scheduled,start_at.lt.${nowISO}`)
+      .or(
+        `and(status.neq.scheduled,status.neq.confirmed),start_at.lt.${nowISO}`
+      )
       .order('start_at', { ascending: false })
       .range(from, to),
   ]);
@@ -123,13 +131,29 @@ export default async function AgendamentosPage({ searchParams }: PageProps) {
               {fmtDateTime(a.start_at)} · {a.staff?.display_name ?? '-'}
             </p>
           </div>
-          {withCancel && a.status === 'scheduled' && (
+          {withCancel && ['scheduled', 'confirmed'].includes(a.status) && (
             <CancelAppointmentButton
               appointmentId={a.id}
               startAt={a.start_at}
             />
           )}
         </div>
+
+        {/* Confirmação de presença: aparece depois que a barbearia perguntou */}
+        {withCancel && a.confirmation_requested_at && (
+          <div className="mt-3 border-t border-border/40 pt-3">
+            {!a.confirmed_by_customer_at && (
+              <p className="mb-2 text-[11px] text-fg-muted">
+                A barbearia quer saber se você vem. Confirmando, a cadeira fica guardada;
+                se não puder, cancele para liberar o horário.
+              </p>
+            )}
+            <ConfirmarPresenca
+              appointmentId={a.id}
+              jaConfirmou={!!a.confirmed_by_customer_at}
+            />
+          </div>
+        )}
       </div>
     );
   }

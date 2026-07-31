@@ -15,6 +15,8 @@ const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 export type NotificationType =
   | 'agendamento_confirmado'
   | 'agendamento_cancelado'
+  /** Pedido de confirmacao de presenca, respondido dentro do aplicativo */
+  | 'confirmacao_pedida'
   | 'assinatura_pagamento'
   | 'assinatura_uso'
   | 'assinatura_fora_dias'

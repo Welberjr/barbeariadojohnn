@@ -2,10 +2,10 @@
 
 import { useState, useTransition, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Plus, Loader2, Search } from 'lucide-react';
+import { X, Plus, Loader2, Search, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency, formatPhone } from '@/lib/utils';
-import { createAppointment } from '../actions';
+import { createAppointment, createGroupAppointment } from '../actions';
 
 interface Staff {
   id: string;
@@ -62,6 +62,32 @@ export function NewAppointmentDrawer({
     notes: '',
   });
 
+  // Quem vem junto e vai ser atendido no mesmo horário, com outro profissional
+  const [acompanhantes, setAcompanhantes] = useState<
+    Array<{ customer_id: string; staff_id: string; service_id: string }>
+  >([]);
+
+  function adicionarAcompanhante() {
+    // Já vem com um profissional diferente escolhido, que é a regra do grupo:
+    // dois no mesmo barbeiro não seriam atendidos ao mesmo tempo.
+    const ocupados = new Set([form.staff_id, ...acompanhantes.map((a) => a.staff_id)]);
+    const livre = staff.find((s) => !ocupados.has(s.id));
+    setAcompanhantes((atual) => [
+      ...atual,
+      { customer_id: '', staff_id: livre?.id ?? '', service_id: '' },
+    ]);
+  }
+
+  function removerAcompanhante(indice: number) {
+    setAcompanhantes((atual) => atual.filter((_, i) => i !== indice));
+  }
+
+  function mudarAcompanhante(indice: number, campo: string, valor: string) {
+    setAcompanhantes((atual) =>
+      atual.map((a, i) => (i === indice ? { ...a, [campo]: valor } : a))
+    );
+  }
+
   // Filtrar clientes pela busca
   const filteredCustomers = useMemo(() => {
     if (!customerSearch.trim()) return customers.slice(0, 50);
@@ -109,17 +135,41 @@ export function NewAppointmentDrawer({
     const startISO = `${form.date}T${form.start_time}:00.000-03:00`;
     const endISO = `${form.date}T${endTime}:00.000-03:00`;
 
-    const result = await createAppointment({
-      customer_id: form.customer_id,
-      staff_id: form.staff_id,
-      service_id: form.service_id || null,
-      start_at: startISO,
-      end_at: endISO,
-      notes: form.notes || null,
-    });
+    // Com acompanhante, tudo entra de uma vez e amarrado: ou o grupo inteiro
+    // consegue horário, ou ninguém fica marcado pela metade.
+    const result = acompanhantes.length
+      ? await createGroupAppointment({
+          start_at: startISO,
+          end_at: endISO,
+          notes: form.notes || null,
+          pessoas: [
+            {
+              customer_id: form.customer_id,
+              staff_id: form.staff_id,
+              service_id: form.service_id || null,
+            },
+            ...acompanhantes.map((a) => ({
+              customer_id: a.customer_id,
+              staff_id: a.staff_id,
+              service_id: a.service_id || null,
+            })),
+          ],
+        })
+      : await createAppointment({
+          customer_id: form.customer_id,
+          staff_id: form.staff_id,
+          service_id: form.service_id || null,
+          start_at: startISO,
+          end_at: endISO,
+          notes: form.notes || null,
+        });
 
     if (result.ok) {
-      toast.success('Agendamento criado!');
+      toast.success(
+        acompanhantes.length
+          ? `Grupo de ${acompanhantes.length + 1} marcado!`
+          : 'Agendamento criado!'
+      );
       startTransition(() => {
         router.refresh();
         onClose();
@@ -333,6 +383,91 @@ export function NewAppointmentDrawer({
               <span>15 min</span>
               <span>4 horas</span>
             </div>
+          </div>
+
+          {/* Grupo: quem chegou junto e quer ser atendido junto */}
+          <div className="rounded-md border border-border p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="flex items-center gap-1.5 text-sm text-fg">
+                  <Users className="h-4 w-4 text-gold" />
+                  Vem mais alguém junto?
+                </p>
+                <p className="mt-0.5 text-[11px] text-fg-muted">
+                  Pai e filho, amigos, turma de casamento. Cada um com um profissional, todos
+                  no mesmo horário.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={adicionarAcompanhante}
+                className="btn-secondary shrink-0 text-xs"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Somar
+              </button>
+            </div>
+
+            {acompanhantes.length > 0 && (
+              <div className="mt-3 space-y-3">
+                {acompanhantes.map((a, i) => (
+                  <div key={i} className="space-y-2 rounded-md border border-border/60 p-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase tracking-wider text-fg-dim">
+                        Pessoa {i + 2}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removerAcompanhante(i)}
+                        className="text-fg-muted transition-colors hover:text-danger"
+                        aria-label="Tirar do grupo"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+
+                    <select
+                      className="input text-sm"
+                      value={a.customer_id}
+                      onChange={(e) => mudarAcompanhante(i, 'customer_id', e.target.value)}
+                    >
+                      <option value="">Escolha o cliente</option>
+                      {customers.slice(0, 300).map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.full_name}
+                        </option>
+                      ))}
+                    </select>
+
+                    <select
+                      className="input text-sm"
+                      value={a.staff_id}
+                      onChange={(e) => mudarAcompanhante(i, 'staff_id', e.target.value)}
+                    >
+                      <option value="">Escolha o profissional</option>
+                      {staff.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.display_name}
+                        </option>
+                      ))}
+                    </select>
+
+                    <select
+                      className="input text-sm"
+                      value={a.service_id}
+                      onChange={(e) => mudarAcompanhante(i, 'service_id', e.target.value)}
+                    >
+                      <option value="">Sem serviço específico</option>
+                      {services.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Notas */}

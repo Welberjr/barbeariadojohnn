@@ -15,6 +15,7 @@ import {
   formatAllowedDays,
 } from '@/lib/subscriptions';
 import { notifyCustomer } from '@/lib/notifications';
+import { podeConfirmar } from '@/lib/confirmacao-agendamento';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -250,6 +251,65 @@ export async function cancelCustomerAppointment(appointmentId: string) {
   revalidatePath('/cliente');
   revalidatePath('/cliente/agendamentos');
   revalidatePath('/admin/agenda');
+
+  return { ok: true };
+}
+
+/**
+ * O cliente confirma que vem.
+ *
+ * A barbearia nao usa robo no WhatsApp: o pedido chega como aviso no aplicativo
+ * e a resposta acontece aqui. Confirmado, o barbeiro ve na agenda dele que a
+ * cadeira esta garantida e para de ficar no escuro esperando.
+ */
+export async function confirmarPresenca(appointmentId: string) {
+  const customer = await getSessionCustomer();
+  if (!customer) return { ok: false, error: 'Sessão expirada. Entre novamente.' };
+
+  const admin = createAdminClient();
+
+  const { data: agendamento } = await admin
+    .from('appointments')
+    .select('id, start_at, status, confirmed_by_customer_at')
+    .eq('id', appointmentId)
+    .eq('customer_id', customer.id)
+    .maybeSingle();
+
+  if (!agendamento) return { ok: false, error: 'Agendamento não encontrado.' };
+  if (agendamento.confirmed_by_customer_at) return { ok: true };
+
+  const inicio = new Date(agendamento.start_at as string);
+  if (!podeConfirmar(
+    {
+      status: agendamento.status as string,
+      inicio,
+      pedidaEm: null,
+      confirmadaEm: null,
+    },
+    new Date()
+  )) {
+    return { ok: false, error: 'Este horário não está mais aberto para confirmação.' };
+  }
+
+  // Confirmar tambem move o atendimento para "confirmado": e a mesma coisa dita
+  // pelo cliente em vez de pela recepcao, e a agenda passa a mostrar isso.
+  const { error } = await admin
+    .from('appointments')
+    .update({
+      confirmed_by_customer_at: new Date().toISOString(),
+      status: 'confirmed',
+    })
+    .eq('id', appointmentId)
+    .eq('customer_id', customer.id)
+    .eq('status', agendamento.status);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath('/cliente');
+  revalidatePath('/cliente/agendamentos');
+  revalidatePath('/admin/agenda');
+  revalidatePath('/painel');
+  revalidatePath('/painel/agenda');
 
   return { ok: true };
 }

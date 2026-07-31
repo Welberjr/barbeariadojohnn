@@ -2,26 +2,30 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 /**
- * Cron de lembretes de agendamento.
+ * Pedido de confirmacao de presenca.
  *
- * Vercel Cron Jobs chamará este endpoint periodicamente (configurado em vercel.json).
- * Busca appointments que ocorrerão em ~24h e dispara lembretes via WhatsApp.
+ * Roda de hora em hora (agendado em vercel.json) e avisa quem tem atendimento
+ * chegando. O aviso vai para o aplicativo do cliente, nao para o WhatsApp: a
+ * barbearia decidiu que o WhatsApp fica com uma pessoa de verdade, e o robo nao
+ * fala com cliente.
  *
- * Se WhatsApp ainda não estiver verificado, sendWhatsAppMessage retorna mocked=true.
+ * O cliente responde na tela dele. Confirmou, o barbeiro ve o selo verde na
+ * agenda e sabe que a cadeira esta garantida. Nao respondeu, aparece o aviso
+ * para a recepcao correr atras antes de perder o horario.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { notifyCustomer } from '@/lib/notifications';
 import {
-  sendWhatsAppMessage,
-  reminderTemplate24h,
-} from '@/lib/whatsapp';
+  devePedirConfirmacao,
+  textoDoPedido,
+  HORAS_ANTES_PADRAO,
+} from '@/lib/confirmacao-agendamento';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
 export async function GET(req: NextRequest) {
-  // Vercel Cron envia um Authorization header com CRON_SECRET (se configurado)
-  // Em prod, configurar CRON_SECRET no Vercel Env Vars protege esse endpoint
   const authHeader = req.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
 
@@ -31,193 +35,165 @@ export async function GET(req: NextRequest) {
 
   try {
     const admin = createAdminClient();
+    const agora = new Date();
 
-    // Janela: appointments começando entre 23h e 25h a partir de agora
-    // Cron rodará a cada hora - pegamos uma janela de 2h pra garantir cobertura mesmo com pequenos atrasos
-    const now = new Date();
-    const windowStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
-    const windowEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000);
+    const { data: barbearia } = await admin
+      .from('barbershops')
+      .select('name, confirmation_hours_before')
+      .eq('id', BARBERSHOP_ID)
+      .maybeSingle();
 
-    // Busca appointments na janela
-    const { data: appointments, error: errApp } = await admin
+    const horasAntes = Number(
+      barbearia?.confirmation_hours_before ?? HORAS_ANTES_PADRAO
+    );
+
+    // Busca uma janela um pouco maior que a configurada e deixa a regra decidir
+    // quem entra. Assim, uma rodada atrasada nao deixa ninguem sem aviso.
+    const limite = new Date(agora.getTime() + (horasAntes + 2) * 3600000);
+
+    const { data: agendamentos, error } = await admin
       .from('appointments')
       .select(
-        'id, customer_id, staff_id, start_at, status'
+        'id, customer_id, staff_id, start_at, status, confirmation_requested_at, confirmed_by_customer_at'
       )
       .eq('barbershop_id', BARBERSHOP_ID)
       .eq('status', 'scheduled')
-      .gte('start_at', windowStart.toISOString())
-      .lte('start_at', windowEnd.toISOString())
-      .limit(100);
+      .is('confirmation_requested_at', null)
+      .gte('start_at', agora.toISOString())
+      .lte('start_at', limite.toISOString())
+      .limit(200);
 
-    if (errApp) {
-      return NextResponse.json(
-        { error: errApp.message },
-        { status: 500 }
-      );
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const apps = appointments ?? [];
+    const naJanela = (agendamentos ?? []).filter((a) =>
+      devePedirConfirmacao(
+        {
+          status: a.status as string,
+          inicio: new Date(a.start_at as string),
+          pedidaEm: null,
+          confirmadaEm: (a.confirmed_by_customer_at as string)
+            ? new Date(a.confirmed_by_customer_at as string)
+            : null,
+        },
+        agora,
+        horasAntes
+      )
+    );
 
-    if (apps.length === 0) {
+    if (naJanela.length === 0) {
       return NextResponse.json({
         ok: true,
-        processed: 0,
-        message: 'Nenhum agendamento dentro da janela 23-25h',
+        pedidos: 0,
+        mensagem: 'Ninguém para avisar nesta rodada.',
       });
     }
 
-    // Buscar dados auxiliares em batch
-    const customerIds = Array.from(
-      new Set(apps.map((a) => a.customer_id).filter(Boolean))
-    ) as string[];
-    const staffIds = Array.from(
-      new Set(apps.map((a) => a.staff_id).filter(Boolean))
-    ) as string[];
-    const appointmentIds = apps.map((a) => a.id);
+    // Dados de apoio de uma vez só, para não consultar dentro do laço
+    const idsClientes = [
+      ...new Set(naJanela.map((a) => a.customer_id).filter(Boolean)),
+    ] as string[];
+    const idsStaff = [
+      ...new Set(naJanela.map((a) => a.staff_id).filter(Boolean)),
+    ] as string[];
+    const idsAgendamento = naJanela.map((a) => a.id as string);
 
-    const [
-      { data: customers },
-      { data: staff },
-      { data: appServices },
-      { data: bs },
-    ] = await Promise.all([
-      customerIds.length > 0
-        ? admin
-            .from('customers')
-            .select('id, full_name, phone')
-            .in('id', customerIds)
-        : Promise.resolve({ data: [] }),
-      staffIds.length > 0
-        ? admin.from('staff').select('id, display_name').in('id', staffIds)
-        : Promise.resolve({ data: [] }),
-      admin
-        .from('appointment_services')
-        .select('appointment_id, service_id')
-        .in('appointment_id', appointmentIds),
-      admin
-        .from('barbershops')
-        .select('name')
-        .eq('id', BARBERSHOP_ID)
-        .maybeSingle(),
-    ]);
+    const [{ data: clientes }, { data: profissionais }, { data: servicosDoAgendamento }] =
+      await Promise.all([
+        idsClientes.length
+          ? admin.from('customers').select('id, full_name').in('id', idsClientes)
+          : Promise.resolve({ data: [] }),
+        idsStaff.length
+          ? admin.from('staff').select('id, display_name').in('id', idsStaff)
+          : Promise.resolve({ data: [] }),
+        admin
+          .from('appointment_services')
+          .select('appointment_id, service_id')
+          .in('appointment_id', idsAgendamento),
+      ]);
 
-    // Buscar nomes dos serviços
-    const serviceIds = Array.from(
-      new Set((appServices ?? []).map((s) => s.service_id).filter(Boolean))
-    ) as string[];
-    const { data: services } =
-      serviceIds.length > 0
-        ? await admin
-            .from('services')
-            .select('id, name')
-            .in('id', serviceIds)
-        : { data: [] };
+    const idsServico = [
+      ...new Set((servicosDoAgendamento ?? []).map((s) => s.service_id).filter(Boolean)),
+    ] as string[];
 
-    const customerMap = new Map(
-      (customers ?? []).map((c) => [
-        c.id as string,
-        {
-          name: c.full_name as string,
-          phone: (c.phone as string) ?? null,
-        },
-      ])
+    const { data: servicos } = idsServico.length
+      ? await admin.from('services').select('id, name').in('id', idsServico)
+      : { data: [] };
+
+    const nomeCliente = new Map(
+      (clientes ?? []).map((c) => [c.id as string, c.full_name as string])
     );
-    const staffMap = new Map(
-      (staff ?? []).map((s) => [s.id as string, s.display_name as string])
+    const nomeProfissional = new Map(
+      (profissionais ?? []).map((s) => [s.id as string, s.display_name as string])
     );
-    const serviceMap = new Map(
-      (services ?? []).map((s) => [s.id as string, s.name as string])
+    const nomeServico = new Map(
+      (servicos ?? []).map((s) => [s.id as string, s.name as string])
     );
 
-    // Mapa: appointment_id -> [service_names]
-    const appServiceMap = new Map<string, string[]>();
-    for (const as of appServices ?? []) {
-      const list = appServiceMap.get(as.appointment_id as string) ?? [];
-      const name = serviceMap.get(as.service_id as string);
-      if (name) list.push(name);
-      appServiceMap.set(as.appointment_id as string, list);
+    const servicosPorAgendamento = new Map<string, string[]>();
+    for (const item of servicosDoAgendamento ?? []) {
+      const lista = servicosPorAgendamento.get(item.appointment_id as string) ?? [];
+      const nome = nomeServico.get(item.service_id as string);
+      if (nome) lista.push(nome);
+      servicosPorAgendamento.set(item.appointment_id as string, lista);
     }
 
-    const barbershopName = (bs?.name as string) ?? 'Barbearia';
+    let enviados = 0;
+    let semCliente = 0;
 
-    // Disparar lembretes
-    let sent = 0;
-    let mocked = 0;
-    let failed = 0;
-    const results: Array<{
-      appointmentId: string;
-      ok: boolean;
-      mocked: boolean;
-      error?: string;
-    }> = [];
-
-    for (const app of apps) {
-      const customer = app.customer_id
-        ? customerMap.get(app.customer_id as string)
-        : null;
-
-      if (!customer || !customer.phone) {
-        failed++;
-        results.push({
-          appointmentId: app.id as string,
-          ok: false,
-          mocked: false,
-          error: 'Cliente sem telefone',
-        });
+    for (const a of naJanela) {
+      const clienteId = a.customer_id as string | null;
+      if (!clienteId || !nomeCliente.has(clienteId)) {
+        semCliente++;
         continue;
       }
 
-      const staffName = app.staff_id
-        ? staffMap.get(app.staff_id as string)
-        : undefined;
-      const serviceNames = appServiceMap.get(app.id as string) ?? [];
-      const serviceName =
-        serviceNames.length > 0
-          ? serviceNames.join(' + ')
-          : 'seu atendimento';
+      // Marca antes de avisar. Se o aviso falhar, o cliente fica sem a
+      // notificacao desta rodada, o que e bem menos ruim do que receber o
+      // mesmo pedido de hora em hora ate o dia do corte.
+      const { data: marcado } = await admin
+        .from('appointments')
+        .update({ confirmation_requested_at: new Date().toISOString() })
+        .eq('id', a.id)
+        .is('confirmation_requested_at', null)
+        .select('id')
+        .maybeSingle();
 
-      const message = reminderTemplate24h({
-        customerName: customer.name.split(' ')[0],
-        serviceName,
-        dateTime: new Date(app.start_at as string),
-        barbershopName,
+      if (!marcado) continue;
+
+      const servicos = servicosPorAgendamento.get(a.id as string) ?? [];
+      const texto = textoDoPedido({
+        primeiroNome: (nomeCliente.get(clienteId) ?? 'Cliente').split(' ')[0],
+        servico: servicos.length ? servicos.join(' + ') : 'atendimento',
+        inicio: new Date(a.start_at as string),
+        profissional: a.staff_id
+          ? nomeProfissional.get(a.staff_id as string) ?? null
+          : null,
       });
-      // staffName usado em outros templates; aqui no 24h não precisa
-      void staffName;
 
-      const result = await sendWhatsAppMessage(customer.phone, message);
-
-      if (result.ok) {
-        if (result.mocked) mocked++;
-        else sent++;
-      } else {
-        failed++;
-      }
-
-      results.push({
-        appointmentId: app.id as string,
-        ok: result.ok,
-        mocked: result.mocked,
-        error: result.error,
+      await notifyCustomer({
+        customerId: clienteId,
+        type: 'confirmacao_pedida',
+        title: texto.titulo,
+        body: texto.corpo,
+        metadata: { appointment_id: a.id },
+        // O WhatsApp fica com uma pessoa de verdade: o robo so avisa no app
+        whatsapp: false,
       });
+
+      enviados++;
     }
 
     return NextResponse.json({
       ok: true,
-      processed: apps.length,
-      sent,
-      mocked,
-      failed,
-      windowStart: windowStart.toISOString(),
-      windowEnd: windowEnd.toISOString(),
-      results,
+      pedidos: enviados,
+      semCliente,
+      janelaHoras: horasAntes,
     });
   } catch (err) {
     return NextResponse.json(
-      {
-        error: err instanceof Error ? err.message : 'Internal error',
-      },
+      { error: err instanceof Error ? err.message : 'Erro interno' },
       { status: 500 }
     );
   }

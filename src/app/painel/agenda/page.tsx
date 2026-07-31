@@ -64,6 +64,8 @@ export default async function AgendaPainelPage({ searchParams }: AgendaPageProps
           servicos: a.servicos,
           observacao: a.observacao,
           assinatura: a.assinatura,
+          confirmacaoPedidaEm: a.confirmacaoPedidaEm,
+          confirmadaPeloClienteEm: a.confirmadaPeloClienteEm,
         }))}
       />
     </div>

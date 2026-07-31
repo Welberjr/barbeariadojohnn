@@ -92,7 +92,7 @@ export async function getAvailableSlots(opts: {
         .maybeSingle(),
       admin
         .from('staff')
-        .select('use_barbershop_hours, custom_hours, active')
+        .select('use_barbershop_hours, custom_hours, active, lunch_start, lunch_end')
         .eq('id', staffId)
         .maybeSingle(),
       admin
@@ -147,6 +147,17 @@ export async function getAvailableSlots(opts: {
     .gte('end_date', dateStr);
 
   const blockedRanges: Array<{ start: number; end: number }> = [];
+
+  // Almoco do profissional: vale todo dia de trabalho, e por isso fica no
+  // cadastro dele em vez de virar uma folga repetida para cada data.
+  if (staff.lunch_start && staff.lunch_end) {
+    const inicioAlmoco = parseHM(String(staff.lunch_start).slice(0, 5));
+    const fimAlmoco = parseHM(String(staff.lunch_end).slice(0, 5));
+    if (fimAlmoco > inicioAlmoco) {
+      blockedRanges.push({ start: inicioAlmoco, end: fimAlmoco });
+    }
+  }
+
   for (const off of daysOff ?? []) {
     if (off.staff_id && off.staff_id !== staffId) continue;
     if (off.full_day !== false) {
