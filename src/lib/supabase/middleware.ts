@@ -76,9 +76,15 @@ async function temFichaDeCliente(userId: string): Promise<boolean> {
   }
 }
 
-export async function updateSession(request: NextRequest) {
+export async function updateSession(
+  request: NextRequest,
+  /** Cabecalhos que o middleware quer entregar ao render, com o nonce dentro */
+  pedido: { headers: Headers } | undefined = undefined
+) {
+  const requisicao = pedido ?? request;
+
   let supabaseResponse = NextResponse.next({
-    request,
+    request: requisicao,
   });
 
   const supabase = createServerClient(
@@ -92,7 +98,7 @@ export async function updateSession(request: NextRequest) {
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           supabaseResponse = NextResponse.next({
-            request,
+            request: requisicao,
           });
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
