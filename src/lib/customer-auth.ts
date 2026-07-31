@@ -84,7 +84,10 @@ export async function requireCustomer(): Promise<{
       .is('fired_at', null)
       .maybeSingle();
 
-    redirect(daEquipe ? '/painel/perfil' : '/cliente/login');
+    // Sem ficha e sem trabalho na casa: a sessao existe, mas nao tem dono aqui.
+    // O aviso na tela de login evita a pessoa ficar tentando entrar de novo com
+    // a mesma conta sem entender por que nao abre.
+    redirect(daEquipe ? '/painel/perfil' : '/cliente/login?sem-cadastro=1');
   }
 
   return { customer: session.customer, userId: session.userId };

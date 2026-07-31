@@ -48,6 +48,34 @@ async function fetchStaffAccess(userId: string): Promise<StaffAccess> {
   }
 }
 
+/**
+ * Diz se este login tem ficha de cliente ligada a ele.
+ *
+ * Sem esta pergunta nascia um vai e vem sem fim: quem estava logado e nao tinha
+ * ficha era mandado para a area do cliente, que devolvia para o login, que
+ * mandava de volta para a area do cliente. E o "redirecionamento em excesso" que
+ * o navegador acaba mostrando.
+ */
+async function temFichaDeCliente(userId: string): Promise<boolean> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/^﻿/, '').trim();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.replace(/^﻿/, '').trim();
+  if (!url || !key) return false;
+
+  try {
+    const res = await fetch(
+      `${url}/rest/v1/customers?select=id&auth_user_id=eq.${userId}&active=is.true&limit=1`,
+      {
+        headers: { apikey: key, Authorization: `Bearer ${key}` },
+        cache: 'no-store',
+      }
+    );
+    if (!res.ok) return false;
+    return ((await res.json()) as unknown[]).length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
@@ -167,7 +195,11 @@ export async function updateSession(request: NextRequest) {
   if ((isAdminLogin || isCustomerLogin) && user) {
     const acesso = await fetchStaffAccess(user.id);
     if (acesso.isStaff) return redirectTo(acesso.canManage ? '/admin' : '/painel');
-    if (isCustomerUser) return redirectTo('/cliente');
+
+    // So manda para a area do cliente quem tem ficha la. Sem esta conferencia,
+    // uma sessao sem cadastro nenhum ficava presa indo e voltando.
+    if (await temFichaDeCliente(user.id)) return redirectTo('/cliente');
+
     return entregar();
   }
 

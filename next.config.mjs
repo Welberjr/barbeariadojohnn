@@ -43,7 +43,6 @@ const nextConfig = {
      */
     staleTimes: {
       dynamic: 20,
-      static: 180,
     },
   },
   eslint: {

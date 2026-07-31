@@ -5,7 +5,14 @@ export const metadata = {
   title: 'Área do Cliente | Barbearia do Johnn',
 };
 
-export default function CustomerLoginPage() {
+interface Props {
+  searchParams: Promise<{ 'sem-cadastro'?: string }>;
+}
+
+export default async function CustomerLoginPage({ searchParams }: Props) {
+  const params = await searchParams;
+  const semCadastro = params['sem-cadastro'] === '1';
+
   return (
     <div className="min-h-screen bg-bg relative overflow-hidden flex items-center justify-center p-4">
       {/* Background decorativo */}
@@ -49,6 +56,18 @@ export default function CustomerLoginPage() {
             </p>
           </div>
         </div>
+
+        {semCadastro && (
+          <div className="card border-warn/40 bg-warn/5 p-4">
+            <p className="text-sm text-fg">
+              Esta conta ainda não tem cadastro de cliente aqui.
+            </p>
+            <p className="mt-1 text-xs text-fg-muted">
+              Entre com o e-mail que você usa na barbearia. Se você nunca criou conta, fale
+              com a recepção: o cadastro leva um minuto.
+            </p>
+          </div>
+        )}
 
         <div className="card-premium p-6">
           <CustomerLoginForm />
