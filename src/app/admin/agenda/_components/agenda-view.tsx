@@ -10,6 +10,7 @@ import {
   CalendarOff,
 } from 'lucide-react';
 import { cn, SHOP_TIME_ZONE } from '@/lib/utils';
+import { calcularColunas } from '@/lib/agenda-sobreposicao';
 import { InfoTip } from '@/components/info-tip';
 import { AppointmentDrawer } from './appointment-drawer';
 import { NewAppointmentDrawer } from './new-appointment-drawer';
@@ -252,6 +253,31 @@ export function AgendaView({
     });
     return map;
   }, [appointments, staff]);
+
+  /**
+   * Quem divide espaço com quem, por profissional.
+   * Sem isso, dois atendimentos no mesmo horário ficam desenhados um sobre o
+   * outro e não dá para ler nenhum dos dois.
+   */
+  const colunasPorAgendamento = useMemo(() => {
+    const mapa = new Map<string, { coluna: number; colunas: number }>();
+
+    for (const [, lista] of appointmentsByStaff) {
+      const faixas = lista.map((a) => {
+        const inicio = shopTimeParts(a.start_at);
+        const fim = shopTimeParts(a.end_at);
+        return {
+          id: a.id,
+          inicio: inicio.hour * 60 + inicio.minute,
+          fim: Math.max(fim.hour * 60 + fim.minute, inicio.hour * 60 + inicio.minute + 10),
+        };
+      });
+
+      for (const [id, posicao] of calcularColunas(faixas)) mapa.set(id, posicao);
+    }
+
+    return mapa;
+  }, [appointmentsByStaff]);
 
   // Renderizar horários (linhas horizontais)
   const hourLines = Array.from({ length: totalHours + 1 }, (_, i) => startHour + i);
@@ -584,6 +610,13 @@ export function AgendaView({
                       {/* Appointments */}
                       {aptList.map((apt) => {
                         const pos = getAptPosition(apt);
+                        // Quem se cruza no horário divide a largura, senão os
+                        // cards ficam um por cima do outro e nenhum se lê
+                        const lado = colunasPorAgendamento.get(apt.id) ?? {
+                          coluna: 0,
+                          colunas: 1,
+                        };
+                        const larguraPct = 100 / lado.colunas;
                         const color =
                           STATUS_COLORS[apt.status] ?? STATUS_COLORS.scheduled;
                         const startTime = new Date(apt.start_at)
@@ -607,13 +640,19 @@ export function AgendaView({
                             type="button"
                             onClick={() => setOpenApt(apt)}
                             className={cn(
-                              'absolute inset-x-1 rounded-md text-left overflow-hidden hover:scale-[1.02] hover:shadow-lg transition-all border-l-2 z-20 cursor-pointer',
+                              'absolute rounded-md text-left overflow-hidden hover:shadow-lg transition-all border-l-2 z-20 cursor-pointer',
                               pos.height < 40 ? 'px-2 py-0.5' : pos.height < 56 ? 'px-2 py-1' : 'px-2 py-1.5'
                             )}
-                            title={(apt.customers?.full_name ?? 'Cliente') + (apt.services?.name ? ' - ' + apt.services.name : '')}
+                            title={
+                              (apt.customers?.full_name ?? 'Cliente') +
+                              (apt.services?.name ? ' - ' + apt.services.name : '') +
+                              (lado.colunas > 1 ? ' (horário com mais de um atendimento)' : '')
+                            }
                             style={{
                               top: `${pos.top}px`,
                               height: `${pos.height - 2}px`,
+                              left: `calc(${lado.coluna * larguraPct}% + 4px)`,
+                              width: `calc(${larguraPct}% - 6px)`,
                               backgroundColor: color.bg,
                               borderLeftColor: color.border,
                             }}
