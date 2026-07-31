@@ -143,12 +143,15 @@ export async function updateSession(request: NextRequest) {
   // ----- Areas da equipe -----
   if (isAdminRoute || isPanelRoute) {
     if (!user) return redirectTo('/login');
-    if (isCustomerUser) return redirectTo('/cliente');
 
     const acesso = await fetchStaffAccess(user.id);
 
-    // Logado, porém não é profissional ativo desta barbearia
-    if (!acesso.isStaff) return redirectTo('/login');
+    // Quem trabalha aqui entra, mesmo que o login tenha nascido como cliente.
+    // E o caso de quem era freguês da casa e passou a trabalhar nela: o papel
+    // que vale e o cadastro de hoje, nao a etiqueta de quando a conta nasceu.
+    if (!acesso.isStaff) {
+      return redirectTo(isCustomerUser ? '/cliente' : '/login');
+    }
 
     if (isAdminRoute && !acesso.canManage) return redirectTo('/painel');
   }
@@ -159,11 +162,13 @@ export async function updateSession(request: NextRequest) {
   }
 
   // ----- Telas de login com sessao ativa -----
+  // Quem tem os dois papeis cai no lado do trabalho, que e onde passa o dia. A
+  // conta de cliente fica a um toque, no perfil.
   if ((isAdminLogin || isCustomerLogin) && user) {
-    if (isCustomerUser) return redirectTo('/cliente');
     const acesso = await fetchStaffAccess(user.id);
-    if (!acesso.isStaff) return entregar();
-    return redirectTo(acesso.canManage ? '/admin' : '/painel');
+    if (acesso.isStaff) return redirectTo(acesso.canManage ? '/admin' : '/painel');
+    if (isCustomerUser) return redirectTo('/cliente');
+    return entregar();
   }
 
   return entregar();

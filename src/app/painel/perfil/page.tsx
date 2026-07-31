@@ -1,6 +1,8 @@
 import { requireStaff } from '@/lib/staff-auth';
 import { modulosLiberados, MODULO_INFO } from '@/lib/staff-permissions';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { TrocarSenhaForm } from './_components/trocar-senha-form';
+import { MinhaContaCliente } from './_components/minha-conta-cliente';
 import { SairButton } from './_components/sair-button';
 
 export const metadata = { title: 'Meu perfil' };
@@ -19,6 +21,13 @@ export default async function PerfilPage() {
   const staff = await requireStaff(undefined, { ignorarTrocaSenha: true });
   const modulos = modulosLiberados(staff);
 
+  // Ficha de cliente ligada a este mesmo login, quando existe
+  const { data: comoCliente } = await createAdminClient()
+    .from('customers')
+    .select('full_name, phone')
+    .eq('auth_user_id', staff.profileId)
+    .maybeSingle();
+
   return (
     <div className="space-y-5 animate-fade-in">
       <div>
@@ -36,6 +45,13 @@ export default async function PerfilPage() {
       </div>
 
       <TrocarSenhaForm obrigatoria={staff.mustChangePassword} />
+
+      {!staff.mustChangePassword && (
+        <MinhaContaCliente
+          nomeCliente={(comoCliente?.full_name as string) ?? null}
+          telefoneSugerido={(comoCliente?.phone as string) ?? null}
+        />
+      )}
 
       <section className="card p-5 space-y-3">
         <p className="text-[10px] text-fg-dim tracking-[0.25em] uppercase">

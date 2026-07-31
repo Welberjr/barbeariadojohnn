@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Star,
   Calendar,
+  Scissors,
 } from 'lucide-react';
 import { requireCustomer } from '@/lib/customer-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -34,9 +35,21 @@ const TIER_LABELS: Record<string, string> = {
 };
 
 export default async function PerfilPage() {
-  const { customer } = await requireCustomer();
+  const { customer, userId } = await requireCustomer();
   const admin = createAdminClient();
-  const sub = await getActiveSubscription(admin, customer.id);
+
+  // Um login pode ser das duas pontas: quem trabalha aqui tambem corta cabelo
+  // aqui. Quando for o caso, a tela oferece a volta para o lado do trabalho.
+  const [sub, { data: daEquipe }] = await Promise.all([
+    getActiveSubscription(admin, customer.id),
+    admin
+      .from('staff')
+      .select('can_manage')
+      .eq('profile_id', userId)
+      .eq('active', true)
+      .is('fired_at', null)
+      .maybeSingle(),
+  ]);
 
   const tierLabel = TIER_LABELS[customer.loyalty_tier ?? ''] ?? null;
 
@@ -174,6 +187,25 @@ export default async function PerfilPage() {
         </div>
         <ChevronRight className="w-4 h-4 text-fg-subtle" />
       </Link>
+
+      {/* Quem trabalha na casa volta para o painel sem sair da conta */}
+      {daEquipe && (
+        <Link
+          href={daEquipe.can_manage ? '/admin' : '/painel'}
+          className="card flex items-center gap-3 p-4 transition-colors hover:border-gold/40"
+        >
+          <Scissors className="h-5 w-5 text-gold" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-fg">
+              {daEquipe.can_manage ? 'Voltar para a gestão' : 'Voltar para o meu painel'}
+            </p>
+            <p className="text-[11px] text-fg-subtle">
+              Você está vendo o lado de cliente. O seu trabalho continua do outro lado.
+            </p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-fg-subtle" />
+        </Link>
+      )}
 
       <SignOutButton />
 

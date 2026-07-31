@@ -73,8 +73,18 @@ export async function requireCustomer(): Promise<{
   if (!session.userId) redirect('/cliente/login');
 
   if (!session.customer) {
-    // Usuario logado sem cadastro de cliente: provavelmente equipe
-    redirect('/admin');
+    // Logado, sem ficha de cliente ligada a este login. Quase sempre e alguem
+    // da equipe entrando aqui pela primeira vez: manda para o proprio perfil,
+    // que e onde se liga a ficha de cliente ao mesmo login.
+    const { data: daEquipe } = await createAdminClient()
+      .from('staff')
+      .select('id')
+      .eq('profile_id', session.userId)
+      .eq('active', true)
+      .is('fired_at', null)
+      .maybeSingle();
+
+    redirect(daEquipe ? '/painel/perfil' : '/cliente/login');
   }
 
   return { customer: session.customer, userId: session.userId };
