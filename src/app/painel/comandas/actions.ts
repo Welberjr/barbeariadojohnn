@@ -523,3 +523,54 @@ export async function fecharMinhaComanda(dados: {
   revalidatePath('/painel/agenda');
   return { ok: true, total: conta.total };
 }
+
+// ------------------------------------------------------------------
+// Correcao da propria comanda
+// ------------------------------------------------------------------
+
+/** Quanto tempo o barbeiro tem para corrigir a comanda que ele mesmo fechou. */
+export const JANELA_CORRECAO_MINUTOS = 60;
+
+/**
+ * Reabre a comanda para correcao, dentro da janela.
+ *
+ * Errar no fechamento acontece: cliente pagou de outro jeito, faltou um
+ * produto, lancou no cliente errado. Dentro de uma hora o proprio barbeiro
+ * resolve. Depois disso, so a gestao, por estorno, para nao existir movimento
+ * mudando de valor no dia seguinte sem ninguem saber.
+ */
+export async function reabrirMinhaComanda(comandaId: string) {
+  const acesso = await exigirModulo('comanda');
+  if (!acesso.ok) return { ok: false, error: acesso.error };
+
+  const admin = createAdminClient();
+
+  const { error } = await admin.rpc('reabrir_comanda', {
+    p_comanda_id: comandaId,
+    p_staff_id: acesso.staff.staffId,
+    p_ator: acesso.staff.profileId,
+    p_janela_minutos: JANELA_CORRECAO_MINUTOS,
+  });
+
+  if (error) {
+    const msg = error.message ?? '';
+    if (/FORA_DA_JANELA/.test(msg)) {
+      return {
+        ok: false,
+        error:
+          'Passou de 1 hora desde o fechamento. Peça para a gestão estornar esta comanda.',
+      };
+    }
+    if (/NAO_E_SUA/.test(msg)) return { ok: false, error: 'Esta comanda não é sua.' };
+    if (/NAO_ESTA_FECHADA/.test(msg)) {
+      return { ok: false, error: 'Esta comanda não está fechada.' };
+    }
+    if (/NAO_ENCONTRADA/.test(msg)) return { ok: false, error: 'Comanda não encontrada.' };
+    return { ok: false, error: msg || 'Não foi possível reabrir a comanda.' };
+  }
+
+  revalidatePath('/painel');
+  revalidatePath('/painel/comandas');
+  revalidatePath(`/painel/comandas/${comandaId}`);
+  return { ok: true };
+}

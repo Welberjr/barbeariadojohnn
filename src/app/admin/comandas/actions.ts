@@ -2,6 +2,7 @@
 
 import { createManagerClient } from '@/lib/supabase/manager';
 import { revalidatePath } from 'next/cache';
+import { getSessionStaff } from '@/lib/staff-auth';
 import { getActiveSubscription, isDayAllowed, formatAllowedDays } from '@/lib/subscriptions';
 import { awardPointsForComanda } from '@/lib/loyalty';
 import { notifyCustomer } from '@/lib/notifications';
@@ -722,5 +723,87 @@ export async function cancelComanda(comandaId: string) {
   if (error) return { ok: false, error: error.message };
 
   revalidatePath('/admin/comandas');
+  return { ok: true };
+}
+
+// =============================================================================
+// CORRIGIR COMANDA FECHADA (gestao)
+// =============================================================================
+
+/**
+ * Reabre uma comanda fechada para correcao.
+ * A gestao nao tem limite de tempo: quem tem limite e o barbeiro, no painel.
+ */
+export async function reabrirComanda(comandaId: string) {
+  const admin = await createManagerClient();
+  const gestor = await getSessionStaff();
+
+  const { error } = await admin.rpc('reabrir_comanda', {
+    p_comanda_id: comandaId,
+    p_staff_id: null,
+    p_ator: gestor?.profileId ?? null,
+    p_janela_minutos: 60,
+  });
+
+  if (error) {
+    const msg = error.message ?? '';
+    if (/NAO_ESTA_FECHADA/.test(msg)) {
+      return { ok: false, error: 'Esta comanda não está fechada.' };
+    }
+    if (/NAO_ENCONTRADA/.test(msg)) return { ok: false, error: 'Comanda não encontrada.' };
+    return { ok: false, error: msg || 'Não foi possível reabrir a comanda.' };
+  }
+
+  revalidatePath('/admin/comandas');
+  revalidatePath(`/admin/comandas/${comandaId}`);
+  revalidatePath('/admin/financeiro');
+  return { ok: true };
+}
+
+/**
+ * Estorna uma comanda fechada.
+ *
+ * Nada e apagado: a comanda sai do faturamento, mas continua existindo com
+ * motivo e autor. Excluir movimento e o que faz o caixa nao bater sem
+ * ninguem conseguir explicar depois.
+ *
+ * O estorno devolve produto ao estoque, devolve o uso da assinatura ao ciclo
+ * do cliente, tira os pontos de fidelidade, desfaz o pagamento e volta o
+ * atendimento para confirmado.
+ */
+export async function estornarComanda(comandaId: string, motivo: string) {
+  const texto = (motivo ?? '').trim();
+  if (texto.length < 3) {
+    return { ok: false, error: 'Escreva o motivo do estorno.' };
+  }
+  if (texto.length > 300) {
+    return { ok: false, error: 'Motivo muito longo. Resuma em até 300 caracteres.' };
+  }
+
+  const admin = await createManagerClient();
+  const gestor = await getSessionStaff();
+
+  const { error } = await admin.rpc('estornar_comanda', {
+    p_comanda_id: comandaId,
+    p_ator: gestor?.profileId ?? null,
+    p_motivo: texto,
+  });
+
+  if (error) {
+    const msg = error.message ?? '';
+    if (/MOTIVO_OBRIGATORIO/.test(msg)) {
+      return { ok: false, error: 'Escreva o motivo do estorno.' };
+    }
+    if (/NAO_ESTA_FECHADA/.test(msg)) {
+      return { ok: false, error: 'Só dá para estornar comanda fechada.' };
+    }
+    if (/NAO_ENCONTRADA/.test(msg)) return { ok: false, error: 'Comanda não encontrada.' };
+    return { ok: false, error: msg || 'Não foi possível estornar a comanda.' };
+  }
+
+  revalidatePath('/admin/comandas');
+  revalidatePath(`/admin/comandas/${comandaId}`);
+  revalidatePath('/admin/financeiro');
+  revalidatePath('/admin/dre');
   return { ok: true };
 }

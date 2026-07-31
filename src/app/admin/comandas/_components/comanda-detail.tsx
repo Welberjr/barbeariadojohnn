@@ -21,6 +21,8 @@ import {
   Phone,
   User,
   Star,
+  RotateCcw,
+  Undo2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, formatCurrency } from '@/lib/utils';
@@ -31,6 +33,8 @@ import {
   removeComandaItem,
   closeComanda,
   cancelComanda,
+  reabrirComanda,
+  estornarComanda,
 } from '../actions';
 
 interface Comanda {
@@ -167,6 +171,43 @@ export function ComandaDetail({
     discount: 0,
     tip: 0,
   });
+
+  const [mostrarEstorno, setMostrarEstorno] = useState(false);
+  const [motivoEstorno, setMotivoEstorno] = useState('');
+  const [isEstornando, setIsEstornando] = useState(false);
+  const [isReabrindo, setIsReabrindo] = useState(false);
+
+  async function handleReabrir() {
+    setIsReabrindo(true);
+    try {
+      const res = await reabrirComanda(comanda.id);
+      if (res.ok) {
+        toast.success('Comanda reaberta. Corrija e feche de novo.');
+        router.refresh();
+      } else {
+        toast.error(res.error ?? 'Não foi possível reabrir.');
+      }
+    } finally {
+      setIsReabrindo(false);
+    }
+  }
+
+  async function handleEstornar() {
+    setIsEstornando(true);
+    try {
+      const res = await estornarComanda(comanda.id, motivoEstorno);
+      if (res.ok) {
+        toast.success('Comanda estornada.');
+        setMostrarEstorno(false);
+        setMotivoEstorno('');
+        router.push('/admin/comandas');
+      } else {
+        toast.error(res.error ?? 'Não foi possível estornar.');
+      }
+    } finally {
+      setIsEstornando(false);
+    }
+  }
 
   const isOpen = comanda.status === 'open';
   const isClosed = comanda.status === 'closed';
@@ -967,18 +1008,91 @@ export function ComandaDetail({
           )}
 
           {isClosed && (
-            <div className="text-center py-2 space-y-1">
-              <CheckCircle2 className="w-8 h-8 text-success mx-auto" />
-              <p className="text-xs text-success font-semibold uppercase tracking-wider">
-                Comanda Concluída
-              </p>
-              {comanda.payment_method && (
-                <p className="text-[10px] text-fg-muted">
-                  {PAYMENT_METHODS.find(
-                    (p) => p.value === comanda.payment_method
-                  )?.label ?? comanda.payment_method}
+            <div className="space-y-3">
+              <div className="text-center py-2 space-y-1">
+                <CheckCircle2 className="w-8 h-8 text-success mx-auto" />
+                <p className="text-xs text-success font-semibold uppercase tracking-wider">
+                  Comanda Concluída
                 </p>
-              )}
+                {comanda.payment_method && (
+                  <p className="text-[10px] text-fg-muted">
+                    {PAYMENT_METHODS.find(
+                      (p) => p.value === comanda.payment_method
+                    )?.label ?? comanda.payment_method}
+                  </p>
+                )}
+              </div>
+
+              {/* Correção de comanda já fechada.
+                  Reabrir serve para o erro pequeno, quando ninguém mais mexeu.
+                  Estornar serve para a comanda que não deveria existir: sai do
+                  faturamento, mas fica registrada com motivo, em vez de sumir
+                  e deixar o caixa sem explicação. */}
+              <div className="border-t border-border/60 pt-3 space-y-2">
+                {!mostrarEstorno ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleReabrir}
+                      disabled={isReabrindo}
+                      className="btn-secondary w-full text-xs"
+                    >
+                      {isReabrindo ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <RotateCcw className="w-3.5 h-3.5" />
+                      )}
+                      Reabrir para corrigir
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setMostrarEstorno(true)}
+                      className="btn-ghost w-full text-xs text-danger"
+                    >
+                      <Undo2 className="w-3.5 h-3.5" />
+                      Estornar comanda
+                    </button>
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-xs text-fg">
+                      A comanda sai do faturamento, o produto volta ao estoque e o uso da
+                      assinatura volta para o cliente. O registro fica guardado com o motivo.
+                    </p>
+                    <input
+                      type="text"
+                      className="input text-sm"
+                      placeholder="Motivo do estorno"
+                      value={motivoEstorno}
+                      onChange={(e) => setMotivoEstorno(e.target.value)}
+                      maxLength={300}
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleEstornar}
+                        disabled={isEstornando || motivoEstorno.trim().length < 3}
+                        className="btn-primary flex-1 text-xs"
+                      >
+                        {isEstornando ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Undo2 className="w-3.5 h-3.5" />
+                        )}
+                        Confirmar estorno
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMostrarEstorno(false)}
+                        className="btn-secondary flex-1 text-xs"
+                      >
+                        Voltar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

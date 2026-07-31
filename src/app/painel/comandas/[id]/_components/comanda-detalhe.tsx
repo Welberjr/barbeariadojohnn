@@ -1,11 +1,27 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Loader2, Plus, Trash2, Scissors, Package, CreditCard, Crown } from 'lucide-react';
+import {
+  Loader2,
+  Plus,
+  Trash2,
+  Scissors,
+  Package,
+  CreditCard,
+  Crown,
+  RotateCcw,
+} from 'lucide-react';
 
-import { lancarServico, lancarProduto, removerItem, fecharMinhaComanda } from '../../actions';
+import {
+  lancarServico,
+  lancarProduto,
+  removerItem,
+  fecharMinhaComanda,
+  reabrirMinhaComanda,
+  JANELA_CORRECAO_MINUTOS,
+} from '../../actions';
 import { formatCurrency } from '@/lib/utils';
 import { corDoSelo, type Selo } from '@/lib/painel/assinatura-selo';
 import { calcularFechamento, type MetodoPagamento } from '@/lib/painel/comanda-calculo';
@@ -30,6 +46,8 @@ interface ComandaDetalheProps {
   comandaId: string;
   cliente: string;
   aberta: boolean;
+  /** Quando foi fechada, para saber se ainda dá tempo de corrigir */
+  fechadaEm?: string | null;
   itens: Item[];
   subtotal: number;
   servicos: Opcao[];
@@ -50,6 +68,7 @@ export function ComandaDetalhe({
   comandaId,
   cliente,
   aberta,
+  fechadaEm,
   itens,
   subtotal,
   servicos,
@@ -60,6 +79,25 @@ export function ComandaDetalhe({
 }: ComandaDetalheProps) {
   const router = useRouter();
   const [ocupado, setOcupado] = useState<string | null>(null);
+  const [confirmandoCorrecao, setConfirmandoCorrecao] = useState(false);
+
+  // Minutos que ainda restam da janela de correção. Calculado no navegador
+  // para o contador não nascer errado por causa do cache da página.
+  const [minutosRestantes, setMinutosRestantes] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (aberta || !fechadaEm) {
+      setMinutosRestantes(null);
+      return;
+    }
+    const calcular = () => {
+      const passados = (Date.now() - new Date(fechadaEm).getTime()) / 60000;
+      setMinutosRestantes(Math.max(0, Math.ceil(JANELA_CORRECAO_MINUTOS - passados)));
+    };
+    calcular();
+    const t = setInterval(calcular, 30000);
+    return () => clearInterval(t);
+  }, [aberta, fechadaEm]);
   const [aba, setAba] = useState<'servico' | 'produto'>('servico');
   const [metodo, setMetodo] = useState<MetodoPagamento>('pix');
   const [confirmandoFechar, setConfirmandoFechar] = useState(false);
@@ -86,6 +124,14 @@ export function ComandaDetalhe({
       return res;
     } finally {
       setOcupado(null);
+    }
+  }
+
+  async function corrigir() {
+    const res = await executar('corrigir', () => reabrirMinhaComanda(comandaId));
+    if (res?.ok) {
+      toast.success('Comanda reaberta. Corrija e feche de novo.');
+      setConfirmandoCorrecao(false);
     }
   }
 
@@ -342,10 +388,65 @@ export function ComandaDetalhe({
       )}
 
       {!aberta && (
-        <section className="card p-5">
-          <p className="text-sm text-fg-muted">
-            Comanda fechada. Precisa corrigir alguma coisa? Fale com a gestão.
-          </p>
+        <section className="card p-5 space-y-3">
+          {minutosRestantes !== null && minutosRestantes > 0 ? (
+            <>
+              <p className="text-sm text-fg">
+                Comanda fechada. Errou alguma coisa? Dá para corrigir por{' '}
+                <span className="text-gold font-medium">
+                  mais {minutosRestantes} {minutosRestantes === 1 ? 'minuto' : 'minutos'}
+                </span>
+                .
+              </p>
+              <p className="text-xs text-fg-muted">
+                Ao corrigir, a comanda volta a ficar aberta: o pagamento é desfeito e você lança de
+                novo do jeito certo.
+              </p>
+
+              {!confirmandoCorrecao ? (
+                <button
+                  type="button"
+                  onClick={() => setConfirmandoCorrecao(true)}
+                  className="btn-gold-outline w-full"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Corrigir esta comanda
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-sm text-fg">
+                    Reabrir a comanda para corrigir?
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={corrigir}
+                      disabled={!!ocupado}
+                      className="btn-primary flex-1"
+                    >
+                      {ocupado === 'corrigir' ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <RotateCcw className="w-4 h-4" />
+                      )}
+                      Reabrir
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmandoCorrecao(false)}
+                      className="btn-secondary flex-1"
+                    >
+                      Voltar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-fg-muted">
+              Comanda fechada há mais de uma hora. Para corrigir agora, peça para a gestão estornar.
+            </p>
+          )}
         </section>
       )}
     </div>

@@ -22,7 +22,7 @@ export default async function ComandaPainelPage({ params }: ComandaPageProps) {
   // Guarda de dono já na leitura: comanda de outro simplesmente não existe aqui
   const { data: comanda } = await admin
     .from('comandas')
-    .select('id, status, subtotal, customer_id, customers:customers ( full_name )')
+    .select('id, status, subtotal, customer_id, closed_at, customers:customers ( full_name )')
     .eq('id', id)
     .eq('staff_id', staff.staffId)
     .maybeSingle();
@@ -84,6 +84,7 @@ export default async function ComandaPainelPage({ params }: ComandaPageProps) {
         comandaId={comanda.id as string}
         cliente={cliente?.full_name ?? 'Cliente'}
         aberta={comanda.status === 'open'}
+        fechadaEm={(comanda.closed_at as string) ?? null}
         subtotal={subtotal}
         selo={selo}
         taxaCredito={Number(taxas?.credit_fee_percent ?? 0)}
