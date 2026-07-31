@@ -1,8 +1,8 @@
 ﻿'use client';
 
 import { useConfirm } from '@/components/confirm-dialog';
-import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAcaoRapida } from '@/lib/use-acao-rapida';
 import {
   X,
   Phone,
@@ -89,7 +89,7 @@ export function AppointmentDrawer({
   onClose,
 }: AppointmentDrawerProps) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const { executar, ocupado: isPending } = useAcaoRapida();
 
   const startTime = new Date(appointment.start_at).toLocaleTimeString('pt-BR', {
     hour: '2-digit',
@@ -113,39 +113,32 @@ export function AppointmentDrawer({
 
   const confirmDialog = useConfirm();
 
-  async function handleStatusChange(
-    newStatus: keyof typeof STATUS_CONFIG
-  ) {
-    const result = await updateAppointmentStatus(
-      appointment.id,
+  // Todas as acoes daqui seguem o mesmo padrao: a tela responde no clique e a
+  // gravacao acontece atras. Antes o drawer so fechava depois da ida completa
+  // ao servidor, o que dava a sensacao de sistema travado.
+  function handleStatusChange(newStatus: keyof typeof STATUS_CONFIG) {
+    onClose(); // fecha na hora, antes de falar com o servidor
+    executar({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      newStatus as any
-    );
-
-    if (result.ok) {
-      toast.success(`Status alterado para ${STATUS_CONFIG[newStatus].label}`);
-      onClose(); // fecha imediatamente
-      startTransition(() => router.refresh()); // sincroniza em background
-    } else {
-      toast.error(result.error ?? 'Erro');
-    }
+      acao: () => updateAppointmentStatus(appointment.id, newStatus as any),
+      sucesso: `Status alterado para ${STATUS_CONFIG[newStatus].label}`,
+    });
   }
 
-  async function handleStart() {
-    const result = await startAppointmentComanda(appointment.id);
-    if (result.ok) {
-      toast.success('Atendimento iniciado e comanda aberta.');
-      onClose();
-      startTransition(() => router.refresh());
-    } else {
-      toast.error(result.error ?? 'Erro ao iniciar atendimento');
-    }
+  function handleStart() {
+    onClose();
+    executar({
+      acao: () => startAppointmentComanda(appointment.id),
+      sucesso: 'Atendimento iniciado e comanda aberta.',
+    });
   }
 
   async function handleFinish() {
+    // Aqui o destino depende da resposta (o id da comanda), entao esta e a
+    // unica que espera. Fecha antes para a tela nao ficar parada.
+    onClose();
     const result = await startAppointmentComanda(appointment.id);
     if (result.ok && result.comandaId) {
-      onClose();
       router.push(`/admin/comandas/${result.comandaId}`);
     } else {
       toast.error(result.error ?? 'Erro ao abrir a comanda');
@@ -156,14 +149,11 @@ export function AppointmentDrawer({
     if (!(await confirmDialog({ title: `Cancelar este agendamento permanentemente? Esta ação não pode ser desfeita.`, danger: true })))
       return;
 
-    const result = await deleteAppointment(appointment.id);
-    if (result.ok) {
-      toast.success('Agendamento removido!');
-      onClose(); // fecha imediatamente
-      startTransition(() => router.refresh()); // sincroniza em background
-    } else {
-      toast.error(result.error ?? 'Erro');
-    }
+    onClose();
+    executar({
+      acao: () => deleteAppointment(appointment.id),
+      sucesso: 'Agendamento removido!',
+    });
   }
 
   return (
