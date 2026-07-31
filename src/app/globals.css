@@ -438,6 +438,22 @@
     gap: 8px !important;
   }
 
+  /* No papel a largura fica abaixo do ponto em que o Tailwind vira varias
+     colunas, entao blocos como a Composicao da Receita empilhavam e jogavam
+     o relatorio para a segunda folha. Aqui eles voltam a ficar lado a lado. */
+  .print-area .print-colunas {
+    display: grid !important;
+    grid-auto-flow: column !important;
+    grid-auto-columns: 1fr !important;
+    grid-template-columns: none !important;
+  }
+  .print-area .print-colunas > * {
+    padding: 8px !important;
+  }
+  .print-area .print-colunas .text-2xl {
+    font-size: 11.5pt !important;
+  }
+
   /* Grafico e area decorativa nao ajudam no papel e comem meia folha */
   .print-area canvas,
   .print-area svg.recharts-surface,

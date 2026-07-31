@@ -558,7 +558,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
           Composição da Receita
         </h2>
         <div
-          className={`grid grid-cols-1 gap-4 ${
+          className={`grid grid-cols-1 gap-4 print-colunas ${
             txReceitas > 0 ? 'md:grid-cols-3' : 'md:grid-cols-2'
           }`}
         >
