@@ -19,6 +19,10 @@ import {
 } from 'lucide-react';
 import { formatCurrency, SHOP_TIME_ZONE } from '@/lib/utils';
 import { InfoTip } from '@/components/info-tip';
+import { Paginacao } from '@/components/paginacao';
+
+/** Linhas por página no histórico de pontos. */
+const POR_PAGINA_HISTORICO = 15;
 
 import {
   updateLoyaltyConfig,
@@ -98,6 +102,13 @@ export function FidelidadeView({
   const [, startTransition] = useTransition();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('config');
+
+  // HISTÓRICO: a lista cresce todo dia, então vai paginada
+  const [paginaHistorico, setPaginaHistorico] = useState(1);
+  const transacoesDaPagina = transactions.slice(
+    (paginaHistorico - 1) * POR_PAGINA_HISTORICO,
+    paginaHistorico * POR_PAGINA_HISTORICO
+  );
 
   // CONFIG state
   const [cfgEnabled, setCfgEnabled] = useState(loyaltyEnabled);
@@ -873,7 +884,7 @@ export function FidelidadeView({
                   </tr>
                 </thead>
                 <tbody>
-                  {transactions.map((t) => {
+                  {transacoesDaPagina.map((t) => {
                     const lbl = txTypeLabel(t.type);
                     return (
                       <tr
@@ -892,7 +903,7 @@ export function FidelidadeView({
                           </span>
                         </td>
                         <td className="py-3 px-4 text-fg-muted text-xs">
-                          {t.reason ?? '—'}
+                          {t.reason ?? 'sem motivo'}
                         </td>
                         <td className="py-3 px-4 text-right">
                           <span
@@ -909,6 +920,14 @@ export function FidelidadeView({
                   })}
                 </tbody>
               </table>
+
+              <Paginacao
+                paginaAtual={paginaHistorico}
+                totalItens={transactions.length}
+                itensPorPagina={POR_PAGINA_HISTORICO}
+                aoMudar={setPaginaHistorico}
+                rotulo="lançamentos"
+              />
             </div>
           )}
         </div>

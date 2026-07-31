@@ -102,7 +102,8 @@ export default async function FidelidadePage() {
       .select('id, customer_id, type, points, reason, created_at')
       .eq('barbershop_id', BARBERSHOP_ID)
       .order('created_at', { ascending: false })
-      .limit(50),
+      // Passou a ser lista paginada na tela, então vale trazer mais histórico
+      .limit(500),
   ]);
 
   const loyaltyEnabled = bs?.loyalty_enabled ?? false;
