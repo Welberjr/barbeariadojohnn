@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
 import { InfoTip } from '@/components/info-tip';
 import { DrePdfButton } from './_components/dre-pdf-button';
+import { RelatorioImpresso } from './_components/relatorio-impresso';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -225,33 +226,32 @@ export default async function DREPage({ searchParams }: DREPageProps) {
     baseComposicao > 0 ? (txReceitas / baseComposicao) * 100 : 0;
 
   return (
-    <div className="space-y-6 animate-fade-in print-area">
-      {/* CABECALHO EXCLUSIVO DO PDF */}
-      <div className="hidden print:flex items-end justify-between gap-4 border-b-2 border-black pb-3">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ fontFamily: 'var(--font-playfair), serif' }}>
-            Barbearia do Johnn
-          </h1>
-          <p className="text-sm font-semibold mt-1">Demonstrativo de resultados</p>
-        </div>
-
-        <div className="text-right text-xs leading-snug">
-          <p className="font-semibold">
-            {fromStr.split('-').reverse().join('/')} a {toStr.split('-').reverse().join('/')}
-          </p>
-          <p>
-            Emitido em{' '}
-            {new Date().toLocaleString('pt-BR', {
-              timeZone: 'America/Sao_Paulo',
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </p>
-        </div>
-      </div>
+    <div className="space-y-6 animate-fade-in">
+      {/* DOCUMENTO IMPRESSO: layout proprio, so aparece no papel */}
+      <RelatorioImpresso
+        periodoDe={fromStr}
+        periodoAte={toStr}
+        receitaBruta={receitaBrutaTotal}
+        totalServicos={totalServicos}
+        totalProdutos={totalProdutosReal}
+        receitasExtras={txReceitas}
+        taxasCartao={totalTaxasCartao}
+        receitaLiquida={receitaLiquidaTotal}
+        custoProdutos={custoProdutosVendidos}
+        comissoes={totalComissoes}
+        margemBruta={margemBruta}
+        despesas={totalDespesas}
+        lucroLiquido={lucroLiquido}
+        margemLiquidaPct={margemLiquidaPct}
+        pctServicos={pctServicos}
+        pctProdutos={pctProdutos}
+        pctReceitasExtras={pctReceitasExtras}
+        despesasPorCategoria={despesasArr.map((d) => ({
+          name: d.name,
+          total: d.total,
+          count: d.count,
+        }))}
+      />
 
       {/* HEADER */}
       <div className="flex items-end justify-between flex-wrap gap-4 print:hidden">
@@ -621,13 +621,6 @@ export default async function DREPage({ searchParams }: DREPageProps) {
         </div>
       </section>
 
-      {/* Assinatura do documento, só no papel */}
-      <div className="print-footer">
-        <p>
-          Barbearia do Johnn · Documento gerado pelo sistema de gestão · Período de{' '}
-          {fromStr.split('-').reverse().join('/')} a {toStr.split('-').reverse().join('/')}
-        </p>
-      </div>
     </div>
   );
 }

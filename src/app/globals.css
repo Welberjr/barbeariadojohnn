@@ -345,138 +345,7 @@
   }
 }
 
-/* ===== Relatorio impresso: caber em uma folha e parecer documento =====
-   O DRE saia em duas paginas, com bloco cortado no meio e espaco sobrando.
-   Aqui o conteudo e compactado, a hierarquia fica pelo peso da fonte e as
-   cores viram tons de cinza que sobrevivem a impressora preto e branco. */
-@media print {
-  html,
-  body {
-    background: #fff !important;
-  }
 
-  @page {
-    margin: 12mm 14mm;
-  }
-
-  .print-area {
-    font-size: 10.5pt;
-    line-height: 1.35;
-  }
-
-  /* Espacamento vertical proporcional ao papel, nao a tela */
-  .print-area > * + * {
-    margin-top: 10px !important;
-  }
-  .print-area .card,
-  .print-area .card-premium,
-  .print-area section {
-    padding: 10px 12px !important;
-    margin: 0 !important;
-  }
-  .print-area .space-y-6 > * + *,
-  .print-area .space-y-4 > * + * {
-    margin-top: 8px !important;
-  }
-
-  /* Titulos: menores que na tela, ainda com hierarquia clara */
-  .print-area h1 {
-    font-size: 17pt !important;
-    line-height: 1.2 !important;
-  }
-  .print-area h2 {
-    font-size: 11.5pt !important;
-    margin-bottom: 4px !important;
-  }
-  .print-area .text-2xl,
-  .print-area .text-3xl {
-    font-size: 13pt !important;
-    line-height: 1.2 !important;
-  }
-  .print-area .text-xs,
-  .print-area .text-\[10px\],
-  .print-area .text-\[11px\] {
-    font-size: 8.5pt !important;
-  }
-
-  /* Numeros e rotulos em tons de cinza, nao em cores que somem no P&B */
-  .print-area .text-gold,
-  .print-area .text-success,
-  .print-area .text-danger,
-  .print-area .text-warn {
-    color: #000 !important;
-    font-weight: 600;
-  }
-  .print-area .text-fg-muted,
-  .print-area .text-fg-dim,
-  .print-area .text-fg-subtle {
-    color: #555 !important;
-  }
-
-  /* Tabelas com cara de relatorio */
-  .print-area table {
-    width: 100% !important;
-    border-collapse: collapse !important;
-    font-size: 9.5pt !important;
-  }
-  .print-area thead tr {
-    border-bottom: 1px solid #999 !important;
-  }
-  .print-area th {
-    font-size: 8pt !important;
-    letter-spacing: 0.06em;
-    color: #333 !important;
-    padding: 3px 4px !important;
-  }
-  .print-area td {
-    padding: 3px 4px !important;
-    border-bottom: 1px solid #eee !important;
-  }
-
-  /* Os tres indicadores do topo ficam lado a lado, sem esticar */
-  .print-area .grid {
-    gap: 8px !important;
-  }
-
-  /* No papel a largura fica abaixo do ponto em que o Tailwind vira varias
-     colunas, entao blocos como a Composicao da Receita empilhavam e jogavam
-     o relatorio para a segunda folha. Aqui eles voltam a ficar lado a lado. */
-  .print-area .print-colunas {
-    display: grid !important;
-    grid-auto-flow: column !important;
-    grid-auto-columns: 1fr !important;
-    grid-template-columns: none !important;
-  }
-  .print-area .print-colunas > * {
-    padding: 8px !important;
-  }
-  .print-area .print-colunas .text-2xl {
-    font-size: 11.5pt !important;
-  }
-
-  /* Grafico e area decorativa nao ajudam no papel e comem meia folha */
-  .print-area canvas,
-  .print-area svg.recharts-surface,
-  .print-area .recharts-wrapper,
-  .print-area .print-hide {
-    display: none !important;
-  }
-
-  /* Assinatura do documento no rodape da ultima pagina */
-  .print-footer {
-    display: block !important;
-    margin-top: 14px;
-    padding-top: 6px;
-    border-top: 1px solid #ccc;
-    font-size: 8pt;
-    color: #666 !important;
-  }
-}
-
-/* O rodape do relatorio so existe no papel */
-.print-footer {
-  display: none;
-}
 /* Animacao do SlideModal */
 @keyframes slideInRight {
   from { transform: translateX(100%); opacity: 0; }
@@ -486,4 +355,217 @@
 @keyframes slideUp {
   from { transform: translateY(100%); opacity: 0; }
   to   { transform: translateY(0);    opacity: 1; }
+}
+/* =========================================================================
+   DOCUMENTO IMPRESSO (DRE e futuros relatorios)
+
+   A tela e o papel sao midias diferentes. Em vez de espremer a interface na
+   folha, o relatorio tem layout proprio: tipografia, regras finas, valores
+   alinhados na mesma coluna e nenhuma caixa com borda grossa.
+
+   O bloco .doc so aparece na impressao.
+   ========================================================================= */
+.doc {
+  display: none;
+}
+
+@media print {
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 16mm 15mm 14mm 15mm;
+  }
+
+  /* Na impressao, some a interface e fica so o documento */
+  body * {
+    visibility: hidden;
+  }
+  .doc,
+  .doc * {
+    visibility: visible;
+  }
+  .doc {
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    color: #111;
+    font-size: 10pt;
+    line-height: 1.4;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ---------- Cabecalho ---------- */
+  .doc-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1.5pt solid #111;
+  }
+  .doc-marca {
+    font-family: var(--font-playfair), Georgia, serif;
+    font-size: 17pt;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    line-height: 1.1;
+  }
+  .doc-titulo {
+    font-size: 10pt;
+    font-weight: 500;
+    color: #444;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    margin-top: 3px;
+  }
+  .doc-periodo {
+    text-align: right;
+  }
+  .doc-periodo-label {
+    font-size: 7.5pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #777;
+  }
+  .doc-periodo-valor {
+    font-size: 10.5pt;
+    font-weight: 600;
+    margin-top: 2px;
+  }
+
+  /* ---------- Resumo em tres numeros ---------- */
+  .doc-resumo {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+    margin-top: 14px;
+    padding-bottom: 14px;
+    border-bottom: 0.5pt solid #ddd;
+  }
+  .doc-resumo-label {
+    font-size: 7.5pt;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #777;
+  }
+  .doc-resumo-valor {
+    font-family: var(--font-playfair), Georgia, serif;
+    font-size: 15pt;
+    font-weight: 700;
+    margin-top: 3px;
+    line-height: 1.1;
+  }
+  .doc-resumo-destaque {
+    border-bottom: 2pt solid #c8a24a;
+    display: inline-block;
+    padding-bottom: 1px;
+  }
+  .doc-resumo-nota {
+    font-size: 8pt;
+    color: #666;
+    margin-top: 3px;
+  }
+
+  /* ---------- Blocos ---------- */
+  .doc-bloco {
+    margin-top: 16px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .doc-bloco-titulo {
+    font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #111;
+    padding-bottom: 4px;
+    border-bottom: 0.5pt solid #bbb;
+    margin-bottom: 2px;
+  }
+
+  /* ---------- Tabela ---------- */
+  .doc-tabela {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .doc-tabela td {
+    padding: 3.5px 0;
+    vertical-align: baseline;
+  }
+  .doc-valor {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    padding-left: 12px;
+  }
+  .doc-pct {
+    color: #888;
+    font-size: 8pt;
+    margin-left: 6px;
+  }
+
+  /* Detalhe: recuado, menor e cinza, para nao competir com o subtotal */
+  .doc-tabela .linha-detalhe td {
+    font-size: 9pt;
+    color: #666;
+    padding: 1.5px 0;
+  }
+  .doc-tabela .linha-detalhe td:first-child {
+    padding-left: 14px;
+  }
+
+  /* Subtotal: regra fina acima e peso maior */
+  .doc-tabela .linha-subtotal td {
+    font-weight: 600;
+    border-top: 0.5pt solid #ccc;
+    padding-top: 5px;
+  }
+
+  /* Resultado: faixa discreta, sem caixa pesada */
+  .doc-tabela .linha-resultado td {
+    font-weight: 700;
+    font-size: 11.5pt;
+    border-top: 1.5pt solid #111;
+    border-bottom: 1.5pt solid #111;
+    padding: 7px 0;
+  }
+  .doc-tabela .linha-resultado td:first-child {
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-size: 9.5pt;
+  }
+  .doc-tabela .linha-resultado .doc-valor {
+    font-family: var(--font-playfair), Georgia, serif;
+  }
+
+  /* ---------- Duas colunas ---------- */
+  .doc-duas-colunas {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+    align-items: start;
+  }
+  .doc-vazio {
+    font-size: 9pt;
+    color: #777;
+    padding: 8px 0;
+  }
+
+  /* ---------- Rodape ---------- */
+  .doc-rodape {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 22px;
+    padding-top: 6px;
+    border-top: 0.5pt solid #ddd;
+    font-size: 7.5pt;
+    color: #888;
+  }
 }
