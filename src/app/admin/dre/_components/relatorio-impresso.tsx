@@ -1,3 +1,7 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { formatCurrency } from '@/lib/utils';
 
 /**
@@ -8,7 +12,10 @@ import { formatCurrency } from '@/lib/utils';
  * no meio. Aqui o layout e desenhado como relatorio, com tipografia, regras
  * finas e valores alinhados na mesma coluna.
  *
- * Some da tela e so aparece na impressao (hidden print:block no pai).
+ * O documento e montado direto no body, fora da interface. Esconder a tela
+ * com visibility deixava o espaco dela ocupado, e era isso que gerava a
+ * segunda folha em branco e a moldura em volta do relatorio. Sendo filho do
+ * body, basta esconder os irmaos na hora de imprimir.
  */
 
 interface LinhaDRE {
@@ -50,6 +57,10 @@ function dataBR(iso: string) {
 }
 
 export function RelatorioImpresso(p: RelatorioImpressoProps) {
+  // O portal só existe no navegador, então só monta depois da hidratação
+  const [montado, setMontado] = useState(false);
+  useEffect(() => setMontado(true), []);
+
   const linhas: LinhaDRE[] = [
     { rotulo: 'Receita bruta', valor: p.receitaBruta, subtotal: true },
     { rotulo: 'Serviços', valor: p.totalServicos, detalhe: true },
@@ -74,7 +85,9 @@ export function RelatorioImpresso(p: RelatorioImpressoProps) {
       : []),
   ];
 
-  return (
+  if (!montado) return null;
+
+  return createPortal(
     <div className="doc">
       {/* Cabeçalho */}
       <header className="doc-header">
@@ -202,6 +215,7 @@ export function RelatorioImpresso(p: RelatorioImpressoProps) {
           })}
         </span>
       </footer>
-    </div>
+    </div>,
+    document.body
   );
 }

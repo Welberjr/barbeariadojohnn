@@ -296,56 +296,6 @@
   animation: fade-in 200ms ease-out forwards;
 }
 
-/* ===== Impressao / PDF (DRE e relatorios) ===== */
-@media print {
-  body * {
-    visibility: hidden;
-  }
-  .print-area,
-  .print-area * {
-    visibility: visible;
-  }
-  .print-area {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    padding: 0 !important;
-  }
-  .no-print {
-    display: none !important;
-  }
-  .print-area,
-  .print-area * {
-    background: #ffffff !important;
-    color: #000000 !important;
-    border-color: #c8c8c8 !important;
-    box-shadow: none !important;
-    text-shadow: none !important;
-  }
-  @page {
-    margin: 14mm;
-  }
-}
-/* Refinamentos de impressao: sem quebras dentro de cards/linhas */
-@media print {
-  .print-area .card,
-  .print-area .card-premium,
-  .print-area section {
-    break-inside: avoid;
-    page-break-inside: avoid;
-    border: 1px solid #d8d8d8 !important;
-    border-radius: 6px;
-  }
-  .print-area table tr {
-    break-inside: avoid;
-  }
-  .print-area a {
-    text-decoration: none !important;
-  }
-}
-
-
 /* Animacao do SlideModal */
 @keyframes slideInRight {
   from { transform: translateX(100%); opacity: 0; }
@@ -373,6 +323,8 @@
   html,
   body {
     background: #fff !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   @page {
@@ -380,20 +332,15 @@
     margin: 16mm 15mm 14mm 15mm;
   }
 
-  /* Na impressao, some a interface e fica so o documento */
-  body * {
-    visibility: hidden;
+  /* O documento e filho direto do body, entao some com todo o resto.
+     display:none em vez de visibility:hidden: o segundo continua ocupando
+     espaco e era o que gerava a folha em branco no fim. */
+  body > *:not(.doc) {
+    display: none !important;
   }
-  .doc,
-  .doc * {
-    visibility: visible;
-  }
+
   .doc {
-    display: block;
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
+    display: block !important;
     color: #111;
     font-size: 10pt;
     line-height: 1.4;
