@@ -3,7 +3,8 @@
   "crons": [
     {
       "path": "/api/cron/reminders",
-      "schedule": "0 9 * * *"
+      "_comentario": "13h UTC e 10h de Brasilia: o pedido de confirmacao chega em hora de gente acordada, e sobra o dia inteiro para o cliente responder antes do atendimento de amanha.",
+      "schedule": "0 13 * * *"
     }
   ]
 }
