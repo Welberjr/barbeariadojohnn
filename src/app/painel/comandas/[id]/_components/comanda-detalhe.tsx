@@ -24,6 +24,7 @@ import {
   cancelarMinhaComanda,
 } from '../../actions';
 import { formatCurrency } from '@/lib/utils';
+import { useAcaoRapida } from '@/lib/use-acao-rapida';
 import { corDoSelo, type Selo } from '@/lib/painel/assinatura-selo';
 import {
   calcularFechamento,
@@ -86,6 +87,7 @@ export function ComandaDetalhe({
   taxaDebito,
 }: ComandaDetalheProps) {
   const router = useRouter();
+  const { executar: executarRapido } = useAcaoRapida();
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [confirmandoCorrecao, setConfirmandoCorrecao] = useState(false);
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false);
@@ -112,14 +114,78 @@ export function ComandaDetalhe({
   const [metodo, setMetodo] = useState<MetodoPagamento>('pix');
   const [confirmandoFechar, setConfirmandoFechar] = useState(false);
 
-  const temItemDeOutro = itens.some((i) => !i.meu);
+  /**
+   * Itens que a tela ja mostra antes de o servidor responder.
+   *
+   * Lancar corte, barba e pomada e o que mais acontece aqui, uma coisa atras da
+   * outra, com o cliente sentado esperando. Cada lancamento esperando a ida e a
+   * volta inteira somava segundos de tela parada. Agora o item aparece no clique
+   * e some sozinho quando a lista de verdade chega.
+   */
+  const [otimistas, setOtimistas] = useState<Item[]>([]);
+  const [removidos, setRemovidos] = useState<string[]>([]);
+
+  // A lista do servidor chegou diferente: o que era suposicao ja virou fato
+  const chaveDoServidor = itens.map((i) => i.id).join(',');
+  useEffect(() => {
+    setOtimistas([]);
+    setRemovidos([]);
+  }, [chaveDoServidor]);
+
+  const itensNaTela = [
+    ...itens.filter((i) => !removidos.includes(i.id)),
+    ...otimistas,
+  ];
+
+  const subtotalNaTela = itensNaTela.reduce((s, i) => s + i.total, 0);
+
+  const temItemDeOutro = itensNaTela.some((i) => !i.meu);
 
   const conta = calcularFechamento({
-    subtotal,
+    subtotal: subtotalNaTela,
     metodo,
     taxaCreditoPercent: taxaCredito,
     taxaDebitoPercent: taxaDebito,
   });
+
+  /** Lança o item na tela e grava atrás. */
+  function lancar(opcao: Opcao, tipo: 'servico' | 'produto', porAssinatura: boolean) {
+    const idTemporario = `novo:${opcao.id}:${Date.now()}`;
+
+    executarRapido({
+      otimista: () =>
+        setOtimistas((atual) => [
+          ...atual,
+          {
+            id: idTemporario,
+            nome: porAssinatura ? `${opcao.nome} (Assinatura)` : opcao.nome,
+            tipo,
+            quantidade: 1,
+            total: porAssinatura ? 0 : opcao.preco,
+            coberto: porAssinatura,
+            meu: true,
+          },
+        ]),
+      desfazer: () => setOtimistas((atual) => atual.filter((i) => i.id !== idTemporario)),
+      acao: () =>
+        tipo === 'servico'
+          ? lancarServico({
+              comandaId,
+              serviceId: opcao.id,
+              usarAssinatura: porAssinatura,
+            })
+          : lancarProduto({ comandaId, productId: opcao.id, quantidade: 1 }),
+    });
+  }
+
+  /** Tira o item da tela e apaga atrás. */
+  function remover(item: Item) {
+    executarRapido({
+      otimista: () => setRemovidos((atual) => [...atual, item.id]),
+      desfazer: () => setRemovidos((atual) => atual.filter((id) => id !== item.id)),
+      acao: () => removerItem(comandaId, item.id),
+    });
+  }
 
   async function executar(chave: string, fn: () => Promise<{ ok: boolean; error?: string }>) {
     if (ocupado) return;
@@ -185,12 +251,12 @@ export function ComandaDetalhe({
       <section className="space-y-3">
         <p className="text-[10px] text-fg-dim tracking-[0.25em] uppercase">Itens</p>
 
-        {itens.length === 0 ? (
+        {itensNaTela.length === 0 ? (
           <div className="card p-6 text-center">
             <p className="text-sm text-fg-muted">Nenhum item lançado ainda.</p>
           </div>
         ) : (
-          itens.map((item) => (
+          itensNaTela.map((item) => (
             <div key={item.id} className="card p-4 flex items-center justify-between gap-3">
               <span className="min-w-0">
                 <span className="block text-sm text-fg truncate">
@@ -212,8 +278,8 @@ export function ComandaDetalhe({
                 {aberta && item.meu && (
                   <button
                     type="button"
-                    onClick={() => executar(`rm:${item.id}`, () => removerItem(comandaId, item.id))}
-                    disabled={!!ocupado}
+                    onClick={() => remover(item)}
+                    disabled={item.id.startsWith('novo:')}
                     className="text-fg-muted hover:text-danger transition-colors"
                     aria-label="Remover item"
                   >
@@ -270,52 +336,20 @@ export function ComandaDetalhe({
                     {aba === 'servico' && selo.cobre && (
                       <button
                         type="button"
-                        onClick={() =>
-                          executar(`assin:${opcao.id}`, () =>
-                            lancarServico({
-                              comandaId,
-                              serviceId: opcao.id,
-                              usarAssinatura: true,
-                            })
-                          )
-                        }
-                        disabled={!!ocupado}
+                        onClick={() => lancar(opcao, 'servico', true)}
                         className="btn-secondary text-xs"
                       >
-                        {ocupado === `assin:${opcao.id}` ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <Crown className="w-3.5 h-3.5" />
-                        )}
+                        <Crown className="w-3.5 h-3.5" />
                         Assinatura
                       </button>
                     )}
 
                     <button
                       type="button"
-                      onClick={() =>
-                        executar(`add:${opcao.id}`, () =>
-                          aba === 'servico'
-                            ? lancarServico({
-                                comandaId,
-                                serviceId: opcao.id,
-                                usarAssinatura: false,
-                              })
-                            : lancarProduto({
-                                comandaId,
-                                productId: opcao.id,
-                                quantidade: 1,
-                              })
-                        )
-                      }
-                      disabled={!!ocupado}
+                      onClick={() => lancar(opcao, aba, false)}
                       className="btn-gold-outline text-xs"
                     >
-                      {ocupado === `add:${opcao.id}` ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Plus className="w-3.5 h-3.5" />
-                      )}
+                      <Plus className="w-3.5 h-3.5" />
                       Lançar
                     </button>
                   </span>
