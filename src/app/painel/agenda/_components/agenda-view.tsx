@@ -23,6 +23,7 @@ import {
   type StatusAgendamento,
 } from '@/lib/painel/agenda-estados';
 import { montarSelo, corDoSelo, type AssinaturaResumo } from '@/lib/painel/assinatura-selo';
+import { useAcaoRapida } from '@/lib/use-acao-rapida';
 
 interface AgendamentoView {
   id: string;
@@ -49,6 +50,21 @@ const ACAO_INFO: Record<AcaoAgenda, { label: string; icon: typeof Check }> = {
   falta: { label: 'Faltou', icon: UserX },
 };
 
+/** Para onde o card vai na tela assim que o barbeiro clica. */
+const PROXIMO_STATUS: Record<AcaoAgenda, StatusAgendamento> = {
+  confirmar: 'confirmed',
+  iniciar: 'in_progress',
+  concluir: 'completed',
+  falta: 'no_show',
+};
+
+const ROTULO_SUCESSO: Record<AcaoAgenda, string> = {
+  confirmar: 'Presença confirmada',
+  iniciar: 'Atendimento iniciado',
+  concluir: 'Atendimento concluído',
+  falta: 'Marcado como falta',
+};
+
 function somarDias(dataStr: string, dias: number): string {
   const d = new Date(dataStr + 'T12:00:00');
   d.setDate(d.getDate() + dias);
@@ -66,28 +82,26 @@ function hora(iso: string) {
 export function AgendaView({ data, agendamentos, podeOperar }: AgendaViewProps) {
   const router = useRouter();
   const [pendente, startTransition] = useTransition();
-  const [emAndamento, setEmAndamento] = useState<string | null>(null);
+  const { executar: executarRapido } = useAcaoRapida();
+  // Status mostrado na tela antes de o servidor confirmar. O card muda no
+  // clique e volta sozinho se a gravação falhar.
+  const [statusLocal, setStatusLocal] = useState<Record<string, StatusAgendamento>>({});
   const [bloqueando, setBloqueando] = useState(false);
 
   function irPara(novaData: string) {
     startTransition(() => router.push(`/painel/agenda?data=${novaData}`));
   }
 
-  async function executar(id: string, acao: AcaoAgenda) {
-    const chave = `${id}:${acao}`;
-    if (emAndamento) return; // trava o clique duplo
-    setEmAndamento(chave);
-    try {
-      const res = await mudarStatusAgendamento(id, acao);
-      if (res.ok) {
-        toast.success('Pronto.');
-        router.refresh();
-      } else {
-        toast.error(res.error ?? 'Não foi possível.');
-      }
-    } finally {
-      setEmAndamento(null);
-    }
+  function executar(id: string, acao: AcaoAgenda, statusAtual: StatusAgendamento) {
+    const proximo = PROXIMO_STATUS[acao];
+    const anterior = statusLocal[id] ?? statusAtual;
+
+    executarRapido({
+      otimista: () => setStatusLocal((s) => ({ ...s, [id]: proximo })),
+      desfazer: () => setStatusLocal((s) => ({ ...s, [id]: anterior })),
+      acao: () => mudarStatusAgendamento(id, acao),
+      sucesso: ROTULO_SUCESSO[acao],
+    });
   }
 
   async function bloquearDia() {
@@ -156,8 +170,10 @@ export function AgendaView({ data, agendamentos, podeOperar }: AgendaViewProps) 
         <div className="space-y-3">
           {agendamentos.map((a) => {
             const selo = montarSelo(a.assinatura, new Date(a.inicio));
+            // O que a tela mostra é o status otimista, quando existe
+            const status = statusLocal[a.id] ?? (a.status as StatusAgendamento);
             const acoes = podeOperar
-              ? acoesDisponiveis(a.status as StatusAgendamento, new Date(a.inicio), agora)
+              ? acoesDisponiveis(status, new Date(a.inicio), agora)
               : [];
 
             return (
@@ -175,7 +191,7 @@ export function AgendaView({ data, agendamentos, podeOperar }: AgendaViewProps) 
                   </div>
 
                   <span className="text-[10px] uppercase tracking-wider text-fg-dim shrink-0">
-                    {rotuloEstado(a.status as StatusAgendamento)}
+                    {rotuloEstado(status)}
                   </span>
                 </div>
 
@@ -209,22 +225,16 @@ export function AgendaView({ data, agendamentos, podeOperar }: AgendaViewProps) 
                   {acoes.map((acao) => {
                     const info = ACAO_INFO[acao];
                     const Icon = info.icon;
-                    const carregando = emAndamento === `${a.id}:${acao}`;
                     return (
                       <button
                         key={acao}
                         type="button"
-                        onClick={() => executar(a.id, acao)}
-                        disabled={!!emAndamento}
+                        onClick={() => executar(a.id, acao, status)}
                         className={
                           acao === 'falta' ? 'btn-secondary text-xs' : 'btn-gold-outline text-xs'
                         }
                       >
-                        {carregando ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <Icon className="w-3.5 h-3.5" />
-                        )}
+                        <Icon className="w-3.5 h-3.5" />
                         {info.label}
                       </button>
                     );
