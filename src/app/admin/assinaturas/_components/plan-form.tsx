@@ -7,6 +7,11 @@ import { toast } from 'sonner';
 import { Loader2, Save, ArrowLeft, Crown } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { DAY_LABELS_SHORT } from '@/lib/subscriptions';
+import {
+  DESTINO_SOBRA_INFO,
+  lerDestinoSobra,
+  type DestinoSobra,
+} from '@/lib/subscriptions-rateio';
 import { createPlan, updatePlan, type PlanFormData } from '../actions';
 
 const PERIOD_OPTIONS = [
@@ -37,6 +42,7 @@ export function PlanForm({ planId, defaultValues }: PlanFormProps) {
     show_on_public_menu: defaultValues?.show_on_public_menu ?? true,
     active: defaultValues?.active ?? true,
     display_order: defaultValues?.display_order ?? 0,
+    leftover_destination: lerDestinoSobra(defaultValues?.leftover_destination),
   });
 
   function toggleDay(day: number) {
@@ -49,6 +55,8 @@ export function PlanForm({ planId, defaultValues }: PlanFormProps) {
   }
 
   const poolValue = (Number(form.price) * Number(form.barber_share_percent)) / 100;
+  const valorPorUso =
+    Number(form.included_uses) > 0 ? poolValue / Number(form.included_uses) : 0;
 
   async function handleSubmit() {
     if (!form.name.trim()) {
@@ -254,9 +262,10 @@ export function PlanForm({ planId, defaultValues }: PlanFormProps) {
           Potinho dos barbeiros
         </h2>
         <p className="text-xs text-fg-muted -mt-2">
-          Percentual do valor do plano que é dividido entre os barbeiros que
-          atenderam o assinante no ciclo, proporcional aos atendimentos. Sem
-          visitas no ciclo, o valor fica integral para a barbearia.
+          Percentual do valor do plano que vai para os barbeiros. Esse valor é
+          dividido pelos atendimentos inclusos, e cada profissional recebe pelos
+          que atendeu. O que o cliente não usar vira sobra, com o destino que
+          você escolher abaixo.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
@@ -288,9 +297,52 @@ export function PlanForm({ planId, defaultValues }: PlanFormProps) {
               {formatCurrency(poolValue)}
             </p>
             <p className="text-[10px] text-fg-subtle mt-1">
-              Barbearia fica com {formatCurrency(Number(form.price) - poolValue)}
+              {formatCurrency(valorPorUso)} por atendimento, com{' '}
+              {form.included_uses} inclusos
             </p>
           </div>
+        </div>
+
+        {/* Destino da sobra */}
+        <div className="space-y-2 pt-2">
+          <label className="label">
+            Quando o cliente não usa todos os atendimentos
+          </label>
+          <div className="space-y-2">
+            {(Object.keys(DESTINO_SOBRA_INFO) as DestinoSobra[]).map((destino) => (
+              <label
+                key={destino}
+                className={`flex items-start gap-3 p-3 rounded-md border cursor-pointer transition-colors ${
+                  form.leftover_destination === destino
+                    ? 'border-gold/60 bg-gold/5'
+                    : 'border-border hover:border-gold/30'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="leftover_destination"
+                  className="mt-0.5 w-4 h-4 accent-gold"
+                  checked={form.leftover_destination === destino}
+                  onChange={() => setForm({ ...form, leftover_destination: destino })}
+                />
+                <span>
+                  <span className="text-sm font-medium text-fg">
+                    {DESTINO_SOBRA_INFO[destino].label}
+                  </span>
+                  <span className="block text-xs text-fg-muted">
+                    {DESTINO_SOBRA_INFO[destino].ajuda}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+
+          <p className="text-[10px] text-fg-subtle">
+            Exemplo: o cliente veio {Math.max(1, Number(form.included_uses) - 1)} de{' '}
+            {form.included_uses} vezes. Os barbeiros levam{' '}
+            {formatCurrency(valorPorUso * Math.max(1, Number(form.included_uses) - 1))} e sobram{' '}
+            {formatCurrency(poolValue - valorPorUso * Math.max(1, Number(form.included_uses) - 1))}.
+          </p>
         </div>
       </section>
 
