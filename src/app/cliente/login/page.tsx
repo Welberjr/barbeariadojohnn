@@ -1,5 +1,6 @@
 import { Logo } from '@/components/brand/logo';
 import { CustomerLoginForm } from './_components/customer-login-form';
+import { SairDestaConta } from './_components/sair-desta-conta';
 
 export const metadata = {
   title: 'Área do Cliente | Barbearia do Johnn',
@@ -66,6 +67,7 @@ export default async function CustomerLoginPage({ searchParams }: Props) {
               Entre com o e-mail que você usa na barbearia. Se você nunca criou conta, fale
               com a recepção: o cadastro leva um minuto.
             </p>
+            <SairDestaConta />
           </div>
         )}
 
