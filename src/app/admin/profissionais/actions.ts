@@ -156,18 +156,192 @@ export async function updateStaff(staffId: string, data: StaffFormData) {
 }
 
 /**
- * Desativa um profissional (soft delete).
+ * O que fica pendurado se a pessoa sair hoje.
+ *
+ * Desligar alguem no meio do expediente tem consequencia: cliente marcado com
+ * ele fica sem barbeiro, comanda aberta trava o caixa, e comissao que ele ja
+ * ganhou continua sendo dele. A gestao precisa ver isso antes de decidir, e nao
+ * descobrir na segunda-feira quando o cliente aparecer.
  */
-export async function deactivateStaff(staffId: string) {
+export async function pendenciasDoProfissional(staffId: string) {
   const admin = await createManagerClient();
+  const agora = new Date().toISOString();
+
+  const [
+    { count: agendamentos },
+    { count: comandasAbertas },
+    { count: valesPendentes },
+    { count: atendimentos },
+    { data: itens },
+  ] = await Promise.all([
+    admin
+      .from('appointments')
+      .select('id', { count: 'exact', head: true })
+      .eq('staff_id', staffId)
+      .in('status', ['scheduled', 'confirmed', 'in_progress'])
+      .gte('start_at', agora),
+    admin
+      .from('comandas')
+      .select('id', { count: 'exact', head: true })
+      .eq('staff_id', staffId)
+      .eq('status', 'open'),
+    admin
+      .from('allowances')
+      .select('id', { count: 'exact', head: true })
+      .eq('staff_id', staffId)
+      .eq('status', 'pending'),
+    admin
+      .from('comandas')
+      .select('id', { count: 'exact', head: true })
+      .eq('staff_id', staffId)
+      .eq('status', 'closed'),
+    admin
+      .from('comanda_items')
+      .select('commission_value')
+      .eq('staff_id', staffId)
+      .limit(3000),
+  ]);
+
+  const comissaoGerada = (itens ?? []).reduce(
+    (soma, i) => soma + Number(i.commission_value ?? 0),
+    0
+  );
+
+  return {
+    ok: true as const,
+    agendamentosFuturos: agendamentos ?? 0,
+    comandasAbertas: comandasAbertas ?? 0,
+    valesPendentes: valesPendentes ?? 0,
+    atendimentosFeitos: atendimentos ?? 0,
+    comissaoGerada,
+    /** Sem nenhum movimento, a ficha pode sumir de vez sem estragar nada */
+    podeApagarDeVez: (atendimentos ?? 0) === 0 && (comandasAbertas ?? 0) === 0,
+  };
+}
+
+/**
+ * Desliga um profissional.
+ *
+ * Ele sai da agenda, some das listas e perde o acesso ao painel na mesma hora:
+ * a portaria confere no banco a cada tela, entao nem sessao ja aberta continua
+ * valendo. O que ele fez continua no lugar, porque comanda fechada e dinheiro
+ * que ja passou pelo caixa, e apagar isso faria o faturamento do mes mudar
+ * sozinho depois de fechado.
+ *
+ * Os atendimentos futuros dele sao cancelados junto, senao ficam clientes
+ * marcados com alguem que nao trabalha mais na casa.
+ */
+export async function deactivateStaff(staffId: string, motivo?: string) {
+  const admin = await createManagerClient();
+
+  const { data: staff } = await admin
+    .from('staff')
+    .select('id, display_name, can_manage')
+    .eq('id', staffId)
+    .maybeSingle();
+
+  if (!staff) return { ok: false, error: 'Profissional não encontrado.' };
+
+  // Ninguem desliga o ultimo com gestao: a barbearia ficaria sem dono
+  if (staff.can_manage) {
+    const { count } = await admin
+      .from('staff')
+      .select('id', { count: 'exact', head: true })
+      .eq('can_manage', true)
+      .eq('active', true)
+      .is('fired_at', null);
+
+    if ((count ?? 0) <= 1) {
+      return {
+        ok: false,
+        error:
+          'Este é o último com acesso de gestão. Dê gestão a outra pessoa antes de desligar, senão ninguém mais entra no administrativo.',
+      };
+    }
+  }
 
   const { error } = await admin
     .from('staff')
     .update({ active: false, fired_at: new Date().toISOString() })
     .eq('id', staffId);
 
-  if (error) {
-    return { ok: false, error: error.message };
+  if (error) return { ok: false, error: error.message };
+
+  const { count: cancelados } = await admin
+    .from('appointments')
+    .update(
+      {
+        status: 'cancelled',
+        cancelled_at: new Date().toISOString(),
+        cancellation_reason: motivo?.trim()
+          ? `Profissional desligado: ${motivo.trim()}`
+          : 'Profissional desligado',
+      },
+      { count: 'exact' }
+    )
+    .eq('staff_id', staffId)
+    .in('status', ['scheduled', 'confirmed'])
+    .gte('start_at', new Date().toISOString());
+
+  revalidatePath('/admin/profissionais');
+  revalidatePath('/admin/agenda');
+  revalidatePath('/admin');
+  return { ok: true, agendamentosCancelados: cancelados ?? 0 };
+}
+
+/**
+ * Apaga a ficha de vez.
+ *
+ * So serve para cadastro que nunca virou atendimento: nome digitado errado,
+ * pessoa que desistiu antes de comecar. Quem ja atendeu nao se apaga, porque o
+ * dinheiro dele esta no caixa da casa e faturamento passado nao muda sozinho.
+ */
+export async function excluirProfissional(staffId: string) {
+  const admin = await createManagerClient();
+
+  const pendencias = await pendenciasDoProfissional(staffId);
+  if (!pendencias.podeApagarDeVez) {
+    return {
+      ok: false,
+      error:
+        'Esta pessoa já tem atendimento no histórico. Use Desligar: o que ela fez continua no caixa e o nome dela sai da operação.',
+    };
+  }
+
+  const { data: staff } = await admin
+    .from('staff')
+    .select('id, profile_id, can_manage')
+    .eq('id', staffId)
+    .maybeSingle();
+
+  if (!staff) return { ok: false, error: 'Profissional não encontrado.' };
+  if (staff.can_manage) {
+    return { ok: false, error: 'Tire o acesso de gestão antes de apagar a ficha.' };
+  }
+
+  // O que pode existir mesmo sem atendimento nenhum: agenda marcada, vale
+  // pedido, folga combinada e a lista de servicos que ele faz.
+  const { data: agendamentosDele } = await admin
+    .from('appointments')
+    .select('id')
+    .eq('staff_id', staffId);
+
+  const ids = (agendamentosDele ?? []).map((a) => a.id as string);
+  if (ids.length) {
+    await admin.from('appointment_services').delete().in('appointment_id', ids);
+  }
+
+  await admin.from('appointments').delete().eq('staff_id', staffId);
+  await admin.from('allowances').delete().eq('staff_id', staffId);
+  await admin.from('days_off').delete().eq('staff_id', staffId);
+  await admin.from('staff_services').delete().eq('staff_id', staffId);
+
+  const { error } = await admin.from('staff').delete().eq('id', staffId);
+  if (error) return { ok: false, error: error.message };
+
+  // A conta de acesso morre junto: ficha apagada com login vivo e porta aberta
+  if (staff.profile_id) {
+    await admin.auth.admin.deleteUser(staff.profile_id as string).catch(() => {});
   }
 
   revalidatePath('/admin/profissionais');

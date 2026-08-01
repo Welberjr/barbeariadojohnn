@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { StaffForm } from '../_components/staff-form';
 import { StaffAccessCard } from '../_components/staff-access-card';
+import { DesligarProfissional } from '../_components/desligar-profissional';
 import { parseStaffPermissions } from '@/lib/staff-permissions';
 
 export const metadata = {
@@ -81,6 +82,12 @@ export default async function EditStaffPage({ params }: EditStaffPageProps) {
         permissions={parseStaffPermissions(staff.permissions)}
         mustChangePassword={staff.must_change_password === true}
         ultimoAcesso={ultimoAcesso}
+        ativo={staff.active !== false}
+      />
+
+      <DesligarProfissional
+        staffId={staff.id}
+        displayName={staff.display_name}
         ativo={staff.active !== false}
       />
     </div>
