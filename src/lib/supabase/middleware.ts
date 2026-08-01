@@ -121,7 +121,14 @@ export async function updateSession(
   const isPanelRoute = pathname.startsWith('/painel');
   const isAdminLogin = pathname.startsWith('/login');
   const isCustomerLogin = pathname.startsWith('/cliente/login');
-  const isCustomerRoute = pathname.startsWith('/cliente') && !isCustomerLogin;
+
+  // O cadastro mora embaixo de /cliente, mas e a porta de entrada de quem ainda
+  // nao tem conta. Sem esta excecao ele era mandado para o login, ou seja: a
+  // unica tela que serve para quem nao esta logado exigia estar logado.
+  const isCustomerCadastro = pathname.startsWith('/cliente/cadastro');
+
+  const isCustomerRoute =
+    pathname.startsWith('/cliente') && !isCustomerLogin && !isCustomerCadastro;
 
   /**
    * Conta redirecionamentos seguidos.
