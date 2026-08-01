@@ -55,7 +55,9 @@ export function CustomerLoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+    // method="post" para a senha nunca ir pelo endereco caso o programa da
+    // pagina nao rode. Ver o comentario igual no login da equipe.
+    <form method="post" onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       <div className="space-y-2">
         <label htmlFor="email" className="label flex items-center gap-2">
           <Mail className="w-3.5 h-3.5 text-gold/70" />

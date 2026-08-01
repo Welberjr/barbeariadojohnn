@@ -55,7 +55,12 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+    // method="post" e cinto de seguranca, nao enfeite: se um dia o programa da
+    // pagina nao rodar, o navegador envia o formulario do jeito antigo. Sem
+    // isto ele envia por endereco, e a senha da pessoa aparece na barra do
+    // navegador, fica no historico e vaza para qualquer log pelo caminho. Foi
+    // exatamente o que aconteceu em 01/08/2026.
+    <form method="post" onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       {/* Email */}
       <div className="space-y-2">
         <label htmlFor="email" className="label flex items-center gap-2">

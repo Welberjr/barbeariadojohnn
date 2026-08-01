@@ -22,13 +22,27 @@ export function gerarNonce(): string {
   return btoa(String.fromCharCode(...bytes));
 }
 
-export function montarCsp(nonce: string): string {
+/**
+ * Por que aqui nao tem nonce.
+ *
+ * A primeira versao desta politica exigia nonce e usava 'strict-dynamic'. Isso
+ * derrubou o login em producao de um jeito silencioso e perigoso: a tela de
+ * login e pre-renderizada e servida do cache, entao o HTML guardado nao tem o
+ * nonce da requisicao de agora. Com 'strict-dynamic' o navegador ignora
+ * 'self' e 'unsafe-inline' e so executa script assinado, entao NENHUM script
+ * rodava. A pagina virava HTML sem programa: o formulario submetia do jeito
+ * antigo, por endereco, e a senha do usuario ia parar na barra do navegador.
+ *
+ * Quem ja estava logado nao via nada disso, porque nem passava pelo login. So
+ * quebrava para quem entrava do zero, que e justamente o cliente novo.
+ *
+ * A licao: nonce so serve quando toda pagina e montada na hora. Enquanto
+ * existir pagina guardada em cache, a politica tem que valer sem ele.
+ */
+export function montarCsp(_nonce?: string): string {
   return [
     "default-src 'self'",
-    // 'strict-dynamic' deixa os scripts assinados carregarem os pedaços do
-    // aplicativo. 'unsafe-inline' fica só como remendo para navegador antigo
-    // que não entende nonce: onde o nonce vale, o navegador ignora este item.
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline'`,
+    "script-src 'self' 'unsafe-inline'",
     // O estilo continua liberado: o sistema escreve estilo no próprio elemento
     // em vários pontos, e apertar isto agora quebraria a aparência sem ganho.
     "style-src 'self' 'unsafe-inline'",
