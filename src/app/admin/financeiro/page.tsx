@@ -106,11 +106,31 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
     payments = paymentsAgg ?? [];
   }
 
-  const faturamentoBruto = comandas.reduce((s, c) => s + Number(c.total ?? 0), 0);
+  // Crédito da casa não é dinheiro que entrou: o serviço já tinha sido pago
+  // antes, em permuta ou cortesia. Sai do faturamento e do mix de vendas, mas
+  // continua aparecendo em separado logo abaixo, para o número ter explicação.
+  const creditoNaCasaPorComanda = new Map<string, number>();
+  for (const p of payments) {
+    if (p.method !== 'store_credit') continue;
+    const id = p.comanda_id as string;
+    creditoNaCasaPorComanda.set(
+      id,
+      (creditoNaCasaPorComanda.get(id) ?? 0) + Number(p.amount ?? 0)
+    );
+  }
+  const creditoNaCasa = Array.from(creditoNaCasaPorComanda.values()).reduce(
+    (s, v) => s + v,
+    0
+  );
+
+  const faturamentoBruto =
+    comandas.reduce((s, c) => s + Number(c.total ?? 0), 0) - creditoNaCasa;
   const totalAtendimentos = comandas.length;
   const ticketMedio = totalAtendimentos > 0 ? faturamentoBruto / totalAtendimentos : 0;
   const clientesUnicos = new Set(comandas.map((c) => c.customer_id).filter(Boolean)).size;
-  const totalServicos = items.filter((i) => i.item_type === 'service').reduce((s, i) => s + Number(i.total_price ?? 0), 0);
+  const totalServicos =
+    items.filter((i) => i.item_type === 'service').reduce((s, i) => s + Number(i.total_price ?? 0), 0) -
+    creditoNaCasa;
   const totalProdutos = items.filter((i) => i.item_type === 'product').reduce((s, i) => s + Number(i.total_price ?? 0), 0);
 
   // Despesas manuais (type=expense) e receitas extras (type=other)
@@ -171,6 +191,9 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
 
   const paymentByMethod = new Map<string, { amount: number; net: number; fees: number; count: number }>();
   for (const p of payments) {
+    // O painel abaixo responde "por onde o dinheiro entrou". Crédito da casa
+    // não entrou por lugar nenhum: aparece na sua própria linha.
+    if (p.method === 'store_credit') continue;
     const method = (p.method as string) ?? 'outros';
     const cur = paymentByMethod.get(method) ?? { amount: 0, net: 0, fees: 0, count: 0 };
     cur.amount += Number(p.amount ?? 0);
@@ -203,7 +226,8 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
     const d = new Date(c.closed_at as string);
     const label = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
     const cur = dayMap.get(label) ?? { income: 0, expense: 0 };
-    cur.income += Number(c.total ?? 0);
+    cur.income +=
+      Number(c.total ?? 0) - (creditoNaCasaPorComanda.get(c.id as string) ?? 0);
     dayMap.set(label, cur);
   }
   for (const t of manualTx) {
@@ -426,6 +450,21 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
                   <p className="text-lg font-bold text-fg">{formatCurrency(p.amount)}</p>
                 </div>
               ))}
+            </div>
+          )}
+
+          {creditoNaCasa > 0 && (
+            <div className="mt-3 flex items-center justify-between gap-3 rounded-md border border-dashed border-border/60 p-3">
+              <div>
+                <p className="text-sm text-fg-muted">
+                  Crédito da casa
+                  <InfoTip text="Atendimento abatido de um crédito que o cliente já tinha (permuta, cortesia, vale). Não entrou dinheiro no caixa, por isso está fora do faturamento do período." />
+                </p>
+                <p className="text-[11px] text-fg-subtle">Não entra no caixa</p>
+              </div>
+              <p className="text-lg font-semibold text-fg-dim">
+                {formatCurrency(creditoNaCasa)}
+              </p>
             </div>
           )}
         </section>

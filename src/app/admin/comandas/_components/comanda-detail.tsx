@@ -23,10 +23,12 @@ import {
   Star,
   RotateCcw,
   Undo2,
+  Wallet,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, formatCurrency } from '@/lib/utils';
 import { isDayAllowed, formatAllowedDays } from '@/lib/subscriptions';
+import { quantoOCreditoCobre } from '@/lib/credito-cliente';
 import {
   addServiceToComanda,
   addProductToComanda,
@@ -113,6 +115,8 @@ interface ComandaDetailProps {
   products: Product[];
   staff: Staff[];
   subscription?: SubscriptionInfo | null;
+  /** Saldo de crédito do cliente na casa, já descontado o que venceu */
+  creditoDisponivel?: number;
 }
 
 const PAYMENT_METHODS = [
@@ -120,6 +124,7 @@ const PAYMENT_METHODS = [
   { value: 'pix', label: 'PIX', icon: Smartphone },
   { value: 'credit', label: 'Crédito', icon: CreditCard },
   { value: 'debit', label: 'Débito', icon: CreditCard },
+  { value: 'store_credit', label: 'Crédito na casa', icon: Wallet },
 ];
 
 export function ComandaDetail({
@@ -130,6 +135,7 @@ export function ComandaDetail({
   products,
   staff,
   subscription = null,
+  creditoDisponivel = 0,
 }: ComandaDetailProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -171,6 +177,8 @@ export function ComandaDetail({
     discount: 0,
     tip: 0,
   });
+  /** Como o cliente paga o que o crédito não cobre */
+  const [metodoDoResto, setMetodoDoResto] = useState('pix');
 
   const [mostrarEstorno, setMostrarEstorno] = useState(false);
   const [motivoEstorno, setMotivoEstorno] = useState('');
@@ -234,6 +242,21 @@ export function ComandaDetail({
   }, [localServices, localProducts]);
 
   const finalTotal = calculatedTotal - closeForm.discount + closeForm.tip;
+
+  // Credito da casa: paga servico, nao paga produto nem gorjeta. A conta aqui e
+  // so para mostrar; quem decide de verdade e o servidor, no fechamento.
+  const totalServicos = useMemo(
+    () => localServices.reduce((s, item) => s + Number(item.subtotal), 0),
+    [localServices]
+  );
+  const creditoCobre = quantoOCreditoCobre({
+    valorServicos: totalServicos,
+    subtotal: calculatedTotal,
+    desconto: closeForm.discount,
+    saldo: creditoDisponivel,
+  });
+  const sobraParaPagar = Math.max(0, Number((finalTotal - creditoCobre).toFixed(2)));
+  const usandoCredito = closeForm.payment_method === 'store_credit';
 
   // Agrupar serviços por categoria
   const servicesByCategory = useMemo(() => {
@@ -394,7 +417,8 @@ export function ComandaDetail({
       comanda.id,
       closeForm.payment_method,
       closeForm.discount,
-      closeForm.tip
+      closeForm.tip,
+      usandoCredito && sobraParaPagar > 0 ? metodoDoResto : undefined
     );
     setIsClosing(false);
     if (result.ok) {
@@ -954,7 +978,13 @@ export function ComandaDetail({
                   Forma de pagamento
                 </p>
                 <div className="grid grid-cols-2 gap-2">
-                  {PAYMENT_METHODS.map((p) => {
+                  {PAYMENT_METHODS.filter(
+                    // Credito da casa so aparece para quem tem saldo e so quando
+                    // ha servico na comanda: produto o cliente paga normal.
+                    (p) =>
+                      p.value !== 'store_credit' ||
+                      (creditoDisponivel > 0 && totalServicos > 0)
+                  ).map((p) => {
                     const Icon = p.icon;
                     const isSelected = closeForm.payment_method === p.value;
                     return (
@@ -980,6 +1010,56 @@ export function ComandaDetail({
                     );
                   })}
                 </div>
+
+                {usandoCredito && (
+                  <div className="space-y-2 rounded-md border border-gold/25 bg-gold/5 p-3">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-fg-muted">Sai do crédito</span>
+                      <span className="font-semibold text-gold">
+                        {formatCurrency(creditoCobre)}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-fg-subtle">
+                      O crédito paga só serviço. Depois deste fechamento sobram{' '}
+                      {formatCurrency(Math.max(0, creditoDisponivel - creditoCobre))} de saldo.
+                    </p>
+
+                    {sobraParaPagar > 0 && (
+                      <>
+                        <div className="flex items-center justify-between border-t border-gold/20 pt-2 text-xs">
+                          <span className="text-fg-muted">O cliente paga</span>
+                          <span className="font-semibold text-fg">
+                            {formatCurrency(sobraParaPagar)}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {PAYMENT_METHODS.filter((p) => p.value !== 'store_credit').map(
+                            (p) => {
+                              const Icon = p.icon;
+                              const isSelected = metodoDoResto === p.value;
+                              return (
+                                <button
+                                  key={p.value}
+                                  type="button"
+                                  onClick={() => setMetodoDoResto(p.value)}
+                                  className={cn(
+                                    'p-2 rounded-md border text-[11px] flex items-center gap-1.5 transition-all',
+                                    isSelected
+                                      ? 'border-gold/40 bg-gold/10 text-gold'
+                                      : 'border-border text-fg-muted hover:border-gold/20'
+                                  )}
+                                >
+                                  <Icon className="w-3 h-3" />
+                                  <span>{p.label}</span>
+                                </button>
+                              );
+                            }
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
 
               <button

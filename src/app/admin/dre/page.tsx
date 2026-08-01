@@ -1,4 +1,5 @@
 ﻿import { createAdminClient } from '@/lib/supabase/admin';
+import { creditoUsadoNasComandas } from '@/lib/creditos-db';
 import {
   FileText,
   TrendingUp,
@@ -80,6 +81,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
   const comandas = comandasRaw ?? [];
   const comandaIds = comandas.map((c) => c.id);
 
+  // A conta bruta das comandas; o crédito da casa é descontado mais abaixo
   const receitaBruta = comandas.reduce(
     (s, c) => s + Number(c.total ?? 0),
     0
@@ -106,9 +108,16 @@ export default async function DREPage({ searchParams }: DREPageProps) {
     items = itemsRaw ?? [];
   }
 
-  const totalServicos = items
-    .filter((i) => i.item_type === 'service')
-    .reduce((s, i) => s + Number(i.total_price ?? 0), 0);
+  // Crédito da casa não é faturamento: o serviço foi entregue, mas o pagamento
+  // aconteceu antes, fora do caixa (permuta, cortesia, vale). Sai da receita do
+  // período para o DRE mostrar só dinheiro que a barbearia recebeu de verdade.
+  // A comissão do barbeiro continua na conta: ele trabalhou igual.
+  const creditoUsado = await creditoUsadoNasComandas(comandaIds);
+
+  const totalServicos =
+    items
+      .filter((i) => i.item_type === 'service')
+      .reduce((s, i) => s + Number(i.total_price ?? 0), 0) - creditoUsado;
 
   const totalProdutosVendidos = items
     .filter((i) => i.item_type === 'product')
@@ -208,8 +217,8 @@ export default async function DREPage({ searchParams }: DREPageProps) {
   // 5. CÁLCULOS FINAIS DRE
   // Inclui vendas avulsas de produto e receitas extras nas totalizacoes
   const totalProdutosReal = totalProdutosVendidos + txProdutos;
-  const receitaBrutaTotal = receitaBruta + txProdutos + txReceitas;
-  const receitaLiquidaTotal = receitaLiquida + txProdutos + txReceitas;
+  const receitaBrutaTotal = receitaBruta - creditoUsado + txProdutos + txReceitas;
+  const receitaLiquidaTotal = receitaLiquida - creditoUsado + txProdutos + txReceitas;
   const margemBruta = receitaLiquidaTotal - custoProdutosVendidos - totalComissoes;
   const lucroLiquido = margemBruta - totalDespesas;
   const margemLiquidaPct =
@@ -424,6 +433,15 @@ export default async function DREPage({ searchParams }: DREPageProps) {
           <DRELineSub label="Produtos (via comanda)" value={totalProdutosVendidos} />
           {txProdutos > 0 && <DRELineSub label="Produtos (venda avulsa)" value={txProdutos} />}
           {txReceitas > 0 && <DRELineSub label="Receitas extras" value={txReceitas} />}
+          {creditoUsado > 0 && (
+            <p className="flex items-center justify-between py-1 pl-4 text-[11px] text-fg-subtle">
+              <span>
+                Atendimento pago com crédito da casa (fora da receita)
+                <InfoTip text="Serviço entregue e já pago antes, em permuta, cortesia ou vale. O dinheiro não entrou no caixa deste período, por isso não conta como receita. A comissão do barbeiro continua sendo paga normalmente." />
+              </span>
+              <span>{formatCurrency(creditoUsado)}</span>
+            </p>
+          )}
 
           <DRESeparator />
 

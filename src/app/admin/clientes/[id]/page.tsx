@@ -3,6 +3,8 @@ import { headers } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { CustomerForm } from '../_components/customer-form';
 import { ConvidarCliente } from '../_components/convidar-clientes';
+import { CreditoDoCliente } from '../_components/credito-do-cliente';
+import { creditosDoCliente } from '@/lib/creditos-db';
 import { linkDoConvite, mensagemDoConvite } from '@/lib/convite-cliente';
 
 export const metadata = {
@@ -37,6 +39,8 @@ export default async function EditCustomerPage({
     .in('role', ['barber', 'owner', 'manager'])
     .eq('atende_clientes', true)
     .order('display_name');
+
+  const creditos = await creditosDoCliente(id);
 
   // O convite so faz sentido para quem ainda nao tem conta
   let convite: { link: string; mensagem: string } | null = null;
@@ -75,6 +79,12 @@ export default async function EditCustomerPage({
           mensagem={convite.mensagem}
         />
       )}
+
+      <CreditoDoCliente
+        clienteId={customer.id}
+        nome={customer.full_name}
+        creditos={creditos}
+      />
 
     <CustomerForm
       customerId={customer.id}

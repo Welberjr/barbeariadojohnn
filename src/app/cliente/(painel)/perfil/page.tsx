@@ -10,6 +10,7 @@ import {
   Star,
   Calendar,
   Scissors,
+  Wallet,
 } from 'lucide-react';
 import { requireCustomer } from '@/lib/customer-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -17,6 +18,13 @@ import {
   getActiveSubscription,
   formatAllowedDays,
 } from '@/lib/subscriptions';
+import { creditosDoCliente } from '@/lib/creditos-db';
+import {
+  saldoDisponivel,
+  saldoDoCredito,
+  situacaoDoCredito,
+  avisoDeVencimento,
+} from '@/lib/credito-cliente';
 import { formatCurrency, formatPhone } from '@/lib/utils';
 import { SignOutButton } from './_components/signout-button';
 
@@ -40,8 +48,9 @@ export default async function PerfilPage() {
 
   // Um login pode ser das duas pontas: quem trabalha aqui tambem corta cabelo
   // aqui. Quando for o caso, a tela oferece a volta para o lado do trabalho.
-  const [sub, { data: daEquipe }] = await Promise.all([
+  const [sub, creditos, { data: daEquipe }] = await Promise.all([
     getActiveSubscription(admin, customer.id),
+    creditosDoCliente(customer.id),
     admin
       .from('staff')
       .select('can_manage')
@@ -52,6 +61,12 @@ export default async function PerfilPage() {
   ]);
 
   const tierLabel = TIER_LABELS[customer.loyalty_tier ?? ''] ?? null;
+
+  const saldoCredito = saldoDisponivel(creditos);
+  // Só os que têm prazo aparecem detalhados: é a informação que muda decisão
+  const creditosComPrazo = creditos.filter(
+    (c) => c.expiresAt && situacaoDoCredito(c) === 'disponivel'
+  );
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -167,6 +182,30 @@ export default async function PerfilPage() {
             {sub.isExpired ? 'venceu' : 'vence'} em{' '}
             {fmtDate(sub.current_period_end)}
           </p>
+        </section>
+      )}
+
+      {/* CRÉDITO NA CASA */}
+      {saldoCredito > 0 && (
+        <section className="card p-5 space-y-2">
+          <h2
+            className="text-base font-semibold text-fg flex items-center gap-2"
+            style={{ fontFamily: 'var(--font-playfair), serif' }}
+          >
+            <Wallet className="w-4 h-4 text-gold" />
+            Meu crédito na casa
+          </h2>
+          <p className="text-2xl font-bold text-gold">{formatCurrency(saldoCredito)}</p>
+          <p className="text-[11px] text-fg-muted">
+            Vale para serviço. Produto continua sendo pago normalmente.
+          </p>
+          {creditosComPrazo.map((c) => (
+            <p key={c.id} className="text-[11px] text-fg-subtle">
+              {formatCurrency(saldoDoCredito(c))} até{' '}
+              {new Date(`${c.expiresAt}T12:00:00`).toLocaleDateString('pt-BR')}
+              {avisoDeVencimento(c) ? ` · ${avisoDeVencimento(c)}` : ''}
+            </p>
+          ))}
         </section>
       )}
 

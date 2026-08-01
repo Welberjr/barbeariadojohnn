@@ -19,6 +19,7 @@ import {
   Gauge,
 } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { creditoPorComanda } from '@/lib/creditos-db';
 import Link from 'next/link';
 import { cn, formatCurrency } from '@/lib/utils';
 import { InfoTip } from '@/components/info-tip';
@@ -195,8 +196,14 @@ export default async function DashboardPage() {
   const comandasMonth = range.filter((c) => spDay(c.closed_at) >= firstOfMonth);
   const comandasToday = range.filter((c) => spDay(c.closed_at) === todayStr);
 
-  const fatHoje = comandasToday.reduce((s, c) => s + Number(c.total ?? 0), 0);
-  const fatMes = comandasMonth.reduce((s, c) => s + Number(c.total ?? 0), 0);
+  // Crédito da casa sai do faturamento: o serviço foi entregue, mas o dinheiro
+  // entrou antes, fora do caixa. O painel só mostra o que a barbearia recebeu.
+  const creditoDoPeriodo = await creditoPorComanda(range.map((c) => c.id as string));
+  const semCredito = (c: { id: string; total: number | null }) =>
+    Number(c.total ?? 0) - (creditoDoPeriodo.get(c.id) ?? 0);
+
+  const fatHoje = comandasToday.reduce((s, c) => s + semCredito(c), 0);
+  const fatMes = comandasMonth.reduce((s, c) => s + semCredito(c), 0);
   const vendasHoje = comandasToday.length;
   const vendasMes = comandasMonth.length;
   const ticketHoje = vendasHoje > 0 ? fatHoje / vendasHoje : 0;

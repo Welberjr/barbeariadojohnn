@@ -18,10 +18,17 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { exigirModulo, type SessionStaff } from '@/lib/staff-auth';
 import { BARBERSHOP_ID } from '@/lib/painel/dados';
 import { getActiveSubscription, isDayAllowed, formatAllowedDays } from '@/lib/subscriptions';
+import { creditosDoCliente } from '@/lib/creditos-db';
+import {
+  quantoOCreditoCobre,
+  saldoDisponivel,
+  comoGastar,
+} from '@/lib/credito-cliente';
 import {
   calcularFechamento,
   normalizarMetodo,
   JANELA_CORRECAO_MINUTOS,
+  type MetodoPagamento,
 } from '@/lib/painel/comanda-calculo';
 import { awardPointsForComanda } from '@/lib/loyalty';
 import { notifyCustomer } from '@/lib/notifications';
@@ -439,6 +446,8 @@ export async function fecharMinhaComanda(dados: {
   comandaId: string;
   metodo: string;
   gorjeta?: number;
+  /** Como o cliente paga o que o crédito não cobre (produto e gorjeta) */
+  metodoDoResto?: string;
 }) {
   const acesso = await exigirModulo('comanda');
   if (!acesso.ok) return { ok: false, error: acesso.error };
@@ -451,7 +460,7 @@ export async function fecharMinhaComanda(dados: {
 
   const { data: itens } = await admin
     .from('comanda_items')
-    .select('id, staff_id, total_price')
+    .select('id, staff_id, total_price, item_type')
     .eq('comanda_id', dados.comandaId);
 
   if (!itens || itens.length === 0) {
@@ -478,12 +487,68 @@ export async function fecharMinhaComanda(dados: {
   const metodo = normalizarMetodo(dados.metodo);
   const subtotal = itens.reduce((s, i) => s + Number(i.total_price ?? 0), 0);
 
+  // Crédito da casa: paga serviço, não paga produto nem gorjeta. O plano de
+  // quais créditos usar sai daqui e vai inteiro para a transação de
+  // fechamento, para não existir baixa de saldo sem comanda fechada.
+  let planoDeCredito: Array<{ credit_id: string; amount: number }> = [];
+  let creditoUsado = 0;
+  let metodoDoResto: MetodoPagamento | null = null;
+
+  if (metodo === 'store_credit') {
+    if (!comanda.customer_id) {
+      return { ok: false, error: 'Comanda sem cliente não pode ser paga com crédito.' };
+    }
+
+    const valorServicos = itens
+      .filter((i) => i.item_type === 'service')
+      .reduce((s, i) => s + Number(i.total_price ?? 0), 0);
+
+    if (valorServicos <= 0) {
+      return {
+        ok: false,
+        error: 'O crédito paga só serviço. Esta comanda não tem serviço nenhum.',
+      };
+    }
+
+    const creditos = await creditosDoCliente(comanda.customer_id as string);
+    creditoUsado = quantoOCreditoCobre({
+      valorServicos,
+      subtotal,
+      desconto: 0,
+      saldo: saldoDisponivel(creditos),
+    });
+
+    if (creditoUsado <= 0) {
+      return { ok: false, error: 'Este cliente não tem crédito disponível para usar hoje.' };
+    }
+
+    planoDeCredito = comoGastar(creditos, creditoUsado).map((p) => ({
+      credit_id: p.creditoId,
+      amount: p.valor,
+    }));
+
+    const totalComGorjeta = subtotal + Math.max(0, Number(dados.gorjeta) || 0);
+    if (totalComGorjeta - creditoUsado > 0.009) {
+      // Sem escolha explícita não dá para adivinhar: normalizarMetodo cairia em
+      // dinheiro e o caixa registraria uma entrada que ninguém conferiu.
+      if (!dados.metodoDoResto || dados.metodoDoResto === 'store_credit') {
+        return {
+          ok: false,
+          error: `O crédito cobre R$ ${creditoUsado.toFixed(2)}. Escolha como o cliente paga o restante.`,
+        };
+      }
+      metodoDoResto = normalizarMetodo(dados.metodoDoResto);
+    }
+  }
+
+  // A taxa de cartão incide sobre o que passa na maquininha
   const conta = calcularFechamento({
     subtotal,
-    metodo,
+    metodo: metodoDoResto ?? metodo,
     gorjeta: dados.gorjeta,
     taxaCreditoPercent: Number(taxas?.credit_fee_percent ?? 0),
     taxaDebitoPercent: Number(taxas?.debit_fee_percent ?? 0),
+    baseDaTaxa: creditoUsado > 0 ? subtotal + Math.max(0, Number(dados.gorjeta) || 0) - creditoUsado : undefined,
   });
 
   // Fechar comanda, gravar pagamento, concluir o atendimento e somar os
@@ -502,6 +567,8 @@ export async function fecharMinhaComanda(dados: {
       p_taxa_percent: conta.taxaPercent,
       p_taxa_valor: conta.taxaValor,
       p_liquido: conta.liquido,
+      p_creditos: planoDeCredito,
+      p_metodo_resto: metodoDoResto,
     }
   );
 
@@ -509,6 +576,9 @@ export async function fecharMinhaComanda(dados: {
     const msg = erroFechar.message ?? '';
     if (/JA_FECHADA/.test(msg)) return { ok: false, error: 'Esta comanda já foi fechada.' };
     if (/NAO_E_SUA/.test(msg)) return { ok: false, error: 'Esta comanda não é sua.' };
+    if (/CREDITO_MAIOR_QUE_TOTAL|FALTA_METODO_DO_RESTO/.test(msg)) {
+      return { ok: false, error: 'Confira o pagamento com crédito e tente de novo.' };
+    }
     return { ok: false, error: msg || 'Não foi possível fechar a comanda.' };
   }
 

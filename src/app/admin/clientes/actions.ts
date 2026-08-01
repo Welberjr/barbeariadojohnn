@@ -1,6 +1,7 @@
 'use server';
 
 import { createManagerClient } from '@/lib/supabase/manager';
+import { getSessionStaff } from '@/lib/staff-auth';
 import { revalidatePath } from 'next/cache';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
@@ -230,5 +231,82 @@ export async function resetCustomerPassword(
   );
 
   if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+/**
+ * Da credito para um cliente gastar na barbearia.
+ *
+ * E o caso da permuta: alguem presta um servico e recebe em atendimento em vez
+ * de dinheiro. Fica gravado quem deu, por que, e ate quando vale.
+ */
+export async function concederCredito(dados: {
+  customerId: string;
+  valor: number;
+  motivo: string;
+  inicio: string;
+  vencimento: string | null;
+}) {
+  const admin = await createManagerClient();
+
+  const valor = Number(dados.valor);
+  if (!(valor > 0)) {
+    return { ok: false, error: 'O valor do crédito precisa ser maior que zero.' };
+  }
+  if (!dados.motivo?.trim()) {
+    return { ok: false, error: 'Escreva o motivo do crédito.' };
+  }
+  if (dados.vencimento && dados.vencimento < dados.inicio) {
+    return { ok: false, error: 'O vencimento não pode ser antes do início.' };
+  }
+
+  const staff = await getSessionStaff();
+
+  const { error } = await admin.from('customer_credits').insert({
+    barbershop_id: BARBERSHOP_ID,
+    customer_id: dados.customerId,
+    amount: valor,
+    reason: dados.motivo.trim(),
+    starts_at: dados.inicio,
+    expires_at: dados.vencimento,
+    // Mesmo autor que o resto da auditoria do sistema: o profile de quem agiu
+    granted_by: staff?.profileId ?? null,
+  });
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/admin/clientes/${dados.customerId}`);
+  return { ok: true };
+}
+
+/**
+ * Cancela um credito.
+ *
+ * Nao apaga: some do saldo mas continua no historico, com o motivo. O que ja
+ * foi gasto antes do cancelamento continua gasto.
+ */
+export async function cancelarCredito(creditoId: string, motivo: string) {
+  const admin = await createManagerClient();
+
+  const { data: credito } = await admin
+    .from('customer_credits')
+    .select('customer_id, cancelled_at')
+    .eq('id', creditoId)
+    .maybeSingle();
+
+  if (!credito) return { ok: false, error: 'Crédito não encontrado.' };
+  if (credito.cancelled_at) return { ok: false, error: 'Este crédito já está cancelado.' };
+
+  const { error } = await admin
+    .from('customer_credits')
+    .update({
+      cancelled_at: new Date().toISOString(),
+      cancellation_reason: motivo?.trim() || null,
+    })
+    .eq('id', creditoId);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath(`/admin/clientes/${credito.customer_id}`);
   return { ok: true };
 }

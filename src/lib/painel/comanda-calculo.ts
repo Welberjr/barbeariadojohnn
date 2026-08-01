@@ -6,7 +6,7 @@
  * gestor ve no admin, e a conta pode ser testada sem subir o sistema.
  */
 
-export type MetodoPagamento = 'cash' | 'pix' | 'credit' | 'debit';
+export type MetodoPagamento = 'cash' | 'pix' | 'credit' | 'debit' | 'store_credit';
 
 /**
  * Quanto tempo o barbeiro tem para corrigir a comanda que ele mesmo fechou.
@@ -24,6 +24,12 @@ export interface EntradaFechamento {
   taxaCreditoPercent: number;
   taxaDebitoPercent: number;
   gorjeta?: number;
+  /**
+   * Sobre quanto a taxa de cartao incide, quando isso nao e o total.
+   * E o caso do pagamento com credito da casa: so a parte que passou na
+   * maquininha paga taxa.
+   */
+  baseDaTaxa?: number;
 }
 
 export interface ResultadoFechamento {
@@ -43,6 +49,7 @@ export function normalizarMetodo(metodo: string): MetodoPagamento {
     pix: 'pix',
     credit: 'credit',
     debit: 'debit',
+    store_credit: 'store_credit',
   };
   return mapa[metodo] ?? 'cash';
 }
@@ -61,7 +68,9 @@ export function calcularFechamento(entrada: EntradaFechamento): ResultadoFechame
   if (!(taxaPercent > 0)) taxaPercent = 0;
 
   // Arredondamento igual ao do admin, para o centavo bater nos dois lugares
-  const taxaValor = Math.round(total * taxaPercent) / 100;
+  const base =
+    entrada.baseDaTaxa === undefined ? total : Math.max(0, Number(entrada.baseDaTaxa) || 0);
+  const taxaValor = Math.round(base * taxaPercent) / 100;
 
   return {
     total,

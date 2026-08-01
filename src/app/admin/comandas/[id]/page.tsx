@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getActiveSubscription } from '@/lib/subscriptions';
+import { saldoDeCredito } from '@/lib/creditos-db';
 import { ComandaDetail } from '../_components/comanda-detail';
 
 interface ComandaPageProps {
@@ -156,9 +157,12 @@ export default async function ComandaPage({ params }: ComandaPageProps) {
 
   // 7. Assinatura ativa do cliente (para cobrir servicos pelo clube)
   const admin = createAdminClient();
-  const subscription = comandaRaw.customer_id
-    ? await getActiveSubscription(admin, comandaRaw.customer_id as string)
-    : null;
+  const [subscription, creditoDisponivel] = comandaRaw.customer_id
+    ? await Promise.all([
+        getActiveSubscription(admin, comandaRaw.customer_id as string),
+        saldoDeCredito(comandaRaw.customer_id as string),
+      ])
+    : [null, 0];
 
   return (
     <div className="space-y-4">
@@ -181,6 +185,7 @@ export default async function ComandaPage({ params }: ComandaPageProps) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         products={(products ?? []) as any}
         staff={staff ?? []}
+        creditoDisponivel={creditoDisponivel}
         subscription={
           subscription
             ? {

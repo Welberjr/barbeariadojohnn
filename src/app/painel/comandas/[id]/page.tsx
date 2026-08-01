@@ -5,6 +5,7 @@ import { requireStaff } from '@/lib/staff-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { BARBERSHOP_ID, assinaturasPorCliente } from '@/lib/painel/dados';
 import { montarSelo } from '@/lib/painel/assinatura-selo';
+import { saldoDeCredito } from '@/lib/creditos-db';
 import { ComandaDetalhe } from './_components/comanda-detalhe';
 
 export const metadata = { title: 'Comanda' };
@@ -57,9 +58,12 @@ export default async function ComandaPainelPage({ params }: ComandaPageProps) {
         .maybeSingle(),
     ]);
 
-  const assinaturas = comanda.customer_id
-    ? await assinaturasPorCliente([comanda.customer_id as string])
-    : new Map();
+  const [assinaturas, creditoDisponivel] = comanda.customer_id
+    ? await Promise.all([
+        assinaturasPorCliente([comanda.customer_id as string]),
+        saldoDeCredito(comanda.customer_id as string),
+      ])
+    : [new Map(), 0];
 
   const selo = montarSelo(
     comanda.customer_id ? assinaturas.get(comanda.customer_id as string) ?? null : null,
@@ -90,6 +94,7 @@ export default async function ComandaPainelPage({ params }: ComandaPageProps) {
         selo={selo}
         taxaCredito={Number(taxas?.credit_fee_percent ?? 0)}
         taxaDebito={Number(taxas?.debit_fee_percent ?? 0)}
+        creditoDisponivel={creditoDisponivel}
         itens={(itens ?? []).map((i) => ({
           id: i.id as string,
           nome: i.name as string,

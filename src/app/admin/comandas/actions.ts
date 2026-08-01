@@ -5,6 +5,8 @@ import { revalidatePath } from 'next/cache';
 import { getSessionStaff } from '@/lib/staff-auth';
 import { getActiveSubscription, isDayAllowed, formatAllowedDays } from '@/lib/subscriptions';
 import { awardPointsForComanda } from '@/lib/loyalty';
+import { gastarCredito, saldoDeCredito } from '@/lib/creditos-db';
+import { quantoOCreditoCobre } from '@/lib/credito-cliente';
 import { notifyCustomer } from '@/lib/notifications';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
@@ -534,7 +536,12 @@ export async function closeComanda(
   comandaId: string,
   paymentMethod: string,
   discount = 0,
-  tip = 0
+  tip = 0,
+  /**
+   * Como o cliente paga o que o crédito não cobre (produto e gorjeta).
+   * Só faz sentido quando paymentMethod é 'store_credit'.
+   */
+  metodoDoResto?: string
 ) {
   const admin = await createManagerClient();
   const method = normalizePaymentMethod(paymentMethod);
@@ -576,12 +583,81 @@ export async function closeComanda(
     .eq('id', BARBERSHOP_ID)
     .maybeSingle();
 
-  let feePercent = 0;
-  if (method === 'credit') feePercent = Number(feeCfg?.credit_fee_percent ?? 0);
-  else if (method === 'debit') feePercent = Number(feeCfg?.debit_fee_percent ?? 0);
-  if (!(feePercent > 0)) feePercent = 0;
+  function taxaDoMetodo(m: string) {
+    let p = 0;
+    if (m === 'credit') p = Number(feeCfg?.credit_fee_percent ?? 0);
+    else if (m === 'debit') p = Number(feeCfg?.debit_fee_percent ?? 0);
+    return p > 0 ? p : 0;
+  }
 
-  const feeValue = Math.round(total * feePercent) / 100;
+  // Pagamento com credito da casa.
+  //
+  // O credito paga servico; produto e gorjeta o cliente paga como qualquer
+  // outro. Por isso o fechamento pode virar dois pagamentos: um de credito e
+  // um do resto. O quanto o credito cobre e calculado aqui no servidor, a
+  // partir dos itens da propria comanda: o navegador nao decide isso.
+  let creditoUsado = 0;
+  let restante = total;
+  let metodoDoRestante = method;
+
+  if (method === 'store_credit') {
+    if (!comanda.customer_id) {
+      return { ok: false, error: 'Comanda sem cliente não pode ser paga com crédito.' };
+    }
+
+    const { data: itens } = await admin
+      .from('comanda_items')
+      .select('item_type, total_price')
+      .eq('comanda_id', comandaId);
+
+    const valorServicos = (itens ?? [])
+      .filter((i) => i.item_type === 'service')
+      .reduce((s, i) => s + Number(i.total_price ?? 0), 0);
+
+    if (valorServicos <= 0) {
+      return {
+        ok: false,
+        error: 'O crédito paga só serviço. Esta comanda não tem serviço nenhum.',
+      };
+    }
+
+    const saldo = await saldoDeCredito(comanda.customer_id as string);
+    creditoUsado = quantoOCreditoCobre({
+      valorServicos,
+      subtotal,
+      desconto: safeDiscount,
+      saldo,
+    });
+
+    if (creditoUsado <= 0) {
+      return { ok: false, error: 'Este cliente não tem crédito disponível para usar hoje.' };
+    }
+
+    restante = Number((total - creditoUsado).toFixed(2));
+
+    if (restante > 0.009) {
+      metodoDoRestante = normalizePaymentMethod(metodoDoResto ?? '');
+      if (!metodoDoRestante || metodoDoRestante === 'store_credit') {
+        return {
+          ok: false,
+          error: `O crédito cobre R$ ${creditoUsado.toFixed(2)}. Escolha como o cliente paga os R$ ${restante.toFixed(2)} restantes.`,
+        };
+      }
+    } else {
+      restante = 0;
+    }
+
+    const baixa = await gastarCredito({
+      customerId: comanda.customer_id as string,
+      comandaId,
+      valor: creditoUsado,
+    });
+    if (!baixa.ok) return { ok: false, error: baixa.error };
+  }
+
+  // A taxa de cartao so incide sobre o que passou na maquininha
+  const feePercent = restante > 0 ? taxaDoMetodo(metodoDoRestante) : 0;
+  const feeValue = Math.round(restante * feePercent) / 100;
   const netTotal = total - feeValue;
 
   // 1. Atualiza comanda para closed
@@ -601,18 +677,54 @@ export async function closeComanda(
   if (errUpdate) return { ok: false, error: errUpdate.message };
 
   // 2-3. Pagamento + atualizar appointment em paralelo (independentes entre si)
+  //
+  // Cada forma de pagamento vira uma linha. Quase sempre e uma so; com credito
+  // podem ser duas, e e isso que deixa o financeiro separar depois o que foi
+  // dinheiro de verdade do que foi abatido do credito.
+  const pagamentos =
+    creditoUsado > 0
+      ? [
+          {
+            barbershop_id: BARBERSHOP_ID,
+            comanda_id: comandaId,
+            method: 'store_credit',
+            amount: creditoUsado,
+            installments: 1,
+            fee_percent: 0,
+            fee_value: 0,
+            net_amount: creditoUsado,
+          },
+          ...(restante > 0
+            ? [
+                {
+                  barbershop_id: BARBERSHOP_ID,
+                  comanda_id: comandaId,
+                  method: metodoDoRestante,
+                  amount: restante,
+                  installments: 1,
+                  fee_percent: feePercent,
+                  fee_value: feeValue,
+                  net_amount: Number((restante - feeValue).toFixed(2)),
+                },
+              ]
+            : []),
+        ]
+      : [
+          {
+            barbershop_id: BARBERSHOP_ID,
+            comanda_id: comandaId,
+            method,
+            amount: total,
+            installments: 1,
+            fee_percent: feePercent,
+            fee_value: feeValue,
+            net_amount: netTotal,
+          },
+        ];
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const parallelOps: any[] = [
-    admin.from('comanda_payments').insert({
-      barbershop_id: BARBERSHOP_ID,
-      comanda_id: comandaId,
-      method,
-      amount: total,
-      installments: 1,
-      fee_percent: feePercent,
-      fee_value: feeValue,
-      net_amount: netTotal,
-    }),
+    admin.from('comanda_payments').insert(pagamentos),
   ];
 
   if (comanda.appointment_id) {
@@ -639,11 +751,16 @@ export async function closeComanda(
       .eq('id', comanda.customer_id)
       .maybeSingle();
 
+    // Visita conta sempre; valor gasto so o que saiu do bolso do cliente. O que
+    // foi abatido do credito nao pode empurrar ninguem para o topo do ranking
+    // de VIP com um dinheiro que a barbearia nunca recebeu.
+    const saiuDoBolso = Number((total - creditoUsado).toFixed(2));
+
     await Promise.all([
       customer
         ? admin.from('customers').update({
             total_appointments: Number(customer.total_appointments ?? 0) + 1,
-            total_spent: Number(customer.total_spent ?? 0) + total,
+            total_spent: Number(customer.total_spent ?? 0) + saiuDoBolso,
           }).eq('id', comanda.customer_id)
         : Promise.resolve(),
       awardPointsForComanda({

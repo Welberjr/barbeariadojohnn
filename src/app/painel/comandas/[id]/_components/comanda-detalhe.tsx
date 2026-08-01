@@ -31,6 +31,7 @@ import {
   JANELA_CORRECAO_MINUTOS,
   type MetodoPagamento,
 } from '@/lib/painel/comanda-calculo';
+import { quantoOCreditoCobre } from '@/lib/credito-cliente';
 
 interface Item {
   id: string;
@@ -63,6 +64,8 @@ interface ComandaDetalheProps {
   selo: Selo;
   taxaCredito: number;
   taxaDebito: number;
+  /** Saldo de crédito do cliente na casa, já descontado o que venceu */
+  creditoDisponivel?: number;
 }
 
 const METODOS: Array<{ valor: MetodoPagamento; label: string }> = [
@@ -71,6 +74,11 @@ const METODOS: Array<{ valor: MetodoPagamento; label: string }> = [
   { valor: 'debit', label: 'Débito' },
   { valor: 'credit', label: 'Crédito' },
 ];
+
+const CREDITO_NA_CASA: { valor: MetodoPagamento; label: string } = {
+  valor: 'store_credit',
+  label: 'Crédito na casa',
+};
 
 export function ComandaDetalhe({
   comandaId,
@@ -85,6 +93,7 @@ export function ComandaDetalhe({
   selo,
   taxaCredito,
   taxaDebito,
+  creditoDisponivel = 0,
 }: ComandaDetalheProps) {
   const router = useRouter();
   const { executar: executarRapido } = useAcaoRapida();
@@ -112,6 +121,8 @@ export function ComandaDetalhe({
   }, [aberta, fechadaEm]);
   const [aba, setAba] = useState<'servico' | 'produto'>('servico');
   const [metodo, setMetodo] = useState<MetodoPagamento>('pix');
+  /** Como o cliente paga o que o crédito não cobre */
+  const [metodoDoResto, setMetodoDoResto] = useState<MetodoPagamento>('pix');
   const [confirmandoFechar, setConfirmandoFechar] = useState(false);
 
   /**
@@ -141,11 +152,28 @@ export function ComandaDetalhe({
 
   const temItemDeOutro = itensNaTela.some((i) => !i.meu);
 
+  // Crédito da casa paga serviço; produto o cliente paga normal. A conta aqui é
+  // só para o barbeiro ver antes de fechar: quem decide é o servidor.
+  const totalDeServicos = itensNaTela
+    .filter((i) => i.tipo === 'service')
+    .reduce((s, i) => s + i.total, 0);
+  const usandoCredito = metodo === 'store_credit';
+  const creditoCobre = quantoOCreditoCobre({
+    valorServicos: totalDeServicos,
+    subtotal: subtotalNaTela,
+    desconto: 0,
+    saldo: creditoDisponivel,
+  });
+  const sobraParaPagar = usandoCredito
+    ? Math.max(0, Number((subtotalNaTela - creditoCobre).toFixed(2)))
+    : 0;
+
   const conta = calcularFechamento({
     subtotal: subtotalNaTela,
-    metodo,
+    metodo: usandoCredito ? metodoDoResto : metodo,
     taxaCreditoPercent: taxaCredito,
     taxaDebitoPercent: taxaDebito,
+    baseDaTaxa: usandoCredito ? sobraParaPagar : undefined,
   });
 
   /** Lança o item na tela e grava atrás. */
@@ -213,7 +241,11 @@ export function ComandaDetalhe({
 
   async function fechar() {
     const res = await executar('fechar', () =>
-      fecharMinhaComanda({ comandaId, metodo })
+      fecharMinhaComanda({
+        comandaId,
+        metodo,
+        metodoDoResto: usandoCredito && sobraParaPagar > 0 ? metodoDoResto : undefined,
+      })
     );
     if (res?.ok) {
       toast.success('Comanda fechada.');
@@ -370,7 +402,11 @@ export function ComandaDetalhe({
                 Forma de pagamento
               </p>
               <div className="grid grid-cols-2 gap-2">
-                {METODOS.map((m) => (
+                {[
+                  ...METODOS,
+                  // Só aparece para quem tem saldo e só quando há serviço
+                  ...(creditoDisponivel > 0 && totalDeServicos > 0 ? [CREDITO_NA_CASA] : []),
+                ].map((m) => (
                   <button
                     key={m.valor}
                     type="button"
@@ -384,6 +420,46 @@ export function ComandaDetalhe({
                 ))}
               </div>
             </div>
+
+            {usandoCredito && (
+              <div className="space-y-2 rounded-md border border-gold/25 bg-gold/5 p-3">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-fg-muted">Sai do crédito</span>
+                  <span className="font-semibold text-gold">{formatCurrency(creditoCobre)}</span>
+                </div>
+                <p className="text-[10px] text-fg-subtle">
+                  O crédito paga só serviço. Sobram{' '}
+                  {formatCurrency(Math.max(0, creditoDisponivel - creditoCobre))} de saldo.
+                </p>
+
+                {sobraParaPagar > 0 && (
+                  <>
+                    <div className="flex items-center justify-between border-t border-gold/20 pt-2 text-xs">
+                      <span className="text-fg-muted">O cliente paga</span>
+                      <span className="font-semibold text-fg">
+                        {formatCurrency(sobraParaPagar)}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {METODOS.map((m) => (
+                        <button
+                          key={m.valor}
+                          type="button"
+                          onClick={() => setMetodoDoResto(m.valor)}
+                          className={
+                            metodoDoResto === m.valor
+                              ? 'btn-gold-outline text-[11px]'
+                              : 'btn-secondary text-[11px]'
+                          }
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
 
             {conta.taxaValor > 0 && (
               <p className="text-xs text-fg-subtle">
@@ -410,8 +486,22 @@ export function ComandaDetalhe({
             ) : (
               <div className="space-y-2">
                 <p className="text-sm text-fg">
-                  Fechar {formatCurrency(conta.total)} em{' '}
-                  {METODOS.find((m) => m.valor === metodo)?.label}?
+                  {usandoCredito ? (
+                    sobraParaPagar > 0 ? (
+                      <>
+                        Fechar {formatCurrency(creditoCobre)} no crédito e{' '}
+                        {formatCurrency(sobraParaPagar)} em{' '}
+                        {METODOS.find((m) => m.valor === metodoDoResto)?.label}?
+                      </>
+                    ) : (
+                      <>Fechar {formatCurrency(conta.total)} no crédito da casa?</>
+                    )
+                  ) : (
+                    <>
+                      Fechar {formatCurrency(conta.total)} em{' '}
+                      {METODOS.find((m) => m.valor === metodo)?.label}?
+                    </>
+                  )}
                 </p>
                 <div className="flex gap-2">
                   <button
