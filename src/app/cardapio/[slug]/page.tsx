@@ -1,5 +1,9 @@
 import { notFound } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+// O cardapio le pelo servidor, com a credencial de servico, e nao com a chave
+// publica. Assim o banco pode ficar fechado para quem chega de fora: a leitura
+// acontece aqui dentro e so o resultado, ja escolhido a dedo, chega ao
+// navegador. Ver migrations/fechar-banco-para-fora.sql.
+import { createAdminClient } from '@/lib/supabase/admin';
 import { Logo } from '@/components/brand/logo';
 import {
   MapPin,
@@ -34,7 +38,7 @@ interface SiteConfig {
 
 export async function generateMetadata({ params }: CardapioPageProps) {
   const { slug } = await params;
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: barbershop } = await supabase
     .from('barbershops')
     .select('name, address_city, site_config')
@@ -59,7 +63,7 @@ export async function generateMetadata({ params }: CardapioPageProps) {
 
 export default async function CardapioPage({ params }: CardapioPageProps) {
   const { slug } = await params;
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data: barbershop } = await supabase
     .from('barbershops')
