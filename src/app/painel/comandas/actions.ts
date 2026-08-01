@@ -567,8 +567,14 @@ export async function fecharMinhaComanda(dados: {
       p_taxa_percent: conta.taxaPercent,
       p_taxa_valor: conta.taxaValor,
       p_liquido: conta.liquido,
-      p_creditos: planoDeCredito,
-      p_metodo_resto: metodoDoResto,
+      // Os dois parametros do credito so vao quando ha credito envolvido.
+      // Mandar sempre faria todo fechamento do painel depender da versao nova
+      // da funcao no banco: enquanto o SQL nao rodasse, nenhum barbeiro
+      // conseguiria fechar comanda nenhuma. Assim, sem o SQL, so o pagamento
+      // com credito falha, e com mensagem.
+      ...(creditoUsado > 0
+        ? { p_creditos: planoDeCredito, p_metodo_resto: metodoDoResto }
+        : {}),
     }
   );
 
@@ -578,6 +584,14 @@ export async function fecharMinhaComanda(dados: {
     if (/NAO_E_SUA/.test(msg)) return { ok: false, error: 'Esta comanda não é sua.' };
     if (/CREDITO_MAIOR_QUE_TOTAL|FALTA_METODO_DO_RESTO/.test(msg)) {
       return { ok: false, error: 'Confira o pagamento com crédito e tente de novo.' };
+    }
+    // Banco ainda sem a versao nova da funcao: o resto do painel continua
+    // funcionando, so o pagamento com credito precisa esperar o SQL.
+    if (/Could not find the function|schema cache/i.test(msg)) {
+      return {
+        ok: false,
+        error: 'Pagamento com crédito ainda não está liberado aqui. Feche pela gestão.',
+      };
     }
     return { ok: false, error: msg || 'Não foi possível fechar a comanda.' };
   }
