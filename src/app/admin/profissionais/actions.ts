@@ -4,6 +4,7 @@ import { createManagerClient } from '@/lib/supabase/manager';
 import { revalidatePath } from 'next/cache';
 import { getSessionStaff } from '@/lib/staff-auth';
 import { buildStaffPermissions, PRESETS_POR_PAPEL } from '@/lib/staff-permissions';
+import { gerarSenhaTemporariaProfissional } from '@/lib/staff-password';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -45,10 +46,7 @@ export async function createStaff(data: StaffFormData) {
     profileId = existingProfile.id;
   } else {
     // 2. Cria auth user (usuário pode resetar senha depois)
-    const tempPassword =
-      Math.random().toString(36).slice(2, 12) +
-      Math.random().toString(36).slice(2, 12).toUpperCase() +
-      '@1';
+    const tempPassword = gerarSenhaTemporariaProfissional();
 
     const { data: authUser, error: authError } = await admin.auth.admin.createUser({
       email: data.email,
@@ -389,8 +387,6 @@ export async function salvarAcessoStaff(
   return { ok: true };
 }
 
-const PALAVRAS_SENHA = ['navalha', 'tesoura', 'pente', 'barba', 'corte', 'maquina'];
-
 /**
  * Define uma senha de acesso para o profissional e obriga a troca no primeiro
  * uso. A senha volta uma unica vez, para o gestor copiar e entregar.
@@ -412,9 +408,7 @@ export async function definirSenhaAcesso(staffId: string) {
     return { ok: false, error: 'Profissional inativo não recebe senha de acesso.' };
   }
 
-  const palavra = PALAVRAS_SENHA[Math.floor(Math.random() * PALAVRAS_SENHA.length)];
-  const numero = String(Math.floor(1000 + Math.random() * 9000));
-  const senha = `${palavra}${numero}`;
+  const senha = gerarSenhaTemporariaProfissional();
 
   const { error: authError } = await admin.auth.admin.updateUserById(
     staff.profile_id as string,
