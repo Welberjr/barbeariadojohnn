@@ -4,8 +4,13 @@ export const runtime = 'nodejs';
 /**
  * Pedido de confirmacao de presenca.
  *
- * Roda de hora em hora (agendado em vercel.json) e avisa quem tem atendimento
- * chegando. O aviso vai para o aplicativo do cliente, nao para o WhatsApp: a
+ * Roda uma vez por dia, as 13h UTC, que sao 10h de Brasilia: o aviso chega em
+ * hora de gente acordada e sobra o dia inteiro para o cliente responder antes do
+ * atendimento do dia seguinte. O horario esta em vercel.json, que e um arquivo
+ * de configuracao validado pela Vercel e nao aceita comentario nenhum dentro,
+ * entao a explicacao mora aqui.
+ *
+ * Avisa quem tem atendimento chegando. O aviso vai para o aplicativo do cliente, nao para o WhatsApp: a
  * barbearia decidiu que o WhatsApp fica com uma pessoa de verdade, e o robo nao
  * fala com cliente.
  *
