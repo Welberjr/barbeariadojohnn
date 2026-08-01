@@ -5,6 +5,8 @@ import { CustomersList } from './_components/customers-list';
 import { NovoClienteModal } from './_components/novo-cliente-modal';
 import { formatCurrency } from '@/lib/utils';
 import { InfoTip } from '@/components/info-tip';
+import { headers } from 'next/headers';
+import { LinkDoAplicativo } from './_components/link-do-aplicativo';
 
 export const metadata = {
   title: 'Clientes',
@@ -88,6 +90,21 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
         }, 0) / Math.min(topCustomers?.length ?? 1, 5)
       : 0;
 
+  // Link unico do aplicativo, para divulgar de uma vez em vez de convidar um a um
+  const cabecalhos = await headers();
+  const host = cabecalhos.get('host') ?? 'barbearia-do-johnn.vercel.app';
+  const linkDoAplicativo = `${host.startsWith('localhost') ? 'http' : 'https'}://${host}/cliente/cadastro`;
+
+  const [{ data: dadosBarbearia }, { count: assinantesAtivos }] = await Promise.all([
+    supabase.from('barbershops').select('name').eq('id', BARBERSHOP_ID).maybeSingle(),
+    supabase
+      .from('subscriptions')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'active'),
+  ]);
+
+  const nomeDaBarbearia = (dadosBarbearia?.name as string) ?? 'Barbearia do Johnn';
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* HEADER */}
@@ -163,6 +180,13 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
           <p className="text-3xl font-bold text-success" style={{ fontFamily: 'var(--font-playfair), serif' }}>{regulars ?? 0}</p>
         </div>
       </div>
+
+      {/* LINK DO APLICATIVO PARA DIVULGAR */}
+      <LinkDoAplicativo
+        link={linkDoAplicativo}
+        nomeBarbearia={nomeDaBarbearia}
+        assinantes={assinantesAtivos ?? 0}
+      />
 
       {/* CRITÉRIO VIP */}
       <div className="card p-4 border-gold/20 bg-gold/5 flex items-start gap-3">

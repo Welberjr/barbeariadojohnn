@@ -6,13 +6,22 @@
  * Dois caminhos entram aqui:
  *
  *  1. Com convite: a barbearia mandou o link daquele cliente. A conta nasce
- *     ligada a ficha que ja existe, entao o historico, os pontos e a assinatura
- *     que ele ja tem aparecem no primeiro acesso.
+ *     ligada a ficha dele, seja ele assinante ou nao.
  *
- *  2. Sem convite: alguem chegou pelo site. A conta nasce com ficha nova. NAO
- *     tentamos adivinhar pelo telefone: telefone nao e segredo, e quem soubesse
- *     o numero de um cliente entraria na ficha dele, veria o historico e usaria
- *     a assinatura que a pessoa paga.
+ *  2. Pelo link unico, que serve para todo mundo e pode ser divulgado: o
+ *     telefone digitado reconhece a ficha que ja existe.
+ *
+ * Por que o telefone reconhece num caso e no outro nao:
+ *
+ * Telefone nao e segredo. Esta no Instagram, no cartao, no grupo do bairro.
+ * Quem souber o numero de um cliente e se cadastrar com ele entra na ficha
+ * daquela pessoa. Ver historico de corte e chato, mas pequeno. O dano de
+ * verdade e assinatura: usar o plano que outra pessoa paga todo mes.
+ *
+ * Entao a linha e essa. Ficha sem assinatura ativa (403 dos 415 clientes) e
+ * reconhecida pelo telefone, e o link unico resolve. Ficha com assinatura ativa
+ * (12 clientes) nunca e ligada por telefone: essas a barbearia convida uma a
+ * uma, pelo link proprio, que ninguem consegue inventar.
  */
 
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -25,6 +34,19 @@ function limparTelefone(valor: string): string | null {
   const digitos = valor.replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '');
   if (digitos.length < 10 || digitos.length > 11) return null;
   return digitos;
+}
+
+/**
+ * As duas formas do mesmo telefone.
+ *
+ * 408 dos 415 clientes vieram do sistema antigo com o 55 do Brasil na frente, e
+ * o resto foi cadastrado sem. Procurar por uma forma so nao acha ninguem: no
+ * teste, o cliente com telefone gravado como 5553... nao foi reconhecido e
+ * ganhou uma segunda ficha, do lado da que ja existia.
+ */
+function formasDoTelefone(numero: string): string[] {
+  const semDdi = numero.replace(/^55/, '');
+  return [...new Set([numero, semDdi, `55${semDdi}`])];
 }
 
 export async function cadastrarCliente(dados: {
@@ -121,7 +143,66 @@ export async function cadastrarCliente(dados: {
     return { ok: true as const, jaEraCliente: true };
   }
 
-  // Sem convite: ficha nova
+  // Sem convite: o telefone procura a ficha que ja existe, nas duas formas
+  const { data: encontradas } = await admin
+    .from('customers')
+    .select('id, auth_user_id')
+    .eq('barbershop_id', BARBERSHOP_ID)
+    .in('phone', formasDoTelefone(telefone))
+    .limit(2);
+
+  // Dois cadastros com o mesmo telefone e caso para gente resolver, e nao para
+  // o sistema escolher um por conta propria e ligar a conta na ficha errada.
+  if ((encontradas ?? []).length > 1) {
+    await admin.auth.admin.deleteUser(criado.user.id);
+    return {
+      ok: false as const,
+      error:
+        'Achamos mais de um cadastro com este telefone. Chame a barbearia no WhatsApp que a gente resolve e libera seu acesso.',
+    };
+  }
+
+  const peloTelefone = (encontradas ?? [])[0] ?? null;
+
+  if (peloTelefone && !peloTelefone.auth_user_id) {
+    // Assinante nao entra por telefone: e o unico caso em que assumir a ficha
+    // de outro da acesso a dinheiro. Esses a barbearia convida um a um.
+    const { data: assinatura } = await admin
+      .from('subscriptions')
+      .select('id')
+      .eq('customer_id', peloTelefone.id)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (assinatura) {
+      await admin.auth.admin.deleteUser(criado.user.id);
+      return {
+        ok: false as const,
+        error:
+          'Você tem assinatura aqui, então a liberação é feita pela barbearia. Chame a gente no WhatsApp que mandamos o seu link na hora.',
+      };
+    }
+
+    const { data: ligada } = await admin
+      .from('customers')
+      .update({ auth_user_id: criado.user.id, email, active: true })
+      .eq('id', peloTelefone.id)
+      .is('auth_user_id', null)
+      .select('id')
+      .maybeSingle();
+
+    if (ligada) return { ok: true as const, jaEraCliente: true };
+  }
+
+  if (peloTelefone?.auth_user_id) {
+    await admin.auth.admin.deleteUser(criado.user.id);
+    return {
+      ok: false as const,
+      error: 'Já existe uma conta com este telefone. Tente entrar, ou fale com a barbearia.',
+    };
+  }
+
+  // Ninguem com esse telefone: cliente novo mesmo
   const { error: erroFicha } = await admin.from('customers').insert({
     barbershop_id: BARBERSHOP_ID,
     full_name: nome,
