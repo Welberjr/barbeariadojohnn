@@ -47,7 +47,9 @@ export function CustomerLoginForm() {
       }
 
       toast.success('Bem-vindo de volta!');
-      router.push('/cliente');
+      // Cliente que so e cliente cai direto no /cliente. Quem tambem trabalha
+      // aqui escolhe por onde entrar, em vez de ser jogado num lado so.
+      router.push('/entrar');
       router.refresh();
     } catch {
       toast.error('Erro ao entrar. Tente novamente.');

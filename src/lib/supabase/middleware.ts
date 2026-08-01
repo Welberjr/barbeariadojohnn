@@ -203,16 +203,17 @@ export async function updateSession(
   }
 
   // ----- Telas de login com sessao ativa -----
-  // Quem tem os dois papeis cai no lado do trabalho, que e onde passa o dia. A
-  // conta de cliente fica a um toque, no perfil.
+  // Nao decidimos aqui por qual porta a pessoa entra: quem sabe disso e /entrar,
+  // que conhece todos os papeis dela. Uma porta so, entra direto; mais de uma,
+  // ela escolhe. Antes o dono que tambem corta cabelo caia sempre na gestao e
+  // tinha que procurar o caminho de volta.
   if ((isAdminLogin || isCustomerLogin) && user) {
     const acesso = await fetchStaffAccess(user.id);
-    if (acesso.isStaff) return redirectTo(acesso.canManage ? '/admin' : '/painel');
+    if (acesso.isStaff || (await temFichaDeCliente(user.id))) {
+      return redirectTo('/entrar');
+    }
 
-    // So manda para a area do cliente quem tem ficha la. Sem esta conferencia,
-    // uma sessao sem cadastro nenhum ficava presa indo e voltando.
-    if (await temFichaDeCliente(user.id)) return redirectTo('/cliente');
-
+    // Sessao sem cadastro nenhum fica onde esta, senao nasce um vai e vem sem fim
     return entregar();
   }
 

@@ -40,15 +40,31 @@ export function gerarNonce(): string {
  * existir pagina guardada em cache, a politica tem que valer sem ele.
  */
 export function montarCsp(_nonce?: string): string {
+  // Em desenvolvimento o Next monta a pagina com eval, para recarregar a tela
+  // sozinho enquanto a gente escreve. Sem esta folga, a politica derruba TODO o
+  // programa da pagina em dev: os botoes ficam mudos e o formulario nao envia.
+  //
+  // Isso ja custou caro. Em 01/08/2026 a tela parecia certa e nao era, e eu so
+  // descobri porque testei injetando script por fora, o que passa por cima da
+  // politica e mente. Em producao nao existe eval, entao a regra continua
+  // apertada onde importa, e o navegador de teste passa a mostrar a verdade.
+  const emDesenvolvimento = process.env.NODE_ENV === 'development';
+  const script = emDesenvolvimento
+    ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+    : "script-src 'self' 'unsafe-inline'";
+
   return [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'",
+    script,
     // O estilo continua liberado: o sistema escreve estilo no próprio elemento
     // em vários pontos, e apertar isto agora quebraria a aparência sem ganho.
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+    // ws: e o canal que o Next usa em dev para avisar a tela que o codigo mudou
+    emDesenvolvimento
+      ? "connect-src 'self' ws: http://localhost:* https://*.supabase.co wss://*.supabase.co"
+      : "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",

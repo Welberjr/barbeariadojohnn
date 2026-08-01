@@ -45,7 +45,9 @@ export function LoginForm() {
       }
 
       toast.success('Bem-vindo de volta!');
-      router.push('/admin');
+      // Quem tem um papel so nem ve esta tela: /entrar manda direto para o
+      // lugar certo. A escolha aparece para quem e mais de uma coisa na casa.
+      router.push('/entrar');
       router.refresh();
     } catch {
       toast.error('Erro ao fazer login. Tente novamente.');
