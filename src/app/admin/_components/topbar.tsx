@@ -251,6 +251,9 @@ const severityColors = {
   info: 'text-info bg-info/10',
 } as const;
 
+/** Onde o aparelho guarda a última vez que esta pessoa abriu o sino */
+const CHAVE_VISTO = 'bj_sino_visto_em';
+
 function NotificationsBell() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -261,7 +264,12 @@ function NotificationsBell() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/notifications');
+      // A marca fica no aparelho, de propósito: "já vi isso" é por pessoa e por
+      // celular. Quem viu no balcão continua vendo em casa se ainda não olhou lá.
+      const visto = localStorage.getItem(CHAVE_VISTO);
+      const res = await fetch(
+        `/api/admin/notifications${visto ? `?desde=${encodeURIComponent(visto)}` : ''}`
+      );
       if (!res.ok) throw new Error('Falha ao carregar');
       const data = (await res.json()) as {
         count: number;
@@ -283,7 +291,13 @@ function NotificationsBell() {
   function toggle() {
     const next = !open;
     setOpen(next);
-    if (next) load();
+    if (next) {
+      load();
+    } else {
+      // Marca ao FECHAR, não ao abrir: quem abriu e leu já viu. Marcar na
+      // abertura apagaria a lista antes de a pessoa terminar de ler.
+      localStorage.setItem(CHAVE_VISTO, new Date().toISOString());
+    }
   }
 
   function go(href: string) {

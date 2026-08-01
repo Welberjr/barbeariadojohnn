@@ -18,6 +18,8 @@ import {
   type AcaoAgenda,
   type StatusAgendamento,
 } from '@/lib/painel/agenda-estados';
+import { notifyCustomer } from '@/lib/notifications';
+import { avisoDeHorarioMarcado } from '@/lib/avisos';
 
 export async function mudarStatusAgendamento(
   appointmentId: string,
@@ -203,7 +205,7 @@ export async function encaixarCliente(dados: {
       .maybeSingle(),
     admin
       .from('services')
-      .select('base_price, base_duration_minutes')
+      .select('name, base_price, base_duration_minutes')
       .eq('id', dados.serviceId)
       .eq('barbershop_id', BARBERSHOP_ID)
       .eq('active', true)
@@ -288,6 +290,26 @@ export async function encaixarCliente(dados: {
       .eq('staff_id', acesso.staff.staffId);
 
     return { ok: false, error: 'Não foi possível lançar o serviço. Tente de novo.' };
+  }
+
+  // O cliente encaixado tambem recebe o aviso: o atendimento e agora, mas ele
+  // vai encontrar o registro no aplicativo depois, com o que foi feito.
+  try {
+    const texto = avisoDeHorarioMarcado({
+      servico: servico.name as string,
+      profissional: acesso.staff.displayName,
+      quandoISO: inicio.toISOString(),
+    });
+    await notifyCustomer({
+      customerId: dados.customerId,
+      type: 'agendamento_confirmado',
+      title: texto.titulo,
+      body: texto.corpo,
+      metadata: { appointment_id: criado.id },
+      whatsapp: false,
+    });
+  } catch {
+    // Silencio: o encaixe ja esta na agenda
   }
 
   revalidatePath('/painel');

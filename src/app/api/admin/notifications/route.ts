@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { exigirGestao } from '@/lib/staff-auth';
+import { desdeQuandoOlhar, quandoEmPalavras, haQuantoTempo } from '@/lib/avisos';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 const STALE_COMANDA_MIN = 240; // 4h aberta = alerta
@@ -27,12 +28,17 @@ function fmtElapsed(min: number): string {
  * comandas abertas há muito tempo, estoque baixo,
  * contas a pagar vencendo/vencidas e agendamentos restantes do dia.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   // Alerta operacional é assunto de gestão. Estar logado não basta.
   const acesso = await exigirGestao();
   if (!acesso.ok) {
     return NextResponse.json({ error: acesso.error }, { status: 403 });
   }
+
+  // "Novo" é desde a última vez que esta pessoa abriu o sino, que a própria
+  // tela guarda. Sem essa marca, um agendamento marcado ontem apareceria como
+  // novidade para sempre e o sino viraria enfeite que ninguém lê.
+  const desde = desdeQuandoOlhar(req.nextUrl.searchParams.get('desde'));
 
   const admin = createAdminClient();
   const nowMs = Date.now();
@@ -45,7 +51,7 @@ export async function GET() {
   }).format(new Date(nowMs + 7 * 86400000));
   const dayEnd = `${todayStr}T23:59:59.999-03:00`;
 
-  const [comandasRes, productsRes, billsRes, valesRes] = await Promise.all([
+  const [comandasRes, productsRes, billsRes, valesRes, novosRes] = await Promise.all([
     admin
       .from('comandas')
       .select('id, opened_at, customers:customers(full_name)')
@@ -73,6 +79,22 @@ export async function GET() {
       .eq('status', 'pending')
       .order('requested_at')
       .limit(10),
+    // Horários que o cliente marcou sozinho pelo aplicativo. Marcação feita
+    // aqui dentro não entra: quem digitou já sabe que digitou.
+    admin
+      .from('appointments')
+      .select(
+        'id, start_at, created_at, customers:customers(full_name), staff:staff(display_name)'
+      )
+      .eq('barbershop_id', BARBERSHOP_ID)
+      // 'public_site' é o que o aplicativo do cliente grava. O enum do banco
+      // tem só manual, whatsapp e public_site: inventar outro valor aqui faz a
+      // consulta inteira falhar em silêncio e o sino ficar vazio para sempre.
+      .eq('source', 'public_site')
+      .neq('status', 'cancelled')
+      .gte('created_at', desde)
+      .order('created_at', { ascending: false })
+      .limit(10),
   ]);
 
   // Agendamentos restantes de hoje. Tenta incluir 'confirmed';
@@ -96,7 +118,37 @@ export async function GET() {
 
   const items: NotificationItem[] = [];
 
-  // 0. Vale aguardando resposta: o barbeiro está esperando alguém decidir
+  // 0. Cliente marcou sozinho. Fica no topo porque é a única linha da lista que
+  // conta uma novidade: o resto é situação que continua igual até alguém
+  // resolver.
+  for (const a of novosRes.data ?? []) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const relCliente = a.customers as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const relStaff = a.staff as any;
+    const cliente = Array.isArray(relCliente)
+      ? relCliente[0]?.full_name
+      : relCliente?.full_name;
+    const profissional = Array.isArray(relStaff)
+      ? relStaff[0]?.display_name
+      : relStaff?.display_name;
+
+    const dia = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Sao_Paulo',
+    }).format(new Date(a.start_at as string));
+
+    items.push({
+      type: 'appointment',
+      severity: 'info',
+      title: `${cliente ?? 'Cliente'} marcou pelo aplicativo`,
+      subtitle: `${quandoEmPalavras(a.start_at as string)}${
+        profissional ? ` com ${profissional}` : ''
+      } · ${haQuantoTempo(a.created_at as string)}`,
+      href: `/admin/agenda?date=${dia}`,
+    });
+  }
+
+  // 1. Vale aguardando resposta: o barbeiro está esperando alguém decidir
   for (const vale of valesRes.data ?? []) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const rel = vale.staff as any;

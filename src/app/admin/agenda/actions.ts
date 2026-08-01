@@ -1,7 +1,10 @@
 'use server';
 
 import { createManagerClient } from '@/lib/supabase/manager';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
+import { notifyCustomer } from '@/lib/notifications';
+import { avisoDeHorarioMarcado, avisoDeHorarioDesmarcado } from '@/lib/avisos';
 import {
   sendWhatsAppMessage,
   confirmationTemplate,
@@ -107,9 +110,63 @@ export async function createAppointment(data: AppointmentData) {
     }
   }
 
+  // O cliente precisa saber do horario que marcaram para ele. Sem este aviso,
+  // ele so descobre se alguem lembrar de mandar mensagem na mao, e horario que
+  // aparece do nada na agenda de alguem vira falta no dia.
+  await avisarClienteDoHorario({
+    customerId: data.customer_id,
+    staffId: data.staff_id,
+    serviceId: data.service_id ?? null,
+    appointmentId: created.id as string,
+    startAt: data.start_at,
+  });
+
   revalidatePath('/admin/agenda');
   revalidatePath('/admin');
   return { ok: true, appointment: created };
+}
+
+/**
+ * Avisa o cliente de um horario que a barbearia marcou para ele.
+ *
+ * Best effort de proposito: aviso que falha nao pode derrubar o agendamento
+ * que ja foi gravado. Pior que nao avisar e a recepcao ver erro na tela e
+ * marcar de novo, criando dois horarios para a mesma pessoa.
+ */
+async function avisarClienteDoHorario(opts: {
+  customerId: string;
+  staffId: string;
+  serviceId: string | null;
+  appointmentId: string;
+  startAt: string;
+}) {
+  try {
+    const admin = createAdminClient();
+    const [{ data: staff }, { data: service }] = await Promise.all([
+      admin.from('staff').select('display_name').eq('id', opts.staffId).maybeSingle(),
+      opts.serviceId
+        ? admin.from('services').select('name').eq('id', opts.serviceId).maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+
+    const texto = avisoDeHorarioMarcado({
+      servico: (service?.name as string) ?? null,
+      profissional: (staff?.display_name as string) ?? null,
+      quandoISO: opts.startAt,
+    });
+
+    await notifyCustomer({
+      customerId: opts.customerId,
+      type: 'agendamento_confirmado',
+      title: texto.titulo,
+      body: texto.corpo,
+      metadata: { appointment_id: opts.appointmentId },
+      // O WhatsApp da barbearia fica com uma pessoa de verdade
+      whatsapp: false,
+    });
+  } catch {
+    // Silencio: o agendamento vale mais que o aviso
+  }
 }
 
 /**
@@ -206,9 +263,46 @@ export async function updateAppointmentStatus(
 
   if (error) return { ok: false, error: error.message };
 
+  if (status === 'cancelled') await avisarClienteDoCancelamento(id);
+
   revalidatePath('/admin/agenda');
   revalidatePath('/admin');
   return { ok: true };
+}
+
+/**
+ * Avisa o cliente que a barbearia desmarcou o horario dele.
+ *
+ * Cancelamento sem aviso e o pior dos dois lados: o cliente aparece na porta e
+ * a cadeira esta ocupada, ou ele nao aparece nunca mais.
+ */
+async function avisarClienteDoCancelamento(appointmentId: string) {
+  try {
+    const admin = createAdminClient();
+    const { data: agendamento } = await admin
+      .from('appointments')
+      .select('customer_id, start_at, cancellation_reason')
+      .eq('id', appointmentId)
+      .maybeSingle();
+
+    if (!agendamento?.customer_id) return;
+
+    const texto = avisoDeHorarioDesmarcado({
+      quandoISO: agendamento.start_at as string,
+      motivo: (agendamento.cancellation_reason as string) ?? null,
+    });
+
+    await notifyCustomer({
+      customerId: agendamento.customer_id as string,
+      type: 'agendamento_cancelado',
+      title: texto.titulo,
+      body: texto.corpo,
+      metadata: { appointment_id: appointmentId },
+      whatsapp: false,
+    });
+  } catch {
+    // Silencio: o cancelamento ja esta gravado
+  }
 }
 
 /**
@@ -237,6 +331,9 @@ export async function updateAppointment(id: string, data: any) {
  */
 export async function deleteAppointment(id: string) {
   const admin = await createManagerClient();
+
+  // Avisa antes de apagar: depois nao ha mais de onde tirar a data nem o cliente
+  await avisarClienteDoCancelamento(id);
 
   // Tenta deletar appointment_services manualmente caso não tenha cascade
   await admin.from('appointment_services').delete().eq('appointment_id', id);

@@ -14,6 +14,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/brand/logo';
 import { LinkNavegando } from '@/components/link-navegando';
+import { SinoDoPainel } from './sino-painel';
 import type { Modulo } from '@/lib/staff-permissions';
 
 interface ItemNav {
@@ -88,19 +89,23 @@ export function PainelTopbar({ displayName, modulos }: NavProps) {
           })}
         </nav>
 
-        <Link
-          href="/painel/perfil"
-          prefetch={true}
-          className={cn(
-            'w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold transition-colors',
-            pathname.startsWith('/painel/perfil')
-              ? 'bg-gold text-bg'
-              : 'bg-bg-elevated text-gold border border-gold/30 hover:border-gold/60'
-          )}
-          aria-label="Meu perfil"
-        >
-          {iniciais}
-        </Link>
+        <div className="flex items-center gap-1">
+          <SinoDoPainel />
+
+          <Link
+            href="/painel/perfil"
+            prefetch={true}
+            className={cn(
+              'w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold transition-colors',
+              pathname.startsWith('/painel/perfil')
+                ? 'bg-gold text-bg'
+                : 'bg-bg-elevated text-gold border border-gold/30 hover:border-gold/60'
+            )}
+            aria-label="Meu perfil"
+          >
+            {iniciais}
+          </Link>
+        </div>
       </div>
     </header>
   );
