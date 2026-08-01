@@ -3,6 +3,7 @@ import { requireCanManage } from '@/lib/staff-auth';
 import { AdminSidebar } from './_components/sidebar';
 import { ChatFloat } from '@/components/chat-float';
 import { AdminTopbar } from './_components/topbar';
+import { portasDoUsuario } from '@/lib/portas-de-entrada';
 
 export const viewport: Viewport = {
   themeColor: '#D4A04F',
@@ -29,6 +30,12 @@ export default async function AdminLayout({
   // Profissional sem gestão é mandado para o painel dele.
   const staff = await requireCanManage();
 
+  // Quem e mais de uma coisa na casa troca de lado pelo proprio menu, sem sair
+  // da conta e entrar de novo. A gestao nao aparece aqui: ja e onde ele esta.
+  const outrosLados = (await portasDoUsuario(staff.userId)).filter(
+    (porta) => porta.id !== 'admin'
+  );
+
   return (
     <>
     <div className="min-h-screen bg-bg flex">
@@ -36,6 +43,7 @@ export default async function AdminLayout({
 
       <div className="flex-1 flex flex-col min-w-0">
         <AdminTopbar
+          outrosLados={outrosLados}
           userEmail={staff.email ?? ''}
           userName={staff.fullName ?? staff.displayName}
         />

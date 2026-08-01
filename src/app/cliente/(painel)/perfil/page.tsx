@@ -19,6 +19,7 @@ import {
   formatAllowedDays,
 } from '@/lib/subscriptions';
 import { creditosDoCliente } from '@/lib/creditos-db';
+import { portasDoUsuario } from '@/lib/portas-de-entrada';
 import {
   saldoDisponivel,
   saldoDoCredito,
@@ -48,17 +49,14 @@ export default async function PerfilPage() {
 
   // Um login pode ser das duas pontas: quem trabalha aqui tambem corta cabelo
   // aqui. Quando for o caso, a tela oferece a volta para o lado do trabalho.
-  const [sub, creditos, { data: daEquipe }] = await Promise.all([
+  // O de cliente nao entra na lista: e onde ele ja esta.
+  const [sub, creditos, portas] = await Promise.all([
     getActiveSubscription(admin, customer.id),
     creditosDoCliente(customer.id),
-    admin
-      .from('staff')
-      .select('can_manage')
-      .eq('profile_id', userId)
-      .eq('active', true)
-      .is('fired_at', null)
-      .maybeSingle(),
+    portasDoUsuario(userId),
   ]);
+
+  const outrosLados = portas.filter((porta) => porta.id !== 'cliente');
 
   const tierLabel = TIER_LABELS[customer.loyalty_tier ?? ''] ?? null;
 
@@ -227,24 +225,22 @@ export default async function PerfilPage() {
         <ChevronRight className="w-4 h-4 text-fg-subtle" />
       </Link>
 
-      {/* Quem trabalha na casa volta para o painel sem sair da conta */}
-      {daEquipe && (
+      {/* Quem trabalha na casa volta para o trabalho sem sair da conta. Quem e
+          dono e barbeiro ao mesmo tempo ve os dois caminhos, em vez de so um. */}
+      {outrosLados.map((porta) => (
         <Link
-          href={daEquipe.can_manage ? '/admin' : '/painel'}
+          key={porta.id}
+          href={porta.destino}
           className="card flex items-center gap-3 p-4 transition-colors hover:border-gold/40"
         >
-          <Scissors className="h-5 w-5 text-gold" />
-          <div className="flex-1">
-            <p className="text-sm font-medium text-fg">
-              {daEquipe.can_manage ? 'Voltar para a gestão' : 'Voltar para o meu painel'}
-            </p>
-            <p className="text-[11px] text-fg-subtle">
-              Você está vendo o lado de cliente. O seu trabalho continua do outro lado.
-            </p>
+          <Scissors className="h-5 w-5 flex-shrink-0 text-gold" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-fg">{porta.titulo}</p>
+            <p className="text-[11px] text-fg-subtle">{porta.descricao}</p>
           </div>
-          <ChevronRight className="h-4 w-4 text-fg-subtle" />
+          <ChevronRight className="h-4 w-4 flex-shrink-0 text-fg-subtle" />
         </Link>
-      )}
+      ))}
 
       <SignOutButton />
 

@@ -15,15 +15,19 @@ import {
   ClipboardList,
   Package,
   Receipt,
+  UserRound,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { createClient } from '@/lib/supabase/client';
 import { cn, formatCurrency, formatPhone, SHOP_TIME_ZONE } from '@/lib/utils';
+import type { Porta } from '@/lib/portas-de-entrada';
 
 interface AdminTopbarProps {
   userEmail: string;
   userName?: string;
+  /** Outros lados da casa que este mesmo login abre */
+  outrosLados?: Porta[];
 }
 
 interface SearchResults {
@@ -358,7 +362,7 @@ function NotificationsBell() {
 // TOPBAR
 // ============================================================================
 
-export function AdminTopbar({ userEmail, userName }: AdminTopbarProps) {
+export function AdminTopbar({ userEmail, userName, outrosLados = [] }: AdminTopbarProps) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -459,6 +463,35 @@ export function AdminTopbar({ userEmail, userName }: AdminTopbarProps) {
                   <User className="w-4 h-4" />
                   <span>Meu perfil</span>
                 </button>
+
+                {/* Trocar de lado sem sair da conta. So aparece para quem e
+                    mais de uma coisa na casa: o dono que tambem corta cabelo,
+                    o profissional que tambem e cliente. */}
+                {outrosLados.length > 0 && (
+                  <div className="mt-1 border-t border-border/60 pt-1">
+                    <p className="px-3 pb-1 pt-1 text-[10px] uppercase tracking-wider text-fg-dim">
+                      Trocar para
+                    </p>
+                    {outrosLados.map((porta) => (
+                      <button
+                        key={porta.id}
+                        onClick={() => {
+                          setMenuOpen(false);
+                          router.push(porta.destino);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-fg-muted hover:text-fg hover:bg-bg-elevated transition-colors"
+                      >
+                        {porta.id === 'painel' ? (
+                          <Scissors className="w-4 h-4" />
+                        ) : (
+                          <UserRound className="w-4 h-4" />
+                        )}
+                        <span className="truncate">{porta.titulo}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 <button
                   onClick={handleLogout}
                   className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-danger hover:bg-danger/10 transition-colors"

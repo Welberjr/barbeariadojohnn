@@ -53,6 +53,20 @@ const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_RO
 });
 
 const BARBEARIA = '11111111-1111-1111-1111-111111111111';
+
+/**
+ * Quem no sistema antigo tem e-mail diferente do que usa aqui.
+ *
+ * O Johnn entrou no EcoBarber como barberjohnn404@gmail.com e aqui entra como
+ * jonathanjones.508@gmail.com. Sao a mesma pessoa. Sem esta traducao, toda
+ * sincronizacao criava de novo o login e o cadastro que ja tinham sido
+ * juntados, e ele voltava a aparecer duas vezes na agenda.
+ *
+ * Chave: e-mail no EcoBarber. Valor: e-mail aqui.
+ */
+const EMAIL_UNIFICADO = {
+  'barberjohnn404@gmail.com': 'jonathanjones.508@gmail.com',
+};
 const arquivo = process.argv[2];
 const fase = process.argv.find((a) => a.startsWith('--'))?.replace('--', '');
 
@@ -233,8 +247,9 @@ async function importar() {
   let equipe = 0;
 
   for (const p of eco.profiles) {
-    const email = (p.email ?? '').trim().toLowerCase();
-    if (!email) continue;
+    const emailAntigo = (p.email ?? '').trim().toLowerCase();
+    if (!emailAntigo) continue;
+    const email = EMAIL_UNIFICADO[emailAntigo] ?? emailAntigo;
 
     // Reaproveita o login se ja existir, senao cria
     const { data: lista } = await admin.auth.admin.listUsers({ perPage: 200 });
@@ -280,6 +295,14 @@ async function importar() {
 
     let staffId;
     if (staffExistente) {
+      // Quem ja esta cadastrado aqui tem o acesso definido AQUI, na tela de
+      // profissionais. O sistema antigo atualiza nome, comissao e se a pessoa
+      // continua na casa, e so. Sem esta separacao, uma sincronizacao tirava o
+      // acesso de gestao de alguem sem ninguem ter pedido.
+      delete dados.role;
+      delete dados.can_manage;
+      delete dados.permissions;
+
       await admin.from('staff').update(dados).eq('id', staffExistente.id);
       staffId = staffExistente.id;
     } else {
