@@ -2,21 +2,34 @@
  * EXPORTA OS DADOS DO ECOBARBER
  *
  * Roda no navegador, no console, com o EcoBarber aberto e logado. Baixa um
- * arquivo .json com tudo, que depois entra aqui pelo migrar-ecobarber.mjs.
+ * arquivo .json com tudo, que depois entra no nosso sistema pelo
+ * migrar-ecobarber.mjs.
  *
- * Como usar:
- *  1. Abra https://dash.ecobarber.com.br e entre na conta
- *  2. Aperte F12 e va na aba Console
- *  3. Cole este arquivo inteiro e aperte Enter
- *  4. Espere o aviso de pronto: o arquivo cai na pasta de downloads
+ * ANTES DE RODAR: preencha a CHAVE_PUBLICA logo abaixo. Como pegar, uma vez so:
+ *
+ *   1. Com o EcoBarber aberto, aperte F12 e va na aba Rede (Network)
+ *   2. Clique em qualquer menu do sistema (Clientes, por exemplo)
+ *   3. Na lista, clique numa linha que tenha "supabase.co"
+ *   4. Procure "apikey" nos cabecalhos da requisicao e copie o valor inteiro
+ *      (comeca com eyJ e e bem comprido)
+ *
+ * Essa chave e publica: ela vai em toda requisicao que o site ja faz, e sozinha
+ * nao abre nada. Quem da acesso de verdade e a sua sessao, que fica no seu
+ * navegador e nao sai daqui.
+ *
+ * DEPOIS:
+ *   1. Cole este arquivo inteiro no Console e aperte Enter
+ *   2. Espere o aviso verde de pronto: o arquivo cai na pasta de downloads
  *
  * Pode rodar quantas vezes quiser. A importacao do nosso lado so traz o que
  * ainda nao esta la, entao exportar de novo nunca duplica nada.
- *
- * Le pela sessao de quem esta logado: nao pede senha e nao guarda credencial
- * em lugar nenhum. Se a pagina nao estiver logada, ele avisa e para.
  */
 (async () => {
+  // ----------------------------------------------------------------
+  // COLE A CHAVE AQUI (entre as aspas)
+  // ----------------------------------------------------------------
+  const CHAVE_PUBLICA = '';
+
   const TABELAS = [
     'barbearias',
     'profiles',
@@ -32,15 +45,25 @@
     'pagamentos_assinatura_cliente',
   ];
 
-  // Nada aqui e chutado: o endereco e a credencial saem da propria sessao que o
-  // aplicativo deles ja deixou guardada no navegador. A chave do armazenamento
-  // tem o formato sb-<projeto>-auth-token, e o <projeto> e o endereco do banco.
+  // Tabelas que, se vierem vazias, significam que deu errado. As outras podem
+  // estar vazias de verdade, entao nao servem de prova.
+  const NAO_PODEM_VIR_VAZIAS = ['clientes', 'atendimentos', 'comandas'];
+
+  const erro = (msg) => console.error('%c' + msg, 'color:#dc2626;font-size:14px;font-weight:bold');
+
+  if (!CHAVE_PUBLICA) {
+    erro('Falta a chave. Leia as instruções no topo deste script e preencha CHAVE_PUBLICA.');
+    return;
+  }
+
+  // O endereco do banco sai do nome da sessao guardada pelo proprio site:
+  // sb-<projeto>-auth-token
   const chaveSessao = Object.keys(localStorage).find(
     (k) => k.startsWith('sb-') && k.endsWith('-auth-token')
   );
 
   if (!chaveSessao) {
-    console.error('Não achei a sessão. Entre na conta do EcoBarber e rode de novo.');
+    erro('Não achei a sessão. Entre na conta do EcoBarber e rode de novo.');
     return;
   }
 
@@ -53,19 +76,19 @@
     const limpo = bruto.startsWith('base64-') ? atob(bruto.slice(7)) : bruto;
     token = JSON.parse(limpo).access_token;
   } catch {
-    console.error('A sessão está num formato que não reconheci. Saia e entre de novo no EcoBarber.');
+    erro('A sessão está num formato que não reconheci. Saia e entre de novo no EcoBarber.');
     return;
   }
 
-  // O proprio token da sessao serve de credencial nos dois cabecalhos, entao
-  // nao e preciso ir cacar a chave publica dentro do programa do site.
-  const cabecalhos = { apikey: token, Authorization: `Bearer ${token}` };
-
-  console.log(`Lendo de ${URL_BASE} com a sua sessão.`);
+  const cabecalhos = { apikey: CHAVE_PUBLICA, Authorization: `Bearer ${token}` };
   const dados = {};
+  const problemas = [];
+
+  console.log(`Lendo de ${URL_BASE}...`);
 
   for (const tabela of TABELAS) {
     const linhas = [];
+    let falhou = false;
 
     // Vem de mil em mil: sem isso, tabela grande volta cortada e ninguem percebe
     for (let de = 0; ; de += 1000) {
@@ -75,7 +98,9 @@
       );
 
       if (!resposta.ok) {
-        console.warn(`${tabela}: não consegui ler (${resposta.status})`);
+        const detalhe = await resposta.text();
+        problemas.push(`${tabela}: ${resposta.status} ${detalhe.slice(0, 120)}`);
+        falhou = true;
         break;
       }
 
@@ -84,8 +109,22 @@
       if (bloco.length < 1000) break;
     }
 
+    if (!falhou && !linhas.length && NAO_PODEM_VIR_VAZIAS.includes(tabela)) {
+      problemas.push(`${tabela}: veio vazia, e essa tabela nunca deveria estar vazia`);
+    }
+
     dados[tabela] = linhas;
     console.log(`${tabela}: ${linhas.length}`);
+  }
+
+  // Arquivo vazio e pior que arquivo nenhum: parece que deu certo, entra no
+  // sistema sem trazer nada e so aparece la na frente. Se houve qualquer
+  // problema, nao baixa e explica o que aconteceu.
+  if (problemas.length) {
+    erro('NÃO baixei o arquivo, porque a leitura falhou:');
+    for (const p of problemas) console.error('   • ' + p);
+    erro('Confira se a CHAVE_PUBLICA está certa e se você continua logado, e rode de novo.');
+    return;
   }
 
   const hoje = new Date().toISOString().slice(0, 10);
@@ -95,6 +134,9 @@
   link.download = `ecobarber-export-${hoje}.json`;
   link.click();
 
-  console.log(`%cPronto. O arquivo ecobarber-export-${hoje}.json foi para os seus downloads.`,
-    'color: #16a34a; font-weight: bold');
+  const total = Object.values(dados).reduce((s, l) => s + l.length, 0);
+  console.log(
+    `%cPronto: ${total} registros em ecobarber-export-${hoje}.json, na sua pasta de downloads.`,
+    'color:#16a34a;font-size:14px;font-weight:bold'
+  );
 })();
