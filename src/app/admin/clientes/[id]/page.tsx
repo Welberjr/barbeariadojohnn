@@ -35,6 +35,7 @@ export default async function EditCustomerPage({
     .select('id, display_name')
     .eq('active', true)
     .in('role', ['barber', 'owner', 'manager'])
+    .eq('atende_clientes', true)
     .order('display_name');
 
   // O convite so faz sentido para quem ainda nao tem conta

@@ -92,7 +92,7 @@ export async function getAvailableSlots(opts: {
         .maybeSingle(),
       admin
         .from('staff')
-        .select('use_barbershop_hours, custom_hours, active, lunch_start, lunch_end')
+        .select('use_barbershop_hours, custom_hours, active, lunch_start, lunch_end, atende_clientes')
         .eq('id', staffId)
         .maybeSingle(),
       admin
@@ -107,6 +107,12 @@ export async function getAvailableSlots(opts: {
   }
   if (!staff || staff.active === false) {
     return { ok: false, reason: 'Profissional indisponível', slots: [], durationMinutes: 0 };
+  }
+
+  // Quem so administra nao tem horario para o cliente marcar, mesmo que alguem
+  // chegue nesta funcao com o identificador dele na mao.
+  if (staff.atende_clientes === false) {
+    return { ok: false, reason: 'Este profissional não atende clientes', slots: [], durationMinutes: 0 };
   }
 
   const durationMinutes =

@@ -17,6 +17,7 @@ export interface StaffFormData {
   specialties?: string[];
   default_commission_percent: number;
   active: boolean;
+  atende_clientes?: boolean;
 }
 
 /**
@@ -91,6 +92,7 @@ export async function createStaff(data: StaffFormData) {
     specialties: data.specialties && data.specialties.length > 0 ? data.specialties : null,
     default_commission_percent: data.default_commission_percent,
     active: data.active,
+    atende_clientes: data.atende_clientes ?? true,
     can_manage: preset.canManage,
     permissions: buildStaffPermissions(preset.modulos),
   });
@@ -143,6 +145,7 @@ export async function updateStaff(staffId: string, data: StaffFormData) {
       specialties: data.specialties && data.specialties.length > 0 ? data.specialties : null,
       default_commission_percent: data.default_commission_percent,
       active: data.active,
+    atende_clientes: data.atende_clientes ?? true,
     })
     .eq('id', staffId);
 

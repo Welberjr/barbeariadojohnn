@@ -28,6 +28,7 @@ export default async function EditStaffPage({ params }: EditStaffPageProps) {
       specialties,
       default_commission_percent,
       active,
+      atende_clientes,
       profile_id,
       can_manage,
       permissions,
@@ -72,6 +73,7 @@ export default async function EditStaffPage({ params }: EditStaffPageProps) {
           specialties: staff.specialties ?? [],
           default_commission_percent: Number(staff.default_commission_percent),
           active: staff.active,
+          atende_clientes: staff.atende_clientes !== false,
         }}
       />
 

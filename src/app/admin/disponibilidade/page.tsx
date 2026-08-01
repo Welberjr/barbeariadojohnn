@@ -61,6 +61,7 @@ export default async function DisponibilidadePage() {
         )
         .eq('active', true)
         .in('role', ['barber', 'owner', 'manager'])
+        .eq('atende_clientes', true)
         .order('display_name'),
     ]);
 

@@ -24,6 +24,7 @@ const staffSchema = z.object({
     .min(0, 'Mínimo 0%')
     .max(100, 'Máximo 100%'),
   active: z.boolean(),
+  atende_clientes: z.boolean(),
 });
 
 type StaffFormSchema = z.infer<typeof staffSchema>;
@@ -67,6 +68,7 @@ export function StaffForm({ staffId, defaultValues, onClose }: StaffFormProps) {
       default_commission_percent:
         defaultValues?.default_commission_percent ?? 40,
       active: defaultValues?.active ?? true,
+      atende_clientes: defaultValues?.atende_clientes ?? true,
     },
   });
 
@@ -323,7 +325,26 @@ export function StaffForm({ staffId, defaultValues, onClose }: StaffFormProps) {
               {...register('active')}
             />
             <label htmlFor="active" className="text-sm text-fg cursor-pointer">
-              Profissional ativo (aparece na agenda e aceita agendamentos)
+              Profissional ativo (tem acesso ao sistema)
+            </label>
+          </div>
+
+          {/* Nem todo mundo que entra no sistema corta cabelo. O cargo nao
+              serve de criterio: o dono daqui atende, e outro dono pode so
+              administrar. */}
+          <div className="flex items-center gap-3 p-3 rounded-md bg-bg-elevated border border-border">
+            <input
+              type="checkbox"
+              id="atende_clientes"
+              className="w-4 h-4 accent-gold cursor-pointer"
+              {...register('atende_clientes')}
+            />
+            <label htmlFor="atende_clientes" className="text-sm text-fg cursor-pointer">
+              Atende clientes
+              <span className="block text-[11px] text-fg-muted">
+                Aparece na agenda e o cliente pode escolher esta pessoa. Desmarque para quem
+                só administra.
+              </span>
             </label>
           </div>
         </section>

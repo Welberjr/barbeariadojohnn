@@ -50,6 +50,7 @@ export default async function EditServicePage({ params }: EditServicePageProps) 
     .select('id, display_name, role')
     .eq('active', true)
     .in('role', ['barber', 'owner', 'manager'])
+    .eq('atende_clientes', true)
     .order('display_name');
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

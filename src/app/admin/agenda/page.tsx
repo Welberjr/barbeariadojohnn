@@ -44,6 +44,7 @@ export default async function AgendaPage({ searchParams }: AgendaPageProps) {
       .select('id, display_name, role, profile_id')
       .eq('active', true)
       .in('role', ['barber', 'owner', 'manager'])
+    .eq('atende_clientes', true)
       .order('display_name'),
     // Appointments do dia (SEM service_id direto — usa appointment_services)
     supabase
