@@ -5,6 +5,7 @@ import {
   ordenarPorUrgencia,
   resumoDaAusencia,
   linkWhatsApp,
+  ritmoEmPalavras,
   diasEntre,
   type ClienteSumido,
 } from './clientes-sumidos';
@@ -41,6 +42,11 @@ describe('ritmoDoCliente', () => {
   it('quem veio uma vez só não tem ritmo', () => {
     expect(ritmoDoCliente(['2026-06-01'])).toBeNull();
     expect(ritmoDoCliente([])).toBeNull();
+  });
+
+  it('duas visitas não são ritmo, são coincidência', () => {
+    // Veio segunda e terça: isso não faz dele alguém que "vem todo dia"
+    expect(ritmoDoCliente(['2026-06-01', '2026-06-02'])).toBeNull();
   });
 
   it('duas visitas no mesmo dia não viram ritmo zero', () => {
@@ -122,5 +128,33 @@ describe('linkWhatsApp', () => {
 describe('diasEntre', () => {
   it('conta os dias entre duas datas', () => {
     expect(diasEntre('2026-07-01', '2026-07-31')).toBe(30);
+  });
+});
+
+describe('ritmoEmPalavras', () => {
+  it('não escreve "a cada 1 dias"', () => {
+    expect(ritmoEmPalavras(1)).toBe('vinha quase todo dia');
+  });
+
+  it('fala em semana quando o intervalo é de semana', () => {
+    expect(ritmoEmPalavras(7)).toBe('vinha toda semana');
+    expect(ritmoEmPalavras(8)).toBe('vinha toda semana');
+  });
+
+  it('fala em quinzena e em mês', () => {
+    expect(ritmoEmPalavras(15)).toBe('vinha de quinze em quinze dias');
+    expect(ritmoEmPalavras(30)).toBe('vinha uma vez por mês');
+  });
+
+  it('quem não tem ritmo conhecido não ganha frase', () => {
+    expect(ritmoEmPalavras(null)).toBeNull();
+    expect(ritmoEmPalavras(0)).toBeNull();
+  });
+
+  it('nunca devolve texto com número no plural errado', () => {
+    for (let d = 1; d <= 400; d++) {
+      const texto = ritmoEmPalavras(d);
+      expect(texto).not.toMatch(/\b1 dias\b/);
+    }
   });
 });

@@ -15,8 +15,13 @@ import {
 } from 'lucide-react';
 
 import { marcarContatoFeito, desfazerContato } from '../actions';
-import { resumoDaAusencia, linkWhatsApp, type ClienteSumido } from '@/lib/clientes-sumidos';
-import { formatCurrency } from '@/lib/utils';
+import {
+  resumoDaAusencia,
+  ritmoEmPalavras,
+  linkWhatsApp,
+  type ClienteSumido,
+} from '@/lib/clientes-sumidos';
+import { formatCurrency, formatPhone } from '@/lib/utils';
 import { Paginacao } from '@/components/paginacao';
 
 const POR_PAGINA = 12;
@@ -178,72 +183,91 @@ export function ClientesSumidosView({
           </p>
         </div>
       ) : (
-        <div className="card overflow-hidden">
-          <div className="divide-y divide-border/40">
+        <>
+          <div className="grid gap-3 lg:grid-cols-2">
             {daPagina.map((c) => {
               const zap = linkWhatsApp(c, nomeBarbearia);
+              const ritmo = ritmoEmPalavras(c.ritmoDias);
 
               return (
-                <div
+                <article
                   key={c.id}
-                  className={`p-4 flex items-start justify-between gap-4 flex-wrap ${
-                    c.contatadoEm ? 'opacity-60' : ''
-                  }`}
+                  className={`card flex flex-col gap-3 p-4 ${c.contatadoEm ? 'opacity-60' : ''}`}
                 >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
+                  {/* Quem é e há quanto tempo sumiu: o que decide se vale a pena chamar */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
                       <Link
                         href={`/admin/clientes/${c.id}`}
-                        className="text-base text-fg hover:text-gold transition-colors"
+                        className="block truncate text-base capitalize text-fg transition-colors hover:text-gold"
                       >
                         {c.nome}
                       </Link>
-
-                      {c.atraso >= 3 && !c.contatadoEm && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-md border border-danger/40 bg-danger/10 text-danger">
-                          sumido faz tempo
-                        </span>
-                      )}
-
-                      {c.contatadoEm && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-md border border-success/40 bg-success/10 text-success">
-                          já chamado
-                        </span>
-                      )}
+                      <p className="mt-1 flex items-center gap-1.5 text-sm text-fg-muted">
+                        <Clock className="h-3.5 w-3.5 shrink-0 text-fg-dim" />
+                        Não vem {resumoDaAusencia(c)}
+                      </p>
                     </div>
 
-                    <p className="text-xs text-fg-muted mt-1 flex items-center gap-1.5 flex-wrap">
-                      <Clock className="w-3.5 h-3.5" />
-                      Não vem {resumoDaAusencia(c)}
-                      {c.ritmoDias ? ` · vinha a cada ${c.ritmoDias} dias` : ' · veio poucas vezes'}
-                      {c.servicoHabitual ? ` · costuma fazer ${c.servicoHabitual}` : ''}
-                    </p>
-
-                    <p className="text-xs text-fg-subtle mt-1">
-                      {c.visitas} {c.visitas === 1 ? 'visita' : 'visitas'} ·{' '}
-                      {formatCurrency(c.totalGasto)} no total
-                      {c.telefone ? (
-                        <span className="inline-flex items-center gap-1 ml-2">
-                          <Phone className="w-3 h-3" />
-                          {c.telefone}
-                        </span>
-                      ) : (
-                        <span className="ml-2 text-warn">sem telefone cadastrado</span>
-                      )}
-                    </p>
+                    {/* Quanto ele passou do proprio ritmo. "Sumido faz tempo" em
+                        todo mundo nao dizia nada: a lista inteira e de gente
+                        sumida. O numero separa quem sumiu do quem sumiu MUITO. */}
+                    {c.contatadoEm ? (
+                      <span className="shrink-0 rounded-md border border-success/40 bg-success/10 px-2 py-0.5 text-[10px] text-success">
+                        já chamado
+                      </span>
+                    ) : c.atraso >= 2 ? (
+                      <span
+                        className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] ${
+                          c.atraso >= 4
+                            ? 'border-danger/40 bg-danger/10 text-danger'
+                            : 'border-warn/40 bg-warn/10 text-warn'
+                        }`}
+                        title="Quantas vezes o tempo normal dele já passou"
+                      >
+                        {/* Com teto: acima de dez, o numero exato nao muda
+                            decisao nenhuma e so vira barulho na tela. */}
+                        {c.atraso >= 10 ? 'mais de 10x' : `${Math.floor(c.atraso)}x`} o normal dele
+                      </span>
+                    ) : null}
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    {zap && (
+                  {/* O que ele era para a casa */}
+                  <div className="space-y-1 border-t border-border/40 pt-3 text-xs text-fg-muted">
+                    <p>
+                      {ritmo ?? 'veio poucas vezes'}
+                      {c.servicoHabitual ? ` · costuma fazer ${c.servicoHabitual}` : ''}
+                    </p>
+                    <p>
+                      {c.visitas} {c.visitas === 1 ? 'visita' : 'visitas'} ·{' '}
+                      <span className="text-fg">{formatCurrency(c.totalGasto)}</span> no total
+                    </p>
+                    {c.telefone ? (
+                      <p className="flex items-center gap-1.5">
+                        <Phone className="h-3 w-3 shrink-0 text-fg-dim" />
+                        {formatPhone(c.telefone)}
+                      </p>
+                    ) : (
+                      <p className="text-warn">sem telefone cadastrado</p>
+                    )}
+                  </div>
+
+                  {/* Ações embaixo, com espaço para o dedo */}
+                  <div className="flex gap-2 border-t border-border/40 pt-3">
+                    {zap ? (
                       <a
                         href={zap}
                         target="_blank"
                         rel="noreferrer"
-                        className="btn-gold-outline text-xs"
+                        className="btn-gold-outline flex-1 text-xs"
                       >
-                        <MessageCircle className="w-3.5 h-3.5" />
+                        <MessageCircle className="h-3.5 w-3.5" />
                         Chamar
                       </a>
+                    ) : (
+                      <span className="flex-1 self-center text-[11px] text-fg-dim">
+                        Sem WhatsApp para chamar
+                      </span>
                     )}
 
                     {c.contatadoEm ? (
@@ -251,33 +275,34 @@ export function ClientesSumidosView({
                         type="button"
                         onClick={() => desfazer(c)}
                         disabled={ocupado === c.id}
-                        className="btn-ghost text-xs"
+                        className="btn-ghost flex-1 text-xs"
                         title="Voltar para a fila de quem chamar"
                       >
                         {ocupado === c.id ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         ) : (
-                          <Undo2 className="w-3.5 h-3.5" />
+                          <Undo2 className="h-3.5 w-3.5" />
                         )}
+                        Voltar para a fila
                       </button>
                     ) : (
                       <button
                         type="button"
                         onClick={() => marcar(c)}
                         disabled={ocupado === c.id}
-                        className="btn-secondary text-xs"
+                        className="btn-secondary flex-1 text-xs"
                         title="Marcar que já falei com este cliente"
                       >
                         {ocupado === c.id ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         ) : (
-                          <Check className="w-3.5 h-3.5" />
+                          <Check className="h-3.5 w-3.5" />
                         )}
                         Já falei
                       </button>
                     )}
                   </div>
-                </div>
+                </article>
               );
             })}
           </div>
@@ -289,7 +314,7 @@ export function ClientesSumidosView({
             aoMudar={setPagina}
             rotulo="clientes"
           />
-        </div>
+        </>
       )}
     </div>
   );

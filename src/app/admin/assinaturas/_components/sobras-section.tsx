@@ -1,7 +1,21 @@
 'use client';
 
+/**
+ * Sobra das assinaturas.
+ *
+ * Era uma tabela de seis colunas. No celular, que e onde o Johnn olha isso, as
+ * colunas se espremiam a ponto de os titulos colarem uns nos outros ("vale a
+ * cada repassar") e o resto ficava escondido atras de uma rolagem lateral que
+ * ninguem percebe que existe.
+ *
+ * Agora e um cartao por cliente. Cada um responde tres perguntas na ordem em que
+ * elas aparecem na cabeca de quem paga: quem e, quanto ele usou do que tem
+ * direito, e quanto disso ainda nao tem dono. A sobra e o unico numero grande da
+ * tela, porque e o unico que vira decisao.
+ */
+
 import { useState } from 'react';
-import { PiggyBank, Info, ChevronDown, ChevronUp } from 'lucide-react';
+import { PiggyBank, Info, CalendarClock, AlertTriangle } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { DESTINO_SOBRA_INFO, lerDestinoSobra } from '@/lib/subscriptions-rateio';
 
@@ -39,7 +53,57 @@ interface SobrasSectionProps {
 }
 
 function data(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  return new Date(iso).toLocaleDateString('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit',
+    month: '2-digit',
+  });
+}
+
+/** Quanto do plano ja foi usado, em desenho. */
+function BarraDeUso({ usados, inclusos }: { usados: number; inclusos: number }) {
+  const proporcao = inclusos > 0 ? Math.min(1, usados / inclusos) : 0;
+
+  return (
+    <div className="flex items-center gap-2.5">
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-bg-elevated">
+        <div
+          className="h-full rounded-full bg-gold/70 transition-all"
+          style={{ width: `${proporcao * 100}%` }}
+        />
+      </div>
+      <span className="shrink-0 text-xs text-fg-muted">
+        usou <span className="text-fg">{usados}</span> de {inclusos}
+      </span>
+    </div>
+  );
+}
+
+/** Uma linha de valor: nome do lado esquerdo, dinheiro do direito. */
+function Linha({
+  rotulo,
+  valor,
+  destaque = false,
+}: {
+  rotulo: string;
+  valor: number;
+  destaque?: boolean;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <span className={destaque ? 'text-sm text-fg' : 'text-xs text-fg-muted'}>{rotulo}</span>
+      <span
+        className={
+          destaque
+            ? 'text-lg font-bold text-gold'
+            : 'text-sm text-fg-muted tabular-nums'
+        }
+        style={destaque ? { fontFamily: 'var(--font-playfair), serif' } : undefined}
+      >
+        {formatCurrency(valor)}
+      </span>
+    </div>
+  );
 }
 
 export function SobrasSection({ sobras, fechados }: SobrasSectionProps) {
@@ -52,33 +116,32 @@ export function SobrasSection({ sobras, fechados }: SobrasSectionProps) {
   const totalFechado = fechadosComSobra.reduce((s, x) => s + x.leftover_amount, 0);
 
   return (
-    <section className="card p-6 space-y-4">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <h2
-            className="text-lg font-semibold text-fg flex items-center gap-2"
-            style={{ fontFamily: 'var(--font-playfair), serif' }}
-          >
-            <PiggyBank className="w-5 h-5 text-gold" />
-            Sobra das assinaturas
-          </h2>
-          <p className="text-xs text-fg-muted mt-1">
-            O que o cliente pagou e não usou. Cada atendimento incluso vale uma fatia da parte dos
-            barbeiros, então o que não foi usado ainda não tem dono.
-          </p>
-        </div>
+    <section className="card space-y-5 p-5 sm:p-6">
+      {/* Cabeçalho: o que é isto, e quanto dá no total */}
+      <div>
+        <h2
+          className="flex items-center gap-2 text-lg font-semibold text-fg"
+          style={{ fontFamily: 'var(--font-playfair), serif' }}
+        >
+          <PiggyBank className="h-5 w-5 text-gold" />
+          Sobra das assinaturas
+        </h2>
+        <p className="mt-1 text-xs text-fg-muted">
+          O que o cliente pagou e não usou. Cada atendimento incluso vale uma fatia da parte dos
+          barbeiros, então o que não foi usado ainda não tem dono.
+        </p>
+      </div>
 
-        <div className="text-right">
-          <p className="text-[9px] uppercase tracking-wider text-fg-dim">
-            {aba === 'aberto' ? 'Sobra prevista nos ciclos abertos' : 'Sobra já apurada'}
-          </p>
-          <p
-            className="text-2xl font-bold text-gold leading-none"
-            style={{ fontFamily: 'var(--font-playfair), serif' }}
-          >
-            {formatCurrency(aba === 'aberto' ? totalEmAberto : totalFechado)}
-          </p>
-        </div>
+      <div className="rounded-lg border border-gold/20 bg-gold/5 px-4 py-3">
+        <p className="text-[10px] uppercase tracking-wider text-fg-dim">
+          {aba === 'aberto' ? 'Sobra prevista nos ciclos abertos' : 'Sobra já apurada'}
+        </p>
+        <p
+          className="mt-0.5 text-3xl font-bold leading-none text-gold"
+          style={{ fontFamily: 'var(--font-playfair), serif' }}
+        >
+          {formatCurrency(aba === 'aberto' ? totalEmAberto : totalFechado)}
+        </p>
       </div>
 
       <div className="flex gap-2">
@@ -87,7 +150,7 @@ export function SobrasSection({ sobras, fechados }: SobrasSectionProps) {
           onClick={() => setAba('aberto')}
           className={aba === 'aberto' ? 'btn-gold-outline text-xs' : 'btn-ghost text-xs'}
         >
-          Ciclos em aberto ({comSobra.length})
+          Em aberto ({comSobra.length})
         </button>
         <button
           type="button"
@@ -98,94 +161,111 @@ export function SobrasSection({ sobras, fechados }: SobrasSectionProps) {
         </button>
       </div>
 
-      {aba === 'aberto' ? (
-        comSobra.length === 0 ? (
-          <p className="text-sm text-fg-muted py-6 text-center">
+      {/* ── Ciclos em aberto ─────────────────────────────────────────── */}
+      {aba === 'aberto' &&
+        (comSobra.length === 0 ? (
+          <p className="py-6 text-center text-sm text-fg-muted">
             Nenhuma sobra por enquanto. Todo assinante usou o que o plano inclui.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-[10px] uppercase tracking-wider text-fg-dim border-b border-border/60">
-                  <th className="text-left py-2 font-medium">Cliente</th>
-                  <th className="text-center py-2 font-medium">Usou</th>
-                  <th className="text-right py-2 font-medium">Vale cada</th>
-                  <th className="text-right py-2 font-medium">A repassar</th>
-                  <th className="text-right py-2 font-medium">Sobra</th>
-                  <th className="text-right py-2 font-medium">Ciclo até</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/40">
-                {comSobra.map((s) => (
-                  <tr key={s.assinaturaId}>
-                    <td className="py-2.5">
-                      <span className="text-fg">{s.cliente}</span>
-                      <span className="block text-[10px] text-fg-dim">
-                        {s.plano}
-                        {s.vencida ? ' · ciclo vencido' : ''}
-                      </span>
-                    </td>
-                    <td className="text-center text-fg-muted">
-                      {s.usados} de {s.inclusos}
-                    </td>
-                    <td className="text-right text-fg-muted">{formatCurrency(s.valorPorUso)}</td>
-                    <td className="text-right text-fg">{formatCurrency(s.aRepassar)}</td>
-                    <td className="text-right font-semibold text-gold">
-                      {formatCurrency(s.sobra)}
-                    </td>
-                    <td className="text-right text-[11px] text-fg-dim">{data(s.fimDoCiclo)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )
-      ) : fechadosComSobra.length === 0 ? (
-        <p className="text-sm text-fg-muted py-6 text-center">
-          Nenhum ciclo fechado com sobra ainda. A sobra aparece aqui quando você lança o pagamento
-          da assinatura.
-        </p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-[10px] uppercase tracking-wider text-fg-dim border-b border-border/60">
-                <th className="text-left py-2 font-medium">Cliente</th>
-                <th className="text-left py-2 font-medium">Ciclo</th>
-                <th className="text-center py-2 font-medium">Não usou</th>
-                <th className="text-left py-2 font-medium">Destino</th>
-                <th className="text-right py-2 font-medium">Sobrou</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/40">
-              {fechadosComSobra.map((f) => (
-                <tr key={f.id}>
-                  <td className="py-2.5 text-fg">{f.customer_name}</td>
-                  <td className="text-[11px] text-fg-dim">
-                    {data(f.period_start)} a {data(f.period_end)}
-                  </td>
-                  <td className="text-center text-fg-muted">
-                    {f.unused_uses} de {f.included_uses}
-                  </td>
-                  <td className="text-[11px] text-fg-muted">
-                    {DESTINO_SOBRA_INFO[lerDestinoSobra(f.leftover_destination)].label}
-                  </td>
-                  <td className="text-right font-semibold text-gold">
-                    {formatCurrency(f.leftover_amount)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+          <div className="grid gap-3 lg:grid-cols-2">
+            {comSobra.map((s) => (
+              <article
+                key={s.assinaturaId}
+                className="space-y-3 rounded-lg border border-border/60 bg-bg-elevated/40 p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium capitalize text-fg">{s.cliente}</p>
+                    <p className="mt-0.5 truncate text-[11px] uppercase tracking-wide text-fg-dim">
+                      {s.plano}
+                    </p>
+                  </div>
 
-      <p className="text-xs text-fg-subtle flex gap-2">
-        <Info className="w-4 h-4 text-gold shrink-0 mt-0.5" />
-        A sobra em aberto ainda pode diminuir: se o cliente vier de novo antes do fim do ciclo,
-        aquele atendimento passa a ter dono. O valor só fica definitivo quando você lança o
-        pagamento da assinatura.
+                  <span
+                    className={`flex shrink-0 items-center gap-1 rounded-md border px-2 py-1 text-[10px] ${
+                      s.vencida
+                        ? 'border-warn/40 bg-warn/10 text-warn'
+                        : 'border-border bg-bg text-fg-muted'
+                    }`}
+                  >
+                    {s.vencida ? (
+                      <AlertTriangle className="h-3 w-3" />
+                    ) : (
+                      <CalendarClock className="h-3 w-3" />
+                    )}
+                    {s.vencida ? 'ciclo vencido' : `até ${data(s.fimDoCiclo)}`}
+                  </span>
+                </div>
+
+                <BarraDeUso usados={s.usados} inclusos={s.inclusos} />
+
+                <div className="space-y-1.5 border-t border-border/40 pt-3">
+                  <Linha rotulo="Vai para os barbeiros" valor={s.aRepassar} />
+                  <Linha rotulo="Sobra" valor={s.sobra} destaque />
+                </div>
+
+                <p className="text-[11px] text-fg-subtle">
+                  Cada atendimento do plano vale {formatCurrency(s.valorPorUso)}.{' '}
+                  {s.naoUsados === 1
+                    ? 'Falta 1 atendimento para o cliente usar tudo.'
+                    : `Faltam ${s.naoUsados} atendimentos para o cliente usar tudo.`}
+                </p>
+              </article>
+            ))}
+          </div>
+        ))}
+
+      {/* ── Ciclos já fechados ───────────────────────────────────────── */}
+      {aba === 'fechado' &&
+        (fechadosComSobra.length === 0 ? (
+          <p className="py-6 text-center text-sm text-fg-muted">
+            Nenhum ciclo fechado com sobra ainda. A sobra aparece aqui quando você lança o
+            pagamento da assinatura.
+          </p>
+        ) : (
+          <div className="grid gap-3 lg:grid-cols-2">
+            {fechadosComSobra.map((f) => (
+              <article
+                key={f.id}
+                className="space-y-3 rounded-lg border border-border/60 bg-bg-elevated/40 p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <p className="min-w-0 truncate text-sm font-medium capitalize text-fg">
+                    {f.customer_name}
+                  </p>
+                  <span className="shrink-0 text-[10px] text-fg-dim">
+                    {data(f.period_start)} a {data(f.period_end)}
+                  </span>
+                </div>
+
+                <BarraDeUso usados={f.total_uses} inclusos={f.included_uses} />
+
+                <div className="space-y-1.5 border-t border-border/40 pt-3">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-xs text-fg-muted">Ficou com</span>
+                    <span className="text-xs text-fg">
+                      {DESTINO_SOBRA_INFO[lerDestinoSobra(f.leftover_destination)].label}
+                    </span>
+                  </div>
+                  <Linha rotulo="Sobrou" valor={f.leftover_amount} destaque />
+                </div>
+
+                <p className="text-[11px] text-fg-subtle">
+                  Não usou {f.unused_uses} de {f.included_uses} deste ciclo.
+                </p>
+              </article>
+            ))}
+          </div>
+        ))}
+
+      <p className="flex gap-2 rounded-lg border border-border/40 bg-bg-elevated/30 p-3 text-xs text-fg-subtle">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
+        <span>
+          A sobra em aberto ainda pode diminuir: se o cliente vier de novo antes do fim do ciclo,
+          aquele atendimento passa a ter dono. O valor só fica definitivo quando você lança o
+          pagamento da assinatura.
+        </span>
       </p>
     </section>
   );

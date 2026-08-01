@@ -44,7 +44,10 @@ export function diasEntre(de: string | Date, ate: string | Date): number {
  * historico nao pode fazer parecer que ele vem de seis em seis meses.
  */
 export function ritmoDoCliente(datas: string[]): number | null {
-  if (datas.length < 2) return null;
+  // Duas visitas dao um intervalo so, e um intervalo so nao e ritmo: quem veio
+  // segunda e terca aparecia como quem "vinha todo dia", e sumir por tres meses
+  // virava "106 vezes o normal dele". Ritmo precisa de repeticao para existir.
+  if (datas.length < 3) return null;
 
   const ordenadas = [...datas].sort();
   const intervalos: number[] = [];
@@ -98,6 +101,25 @@ export function resumoDaAusencia(c: ClienteSumido): string {
   }
   if (c.diasSemVir >= 60) return `há ${Math.floor(c.diasSemVir / 30)} meses`;
   return `há ${c.diasSemVir} dias`;
+}
+
+/**
+ * O ritmo do cliente dito como as pessoas falam.
+ *
+ * A tela mostrava "vinha a cada 1 dias", que alem de errado nao diz nada. Numero
+ * de dias e como o sistema pensa; quem le a tela pensa em "toda semana".
+ */
+export function ritmoEmPalavras(ritmoDias: number | null): string | null {
+  if (!ritmoDias || ritmoDias <= 0) return null;
+
+  if (ritmoDias === 1) return 'vinha quase todo dia';
+  if (ritmoDias <= 3) return `vinha de ${ritmoDias} em ${ritmoDias} dias`;
+  if (ritmoDias <= 5) return 'vinha várias vezes por semana';
+  if (ritmoDias <= 9) return 'vinha toda semana';
+  if (ritmoDias <= 20) return 'vinha de quinze em quinze dias';
+  if (ritmoDias <= 45) return 'vinha uma vez por mês';
+  if (ritmoDias <= 100) return 'vinha de dois em dois meses';
+  return 'vinha de vez em quando';
 }
 
 /** Link do WhatsApp com uma mensagem que a pessoa pode ajustar antes de enviar. */

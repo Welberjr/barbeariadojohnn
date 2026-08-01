@@ -58,7 +58,13 @@ export function formatDate(date: Date | string, format: 'short' | 'long' | 'date
  * Formata telefone brasileiro
  */
 export function formatPhone(phone: string): string {
-  const cleaned = phone.replace(/\D/g, '');
+  // Os telefones que vieram do sistema antigo tem o 55 do Brasil na frente.
+  // Sem tirar, o numero caia no fim da funcao e aparecia cru na tela, colado,
+  // do jeito que ninguem le telefone.
+  const cleaned = phone
+    .replace(/\D/g, '')
+    .replace(/^55(?=\d{10,11}$)/, '');
+
   if (cleaned.length === 11) {
     return cleaned.replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3');
   }
