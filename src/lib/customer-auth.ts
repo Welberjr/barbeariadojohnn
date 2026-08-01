@@ -8,6 +8,7 @@ import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { findSingleUnlinkedCustomerForEmail } from '@/lib/customer-auth-link';
 
 export interface PanelCustomer {
   id: string;
@@ -43,11 +44,48 @@ const getCustomerSession = cache(async function getCustomerSession(): Promise<{
   if (!user) return { customer: null, userId: null };
 
   const admin = createAdminClient();
-  const { data: customer } = await admin
+  let { data: customer } = await admin
     .from('customers')
     .select(CUSTOMER_FIELDS)
     .eq('auth_user_id', user.id)
     .maybeSingle();
+
+  // A importacao de clientes reais preservou as contas do Auth, mas os
+  // cadastros recriados ainda nao tinham auth_user_id. Recuperamos esse
+  // vinculo no primeiro acesso apenas quando o e-mail e unico e a conta nao
+  // pertence a equipe, evitando associar uma pessoa errada.
+  if (!customer && user.email) {
+    const { data: staff } = await admin
+      .from('staff')
+      .select('id')
+      .eq('profile_id', user.id)
+      .limit(1);
+
+    if (!staff?.length) {
+      const { data: unlinkedCustomers } = await admin
+        .from('customers')
+        .select(`${CUSTOMER_FIELDS}, auth_user_id`)
+        .eq('active', true)
+        .is('auth_user_id', null);
+
+      const match = findSingleUnlinkedCustomerForEmail(
+        unlinkedCustomers ?? [],
+        user.email
+      );
+
+      if (match) {
+        const { data: linkedCustomer } = await admin
+          .from('customers')
+          .update({ auth_user_id: user.id })
+          .eq('id', match.id)
+          .is('auth_user_id', null)
+          .select(CUSTOMER_FIELDS)
+          .maybeSingle();
+
+        customer = linkedCustomer;
+      }
+    }
+  }
 
   if (!customer || customer.active === false) {
     return { customer: null, userId: user.id };
