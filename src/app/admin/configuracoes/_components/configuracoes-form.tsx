@@ -11,20 +11,31 @@ import type { BarbershopSettings } from '../actions';
 
 interface Barbershop {
   name?: string;
-  slogan?: string | null;
   phone?: string | null;
   email?: string | null;
-  address?: string | null;
-  city?: string | null;
-  state?: string | null;
-  zip_code?: string | null;
   logo_url?: string | null;
   primary_color?: string | null;
   credit_fee_percent?: number | null;
   debit_fee_percent?: number | null;
   no_show_fee_enabled?: boolean | null;
-  no_show_fee_amount?: number | null;
+  no_show_fee_percent?: number | null;
   staff_default_view?: string | null;
+
+  /** Como a tabela guarda de verdade: endereco em pedacos e slogan na vitrine */
+  address_street?: string | null;
+  address_city?: string | null;
+  address_state?: string | null;
+  address_zip?: string | null;
+  site_config?: unknown;
+
+  /** Nomes antigos, que nunca existiram na tabela. Ficam so para nao quebrar
+      caso algum lugar ainda passe assim. */
+  slogan?: string | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip_code?: string | null;
+  no_show_fee_amount?: number | null;
 }
 
 interface ConfiguracoesFormProps {
@@ -59,13 +70,18 @@ export function ConfiguracoesForm({ barbershop }: ConfiguracoesFormProps) {
   const { register, handleSubmit } = useForm<BarbershopSettings>({
     defaultValues: {
       name: barbershop.name ?? '',
-      slogan: barbershop.slogan ?? '',
+      // O slogan mora no site_config e o endereco vem em pedacos: a tela mostra
+      // do jeito que a pessoa pensa, e a gravacao traduz de volta.
+      slogan:
+        (barbershop.site_config as { slogan?: string } | null)?.slogan ??
+        barbershop.slogan ??
+        '',
       phone: barbershop.phone ?? '',
       email: barbershop.email ?? '',
-      address: barbershop.address ?? '',
-      city: barbershop.city ?? '',
-      state: barbershop.state ?? '',
-      zip_code: barbershop.zip_code ?? '',
+      address: barbershop.address_street ?? barbershop.address ?? '',
+      city: barbershop.address_city ?? barbershop.city ?? '',
+      state: barbershop.address_state ?? barbershop.state ?? '',
+      zip_code: barbershop.address_zip ?? barbershop.zip_code ?? '',
       logo_url: barbershop.logo_url ?? '',
       primary_color: barbershop.primary_color ?? '',
       credit_fee_percent: barbershop.credit_fee_percent != null
@@ -75,8 +91,8 @@ export function ConfiguracoesForm({ barbershop }: ConfiguracoesFormProps) {
         ? Number(barbershop.debit_fee_percent)
         : null,
       no_show_fee_enabled: barbershop.no_show_fee_enabled ?? false,
-      no_show_fee_amount: barbershop.no_show_fee_amount != null
-        ? Number(barbershop.no_show_fee_amount)
+      no_show_fee_amount: barbershop.no_show_fee_percent != null
+        ? Number(barbershop.no_show_fee_percent)
         : null,
       staff_default_view: barbershop.staff_default_view ?? 'cards',
     },
@@ -324,15 +340,21 @@ export function ConfiguracoesForm({ barbershop }: ConfiguracoesFormProps) {
           </div>
 
           <div>
-            <label className="label">Multa por falta (no-show, R$)</label>
+            {/* A cobranca e proporcional ao atendimento, e nao um valor fixo:
+                o campo dizia R$ e o banco sempre guardou porcentagem. */}
+            <label className="label">Multa por falta (% do atendimento)</label>
             <input
               type="number"
               step="0.01"
               min="0"
-              placeholder="0.00"
+              max="100"
+              placeholder="50"
               className="input"
               {...register('no_show_fee_amount', { valueAsNumber: true })}
             />
+            <p className="text-[10px] text-fg-subtle mt-1">
+              Quanto do valor do atendimento é cobrado de quem marca e não aparece.
+            </p>
           </div>
 
           <div className="md:col-span-2">

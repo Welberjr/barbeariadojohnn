@@ -29,6 +29,18 @@ function nullIfEmpty(v?: string | null) {
   return trimmed.length === 0 ? null : trimmed;
 }
 
+/**
+ * Salva os dados da barbearia.
+ *
+ * A tela fala a lingua de quem preenche ("Endereço", "Cidade", "CEP") e a
+ * tabela guarda com outros nomes (address_street, address_city, address_zip).
+ * A traducao acontece aqui.
+ *
+ * Sem isso, gravar qualquer campo derrubava o formulario inteiro com "não achei
+ * a coluna address": seis dos quinze campos nao existiam com o nome que a tela
+ * mandava, entao endereco, cidade, estado, CEP, slogan e taxa de falta nunca
+ * foram salvos desde que a tela existe.
+ */
 export async function updateBarbershopSettings(data: BarbershopSettings) {
   const admin = await createManagerClient();
 
@@ -36,14 +48,15 @@ export async function updateBarbershopSettings(data: BarbershopSettings) {
   const payload: any = {};
 
   if (data.name !== undefined) payload.name = data.name;
-  if (data.slogan !== undefined) payload.slogan = nullIfEmpty(data.slogan);
   if (data.phone !== undefined) payload.phone = nullIfEmpty(data.phone);
   if (data.email !== undefined) payload.email = nullIfEmpty(data.email);
-  if (data.address !== undefined) payload.address = nullIfEmpty(data.address);
-  if (data.city !== undefined) payload.city = nullIfEmpty(data.city);
-  if (data.state !== undefined) payload.state = nullIfEmpty(data.state);
-  if (data.zip_code !== undefined)
-    payload.zip_code = nullIfEmpty(data.zip_code);
+
+  // Endereco: a tabela guarda em pedacos
+  if (data.address !== undefined) payload.address_street = nullIfEmpty(data.address);
+  if (data.city !== undefined) payload.address_city = nullIfEmpty(data.city);
+  if (data.state !== undefined) payload.address_state = nullIfEmpty(data.state);
+  if (data.zip_code !== undefined) payload.address_zip = nullIfEmpty(data.zip_code);
+
   if (data.logo_url !== undefined)
     payload.logo_url = nullIfEmpty(data.logo_url);
   if (data.primary_color !== undefined)
@@ -54,10 +67,29 @@ export async function updateBarbershopSettings(data: BarbershopSettings) {
     payload.debit_fee_percent = data.debit_fee_percent;
   if (data.no_show_fee_enabled !== undefined)
     payload.no_show_fee_enabled = data.no_show_fee_enabled;
+
+  // A cobranca por falta e em porcentagem do atendimento, nao em reais
   if (data.no_show_fee_amount !== undefined && data.no_show_fee_amount !== null)
-    payload.no_show_fee_amount = data.no_show_fee_amount;
+    payload.no_show_fee_percent = data.no_show_fee_amount;
+
   if (data.staff_default_view !== undefined && data.staff_default_view !== null)
     payload.staff_default_view = data.staff_default_view;
+
+  // O slogan mora no site_config, junto com o que so serve para a vitrine.
+  // Precisa vir com o resto do conteudo junto, senao gravar o slogan apagaria
+  // o Instagram e o horario que ja estao la.
+  if (data.slogan !== undefined) {
+    const { data: atual } = await admin
+      .from('barbershops')
+      .select('site_config')
+      .eq('id', BARBERSHOP_ID)
+      .maybeSingle();
+
+    payload.site_config = {
+      ...((atual?.site_config as Record<string, unknown>) ?? {}),
+      slogan: nullIfEmpty(data.slogan),
+    };
+  }
 
   if (Object.keys(payload).length === 0) {
     return { ok: true };
