@@ -7,7 +7,12 @@
  * Como usar:
  *   node scripts/migrar-ecobarber.mjs <arquivo.json> --limpar
  *   node scripts/migrar-ecobarber.mjs <arquivo.json> --importar
+ *   node scripts/migrar-ecobarber.mjs <arquivo.json> --atualizar
  *   node scripts/migrar-ecobarber.mjs <arquivo.json> --conferir
+ *
+ * O --atualizar e para o dia a dia ate a virada: o Johnn continua atendendo no
+ * sistema antigo, voce exporta de novo e roda, e entra so o que e novo. Pode
+ * rodar quantas vezes quiser, que nao duplica nada.
  *
  * Faz backup antes de limpar. Nada roda por acidente: cada fase e explicita.
  *
@@ -94,19 +99,50 @@ const FORMA_PAGAMENTO = {
 };
 
 /** Insere em blocos: mil linhas de uma vez estoura o limite da API. */
+/**
+ * Quando ligado, so entra no banco o que ainda nao esta la.
+ *
+ * E o que faz a atualizacao do dia a dia ser possivel: o Johnn continua
+ * atendendo no sistema antigo enquanto a virada nao acontece, e a gente traz o
+ * que mudou sem duplicar o que ja veio. O reconhecimento e pelo identificador
+ * original do sistema antigo, que a importacao preserva desde o comeco.
+ */
+let SOMENTE_NOVOS = false;
+
+/** Ids que ja existem na tabela, para nao inserir duas vezes o mesmo registro. */
+async function idsExistentes(tabela) {
+  const existentes = new Set();
+  for (let de = 0; ; de += 1000) {
+    const { data } = await admin.from(tabela).select('id').range(de, de + 999);
+    for (const linha of data ?? []) existentes.add(linha.id);
+    if (!data || data.length < 1000) break;
+  }
+  return existentes;
+}
+
 async function inserir(tabela, linhas, tamanho = 500) {
-  if (!linhas.length) return { ok: 0, erro: null };
+  if (!linhas.length) return { ok: 0, pulados: 0, erro: null };
+
+  let pulados = 0;
+  let paraInserir = linhas;
+
+  if (SOMENTE_NOVOS && linhas[0]?.id) {
+    const jaTem = await idsExistentes(tabela);
+    paraInserir = linhas.filter((l) => !jaTem.has(l.id));
+    pulados = linhas.length - paraInserir.length;
+  }
+
   let ok = 0;
-  for (let i = 0; i < linhas.length; i += tamanho) {
-    const bloco = linhas.slice(i, i + tamanho);
+  for (let i = 0; i < paraInserir.length; i += tamanho) {
+    const bloco = paraInserir.slice(i, i + tamanho);
     const { error } = await admin.from(tabela).insert(bloco);
     if (error) {
       console.error(`  ERRO em ${tabela} (bloco ${i}):`, error.message);
-      return { ok, erro: error.message };
+      return { ok, pulados, erro: error.message };
     }
     ok += bloco.length;
   }
-  return { ok, erro: null };
+  return { ok, pulados, erro: null };
 }
 
 // ------------------------------------------------------------------
@@ -374,7 +410,17 @@ async function importar() {
   const agendamentos = [];
   const servicosDoAgendamento = [];
 
+  // O servico do agendamento nasce com identificador proprio e nao se reconhece
+  // sozinho. Quem responde por ele e o agendamento: agendamento que ja esta no
+  // banco ja trouxe o servico dele junto. Sem esta trava, uma atualizacao punha
+  // o mesmo servico de novo em cada um dos 1.619 atendimentos.
+  const agendamentosJaImportados = SOMENTE_NOVOS
+    ? await idsExistentes('appointments')
+    : new Set();
+
   for (const a of atendimentosValidos) {
+    if (agendamentosJaImportados.has(a.id)) continue;
+
     const inicio = instante(a.data_atendimento, a.hora_inicio);
     const fim = instante(a.data_atendimento, a.hora_fim) ?? inicio;
     if (!inicio) continue;
@@ -480,7 +526,16 @@ async function importarMovimento(mapaStaffEntrada, mapaServicoEntrada, idsAssina
   const pagamentos = [];
   const usosAssinatura = [];
 
+  // Os itens e os pagamentos nascem com identificador proprio, entao nao dao
+  // para reconhecer sozinhos. Quem responde por eles e a comanda: comanda que ja
+  // esta no banco ja trouxe os itens dela junto, e e pulada inteira.
+  const comandasJaImportadas = SOMENTE_NOVOS
+    ? await idsExistentes('comandas')
+    : new Set();
+
   for (const c of eco.comandas) {
+    if (comandasJaImportadas.has(c.id)) continue;
+
     const at = atendimentoPorId.get(c.atendimento_id);
     const staffId = mapaStaff.get(c.profissional_id) ?? (at ? mapaStaff.get(at.user_id) : null);
     if (!staffId || !c.cliente_id) continue;
@@ -603,6 +658,10 @@ async function importarMovimento(mapaStaffEntrada, mapaServicoEntrada, idsAssina
     const ehProduto = /produto/i.test(t.categoria ?? '');
 
     lancamentos.push({
+      // O identificador do sistema antigo vira o nosso. Sem isto, rodar a
+      // importacao duas vezes lancava o mesmo dinheiro de novo: foi assim que o
+      // financeiro apareceu com 1002 lancamentos onde deviam existir 501.
+      id: t.id,
       barbershop_id: BARBEARIA,
       type: ehDespesa ? 'expense' : ehProduto ? 'product' : 'other',
       amount: Math.abs(num(t.valor)),
@@ -615,7 +674,31 @@ async function importarMovimento(mapaStaffEntrada, mapaServicoEntrada, idsAssina
     });
   }
   if (incluirLancamentos) {
-    const rtx = await inserir('transactions', lancamentos, 300);
+    // Os lancamentos que ja estao no banco entraram antes de o script guardar o
+    // identificador de origem, entao eles tem id sorteado pelo banco e o filtro
+    // por id nao os reconheceria: rodar a atualizacao lancaria o mesmo dinheiro
+    // outra vez. Aqui a comparacao e pelo conteudo, que e o que de fato diz se
+    // aquele lancamento ja existe.
+    let novos = lancamentos;
+    if (SOMENTE_NOVOS) {
+      const assinatura = (t) =>
+        [t.type, Number(t.amount).toFixed(2), (t.description ?? '').trim(), String(t.occurred_at).slice(0, 10)].join('|');
+
+      const jaExistem = new Set();
+      for (let de = 0; ; de += 1000) {
+        const { data } = await admin
+          .from('transactions')
+          .select('type, amount, description, occurred_at')
+          .range(de, de + 999);
+        for (const t of data ?? []) jaExistem.add(assinatura(t));
+        if (!data || data.length < 1000) break;
+      }
+
+      novos = lancamentos.filter((t) => !jaExistem.has(assinatura(t)));
+      log(`  lancamentos ja existentes, pulados: ${lancamentos.length - novos.length}`);
+    }
+
+    const rtx = await inserir('transactions', novos, 300);
     log(`  lancamentos avulsos: ${rtx.ok} (receita de atendimento fica na comanda)`);
   } else {
     log('  lancamentos avulsos: pulados nesta fase');
@@ -733,8 +816,57 @@ async function refazerMovimento() {
   await importarMovimento();
 }
 
+/**
+ * Traz so o que mudou no sistema antigo desde a ultima vez.
+ *
+ * Roda a mesma importacao de sempre, com a trava de "so o que ainda nao existe"
+ * ligada. E a mesma lógica, e nao uma segunda versao dela: codigo de importacao
+ * duplicado envelhece torto, e a hora de descobrir e sempre a pior.
+ */
+async function atualizar() {
+  SOMENTE_NOVOS = true;
+
+  log('ATUALIZANDO com o que mudou no sistema antigo\n');
+  log('Nada do que ja esta aqui e tocado: so entra registro novo.\n');
+
+  const antes = await contagens();
+  await importar();
+  const depois = await contagens();
+
+  log('\nO QUE ENTROU AGORA');
+  for (const [tabela, quantidade] of Object.entries(depois)) {
+    const diferenca = quantidade - (antes[tabela] ?? 0);
+    if (diferenca > 0) log(`  +${String(diferenca).padStart(5)}  ${tabela}`);
+  }
+  log('\nConfira com --conferir antes de considerar fechado.');
+}
+
+/** Fotografia do tamanho de cada tabela, para dizer o que a atualizacao trouxe. */
+async function contagens() {
+  const tabelas = [
+    'customers',
+    'services',
+    'products',
+    'appointments',
+    'comandas',
+    'comanda_items',
+    'comanda_payments',
+    'transactions',
+    'subscriptions',
+    'subscription_usages',
+  ];
+
+  const resultado = {};
+  for (const tabela of tabelas) {
+    const { count } = await admin.from(tabela).select('id', { count: 'exact', head: true });
+    resultado[tabela] = count ?? 0;
+  }
+  return resultado;
+}
+
 if (fase === 'limpar') await limpar();
 else if (fase === 'importar') await importar();
+else if (fase === 'atualizar') await atualizar();
 else if (fase === 'movimento') await refazerMovimento();
 else if (fase === 'conferir') await conferir();
 else console.error('fase desconhecida');
