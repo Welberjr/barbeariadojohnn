@@ -17,13 +17,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getSessionStaff } from '@/lib/staff-auth';
 import { podeModulo } from '@/lib/staff-permissions';
 import { BARBERSHOP_ID } from '@/lib/painel/dados';
+import { normalizarTelefone, variantesDoTelefone } from '@/lib/telefone';
 
-/** Deixa so os digitos e devolve nulo quando nao sobra telefone de verdade. */
-function limparTelefone(valor: string): string | null {
-  const digitos = valor.replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '');
-  if (digitos.length < 10 || digitos.length > 11) return null;
-  return digitos;
-}
 
 export async function cadastrarClienteRapido(dados: {
   nome: string;
@@ -51,7 +46,7 @@ export async function cadastrarClienteRapido(dados: {
     return { ok: false as const, error: 'Nome muito longo.' };
   }
 
-  const telefone = dados.telefone?.trim() ? limparTelefone(dados.telefone) : null;
+  const telefone = dados.telefone?.trim() ? normalizarTelefone(dados.telefone) : null;
   if (dados.telefone?.trim() && !telefone) {
     return { ok: false as const, error: 'Telefone incompleto. Use DDD e número.' };
   }
@@ -63,12 +58,16 @@ export async function cadastrarClienteRapido(dados: {
   // ja existe: e o que evita o cadastro da barbearia virar uma lista com o
   // mesmo cliente tres vezes.
   if (telefone) {
-    const { data: existente } = await admin
+    // Procura por todas as formas do mesmo numero: 399 dos 415 clientes estao
+    // gravados sem o nono digito, e quase todos com o 55 na frente.
+    const { data: encontradas } = await admin
       .from('customers')
       .select('id, full_name, phone, active')
       .eq('barbershop_id', BARBERSHOP_ID)
-      .eq('phone', telefone)
-      .maybeSingle();
+      .in('phone', variantesDoTelefone(telefone))
+      .limit(1);
+
+    const existente = (encontradas ?? [])[0] ?? null;
 
     if (existente) {
       if (!existente.active) {

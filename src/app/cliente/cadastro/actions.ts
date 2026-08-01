@@ -27,27 +27,11 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { conviteValido } from '@/lib/convite-cliente';
 import { BARBERSHOP_ID } from '@/lib/painel/dados';
+import { normalizarTelefone, variantesDoTelefone } from '@/lib/telefone';
 
 const MIN_SENHA = 8;
 
-function limparTelefone(valor: string): string | null {
-  const digitos = valor.replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '');
-  if (digitos.length < 10 || digitos.length > 11) return null;
-  return digitos;
-}
 
-/**
- * As duas formas do mesmo telefone.
- *
- * 408 dos 415 clientes vieram do sistema antigo com o 55 do Brasil na frente, e
- * o resto foi cadastrado sem. Procurar por uma forma so nao acha ninguem: no
- * teste, o cliente com telefone gravado como 5553... nao foi reconhecido e
- * ganhou uma segunda ficha, do lado da que ja existia.
- */
-function formasDoTelefone(numero: string): string[] {
-  const semDdi = numero.replace(/^55/, '');
-  return [...new Set([numero, semDdi, `55${semDdi}`])];
-}
 
 export async function cadastrarCliente(dados: {
   nome: string;
@@ -71,7 +55,7 @@ export async function cadastrarCliente(dados: {
     return { ok: false as const, error: `A senha precisa ter pelo menos ${MIN_SENHA} caracteres.` };
   }
 
-  const telefone = limparTelefone(dados.telefone ?? '');
+  const telefone = normalizarTelefone(dados.telefone ?? '');
   if (!telefone) return { ok: false as const, error: 'Telefone incompleto. Use DDD e número.' };
 
   const admin = createAdminClient();
@@ -148,7 +132,7 @@ export async function cadastrarCliente(dados: {
     .from('customers')
     .select('id, auth_user_id')
     .eq('barbershop_id', BARBERSHOP_ID)
-    .in('phone', formasDoTelefone(telefone))
+    .in('phone', variantesDoTelefone(telefone))
     .limit(2);
 
   // Dois cadastros com o mesmo telefone e caso para gente resolver, e nao para

@@ -1,5 +1,7 @@
 import { requireCustomer } from '@/lib/customer-auth';
 import { getUnreadCount } from '@/lib/notifications';
+import { precisaTrocarSenha } from '@/app/cliente/login/actions';
+import { TrocarSenhaPrimeiroAcesso } from './_components/trocar-senha-primeiro-acesso';
 import { ClientTopbar, ClientBottomNav } from './_components/client-nav';
 import { ChatFloat } from '@/components/chat-float';
 
@@ -24,7 +26,10 @@ export default async function ClientePainelLayout({
   children: React.ReactNode;
 }) {
   const { customer } = await requireCustomer();
-  const unreadCount = await getUnreadCount(customer.id);
+  const [unreadCount, senhaAindaEDaBarbearia] = await Promise.all([
+    getUnreadCount(customer.id),
+    precisaTrocarSenha(),
+  ]);
 
   return (
     <div className="min-h-screen bg-bg relative">
@@ -46,6 +51,12 @@ export default async function ClientePainelLayout({
       <main className="relative z-10 max-w-4xl mx-auto px-4 py-6 pb-28 md:pb-10">
         {children}
       </main>
+
+      {/* Enquanto a senha for a que a barbearia entregou, a conta e de quem
+          souber o telefone. A troca cobre a tela e nao tem como pular. */}
+      {senhaAindaEDaBarbearia && (
+        <TrocarSenhaPrimeiroAcesso primeiroNome={customer.full_name.split(' ')[0]} />
+      )}
 
       <ClientBottomNav />
       <ChatFloat

@@ -6,12 +6,15 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Loader2, Mail, Lock, Eye, EyeOff, LogIn } from 'lucide-react';
+import { Loader2, Smartphone, Lock, Eye, EyeOff, LogIn } from 'lucide-react';
 
-import { createClient } from '@/lib/supabase/client';
+import { entrarComoCliente } from '../actions';
 
+// O cliente sabe o telefone dele de cor, e quase nunca lembra qual e-mail deu no
+// cadastro. Entao a porta aceita os dois, e nao cobra formato de e-mail de quem
+// digitou um numero.
 const loginSchema = z.object({
-  email: z.string().email('E-mail inválido'),
+  email: z.string().min(6, 'Informe seu telefone ou e-mail'),
   password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
 });
 
@@ -33,14 +36,13 @@ export function CustomerLoginForm() {
   async function onSubmit(data: LoginFormData) {
     setIsLoading(true);
     try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
+      const res = await entrarComoCliente({
+        identificador: data.email,
+        senha: data.password,
       });
 
-      if (error) {
-        toast.error('E-mail ou senha incorretos.');
+      if (!res.ok) {
+        toast.error(res.error);
         return;
       }
 
@@ -60,14 +62,15 @@ export function CustomerLoginForm() {
     <form method="post" onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       <div className="space-y-2">
         <label htmlFor="email" className="label flex items-center gap-2">
-          <Mail className="w-3.5 h-3.5 text-gold/70" />
-          <span className="tracking-wider text-[11px] uppercase">E-mail</span>
+          <Smartphone className="w-3.5 h-3.5 text-gold/70" />
+          <span className="tracking-wider text-[11px] uppercase">Telefone ou e-mail</span>
         </label>
         <input
           id="email"
-          type="email"
-          autoComplete="email"
-          placeholder="seu@email.com"
+          type="text"
+          inputMode="text"
+          autoComplete="username"
+          placeholder="(61) 99999-9999"
           className="input pl-4 w-full"
           disabled={isLoading}
           {...register('email')}

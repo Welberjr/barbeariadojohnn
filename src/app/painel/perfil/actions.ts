@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getSessionStaff } from '@/lib/staff-auth';
 import { BARBERSHOP_ID } from '@/lib/painel/dados';
+import { normalizarTelefone, variantesDoTelefone } from '@/lib/telefone';
 
 const MIN_SENHA = 8;
 
@@ -98,8 +99,8 @@ export async function ativarMinhaContaDeCliente(dados: { telefone?: string } = {
     return { ok: true as const, jaTinha: true, clienteId: jaLigada.id as string };
   }
 
-  const telefone = (dados.telefone ?? '').replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '');
-  if (telefone.length < 10 || telefone.length > 11) {
+  const telefone = normalizarTelefone(dados.telefone ?? '');
+  if (!telefone) {
     return { ok: false as const, error: 'Informe seu telefone com DDD.' };
   }
 
@@ -111,7 +112,8 @@ export async function ativarMinhaContaDeCliente(dados: { telefone?: string } = {
     .from('customers')
     .select('id, auth_user_id, active')
     .eq('barbershop_id', BARBERSHOP_ID)
-    .eq('phone', telefone)
+    .in('phone', variantesDoTelefone(telefone))
+    .limit(1)
     .maybeSingle();
 
   if (existente) {

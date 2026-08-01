@@ -95,13 +95,11 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
   const host = cabecalhos.get('host') ?? 'barbearia-do-johnn.vercel.app';
   const linkDoAplicativo = `${host.startsWith('localhost') ? 'http' : 'https'}://${host}/cliente/cadastro`;
 
-  const [{ data: dadosBarbearia }, { count: assinantesAtivos }] = await Promise.all([
-    supabase.from('barbershops').select('name').eq('id', BARBERSHOP_ID).maybeSingle(),
-    supabase
-      .from('subscriptions')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'active'),
-  ]);
+  const { data: dadosBarbearia } = await supabase
+    .from('barbershops')
+    .select('name')
+    .eq('id', BARBERSHOP_ID)
+    .maybeSingle();
 
   const nomeDaBarbearia = (dadosBarbearia?.name as string) ?? 'Barbearia do Johnn';
 
@@ -124,7 +122,10 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
           </p>
         </div>
 
-        <NovoClienteModal barbers={[]} />
+        <div className="flex items-center gap-2">
+          <LinkDoAplicativo link={linkDoAplicativo} nomeBarbearia={nomeDaBarbearia} />
+          <NovoClienteModal barbers={[]} />
+        </div>
       </div>
 
       <div className="divider-gold" />
@@ -180,13 +181,6 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
           <p className="text-3xl font-bold text-success" style={{ fontFamily: 'var(--font-playfair), serif' }}>{regulars ?? 0}</p>
         </div>
       </div>
-
-      {/* LINK DO APLICATIVO PARA DIVULGAR */}
-      <LinkDoAplicativo
-        link={linkDoAplicativo}
-        nomeBarbearia={nomeDaBarbearia}
-        assinantes={assinantesAtivos ?? 0}
-      />
 
       {/* CRITÉRIO VIP */}
       <div className="card p-4 border-gold/20 bg-gold/5 flex items-start gap-3">
