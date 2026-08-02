@@ -82,6 +82,7 @@ export default async function ComandaPage({ params }: ComandaPageProps) {
     supabase
       .from('staff')
       .select('id, display_name')
+      .eq('barbershop_id', await lojaAtual())
       .eq('active', true)
       .in('role', ['barber', 'owner', 'manager'])
     .eq('atende_clientes', true)

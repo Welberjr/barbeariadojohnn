@@ -40,6 +40,10 @@ export default async function ProfissionaisPage() {
       )
     `
     )
+    // Sem este filtro a lista mostrava a equipe da rede inteira. Com uma loja
+    // so ninguem percebia; com duas, o gerente de uma unidade veria e editaria
+    // o pessoal da outra.
+    .eq('barbershop_id', await lojaAtual())
     .order('created_at', { ascending: false });
 
   // Preferencia de visualizacao padrao (cards | lista), definida em Configuracoes

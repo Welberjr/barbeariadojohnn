@@ -41,6 +41,7 @@ export default async function AgendaPage({ searchParams }: AgendaPageProps) {
     supabase
       .from('staff')
       .select('id, display_name, role, profile_id')
+      .eq('barbershop_id', await lojaAtual())
       .eq('active', true)
       .in('role', ['barber', 'owner', 'manager'])
     .eq('atende_clientes', true)
@@ -89,6 +90,7 @@ export default async function AgendaPage({ searchParams }: AgendaPageProps) {
     supabase
       .from('services')
       .select('id, name, base_price, base_duration_minutes, category')
+      .eq('barbershop_id', await lojaAtual())
       .eq('active', true)
       .order('display_order'),
   ]);

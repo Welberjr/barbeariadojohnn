@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ServiceForm } from '../_components/service-form';
 import { ServiceStaffManager } from '../_components/service-staff-manager';
+import { lojaAtual } from '@/lib/loja';
 
 export const metadata = {
   title: 'Editar serviço',
@@ -48,6 +49,7 @@ export default async function EditServicePage({ params }: EditServicePageProps) 
   const { data: allStaff } = await supabase
     .from('staff')
     .select('id, display_name, role')
+    .eq('barbershop_id', await lojaAtual())
     .eq('active', true)
     .in('role', ['barber', 'owner', 'manager'])
     .eq('atende_clientes', true)

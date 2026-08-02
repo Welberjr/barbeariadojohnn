@@ -57,6 +57,7 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
     supabase
       .from('staff')
       .select('id, display_name')
+      .eq('barbershop_id', await lojaAtual())
       .eq('active', true)
       .order('display_name'),
     supabase

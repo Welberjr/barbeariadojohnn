@@ -50,6 +50,7 @@ export default async function DisponibilidadePage() {
       )
     `
         )
+        .eq('barbershop_id', await lojaAtual())
         .gte('end_date', today)
         .order('start_date', { ascending: true }),
       // Todos profissionais ativos
@@ -58,6 +59,7 @@ export default async function DisponibilidadePage() {
         .select(
           'id, display_name, role, use_barbershop_hours, custom_hours, lunch_start, lunch_end'
         )
+        .eq('barbershop_id', await lojaAtual())
         .eq('active', true)
         .in('role', ['barber', 'owner', 'manager'])
         .eq('atende_clientes', true)

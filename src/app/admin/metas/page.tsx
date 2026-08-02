@@ -179,6 +179,7 @@ export default async function MetasPage({ searchParams }: PageProps) {
       supabase
         .from('staff')
         .select('id, display_name, role')
+        .eq('barbershop_id', await lojaAtual())
         .eq('active', true)
         .in('role', ['barber', 'owner', 'manager'])
     .eq('atende_clientes', true)

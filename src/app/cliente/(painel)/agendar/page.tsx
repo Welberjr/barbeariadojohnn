@@ -2,6 +2,7 @@ import { requireCustomer } from '@/lib/customer-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getActiveSubscription, SHOP_TZ } from '@/lib/subscriptions';
 import { BookingWizard } from './_components/booking-wizard';
+import { lojaAtual } from '@/lib/loja';
 
 export const metadata = { title: 'Agendar' };
 export const dynamic = 'force-dynamic';
@@ -76,12 +77,14 @@ export default async function AgendarPage() {
       admin
         .from('services')
         .select('id, name, description, category, base_price, base_duration_minutes')
+        .eq('barbershop_id', await lojaAtual())
         .eq('active', true)
         .order('category', { ascending: true })
         .order('display_order', { ascending: true }),
       admin
         .from('staff')
         .select('id, display_name')
+        .eq('barbershop_id', await lojaAtual())
         .eq('active', true)
         .in('role', ['barber', 'owner', 'manager'])
     .eq('atende_clientes', true)

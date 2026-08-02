@@ -6,6 +6,7 @@ import { ConvidarCliente } from '../_components/convidar-clientes';
 import { CreditoDoCliente } from '../_components/credito-do-cliente';
 import { creditosDoCliente } from '@/lib/creditos-db';
 import { linkDoConvite, mensagemDoConvite } from '@/lib/convite-cliente';
+import { lojaAtual } from '@/lib/loja';
 
 export const metadata = {
   title: 'Editar cliente',
@@ -35,6 +36,7 @@ export default async function EditCustomerPage({
   const { data: barbers } = await supabase
     .from('staff')
     .select('id, display_name')
+    .eq('barbershop_id', await lojaAtual())
     .eq('active', true)
     .in('role', ['barber', 'owner', 'manager'])
     .eq('atende_clientes', true)

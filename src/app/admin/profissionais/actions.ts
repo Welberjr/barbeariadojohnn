@@ -258,17 +258,22 @@ export async function deactivateStaff(staffId: string, motivo?: string) {
 
   const { data: staff } = await admin
     .from('staff')
-    .select('id, display_name, can_manage')
+    .select('id, display_name, can_manage, barbershop_id')
     .eq('id', staffId)
     .maybeSingle();
 
   if (!staff) return { ok: false, error: 'Profissional não encontrado.' };
 
-  // Ninguem desliga o ultimo com gestao: a barbearia ficaria sem dono
+  // Ninguem desliga o ultimo com gestao: a unidade ficaria sem dono.
+  //
+  // A conta e POR UNIDADE. Contar a rede inteira deixaria desligar o unico
+  // gestor da loja B so porque a loja A tem outro, e a loja B ficaria trancada
+  // com o movimento dela dentro.
   if (staff.can_manage) {
     const { count } = await admin
       .from('staff')
       .select('id', { count: 'exact', head: true })
+      .eq('barbershop_id', staff.barbershop_id as string)
       .eq('can_manage', true)
       .eq('active', true)
       .is('fired_at', null);
@@ -277,7 +282,7 @@ export async function deactivateStaff(staffId: string, motivo?: string) {
       return {
         ok: false,
         error:
-          'Este é o último com acesso de gestão. Dê gestão a outra pessoa antes de desligar, senão ninguém mais entra no administrativo.',
+          'Este é o último com acesso de gestão nesta unidade. Dê gestão a outra pessoa antes de desligar, senão ninguém mais entra no administrativo dela.',
       };
     }
   }
