@@ -16,13 +16,12 @@ import {
 } from '@/lib/subscriptions';
 import { notifyCustomer } from '@/lib/notifications';
 import { podeConfirmar } from '@/lib/confirmacao-agendamento';
+import { lojaAtual } from '@/lib/loja';
 import {
   avisarQueClienteMarcou,
   avisarQueClienteConfirmou,
   avisarQueClienteDesmarcou,
 } from '@/lib/avisos-da-agenda';
-
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
 function fmtDateTimeBR(d: Date) {
   return new Intl.DateTimeFormat('pt-BR', {
@@ -150,7 +149,7 @@ export async function bookAppointment(input: BookInput) {
   const { data: created, error } = await admin
     .from('appointments')
     .insert({
-      barbershop_id: BARBERSHOP_ID,
+      barbershop_id: (await lojaAtual()),
       customer_id: customer.id,
       staff_id: input.staff_id,
       start_at: start.toISOString(),
@@ -167,7 +166,7 @@ export async function bookAppointment(input: BookInput) {
   }
 
   await admin.from('appointment_services').insert({
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     appointment_id: created.id,
     service_id: input.service_id,
     price,
@@ -420,19 +419,18 @@ export async function awardBonusPoints(
   'use server';
   const { createAdminClient } = await import('@/lib/supabase/admin');
   const admin = createAdminClient();
-  const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
   try {
     const { data: current } = await admin
       .from('loyalty_points')
       .select('id, balance, lifetime_earned')
       .eq('customer_id', customerId)
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .maybeSingle();
 
     if (!current) {
       await admin.from('loyalty_points').insert({
-        barbershop_id: BARBERSHOP_ID,
+        barbershop_id: (await lojaAtual()),
         customer_id: customerId,
         balance: points,
         lifetime_earned: points,
@@ -446,7 +444,7 @@ export async function awardBonusPoints(
     }
 
     await admin.from('loyalty_points_events').insert({
-      barbershop_id: BARBERSHOP_ID,
+      barbershop_id: (await lojaAtual()),
       customer_id: customerId,
       event_type: 'earned_bonus',
       points_delta: points,

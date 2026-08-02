@@ -19,8 +19,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchMPPayment } from '@/lib/mercadopago';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaPadrao } from '@/lib/loja';
 export async function POST(req: NextRequest) {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -95,7 +94,7 @@ export async function POST(req: NextRequest) {
       // Cria registro de pagamento
       const total = Number(comanda.total ?? payment.transaction_amount ?? 0);
       await admin.from('comanda_payments').insert({
-        barbershop_id: BARBERSHOP_ID,
+        barbershop_id: (await lojaPadrao()),
         comanda_id: comandaId,
         method: 'mp_online',
         amount: total,

@@ -7,8 +7,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { FidelidadeView } from './_components/fidelidade-view';
-
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
+import { lojaAtual } from '@/lib/loja';
 
 export const metadata = {
   title: 'Programa de Fidelidade',
@@ -60,39 +59,39 @@ export default async function FidelidadePage() {
     supabase
       .from('barbershops')
       .select('loyalty_enabled, loyalty_points_per_brl')
-      .eq('id', BARBERSHOP_ID)
+      .eq('id', (await lojaAtual()))
       .maybeSingle(),
     // Prêmios
     supabase
       .from('loyalty_rewards')
       .select('*')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .order('display_order')
       .order('points_required'),
     // Serviços e produtos pra dropdown de prêmios
     supabase
       .from('services')
       .select('id, name')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('active', true)
       .order('name'),
     supabase
       .from('products')
       .select('id, name')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('active', true)
       .order('name'),
     // Saldos
     supabase
       .from('loyalty_points')
       .select('customer_id, balance, lifetime_earned, lifetime_redeemed')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .order('balance', { ascending: false }),
     // Todos os clientes (pra ajuste de pontos)
     supabase
       .from('customers')
       .select('id, full_name, phone')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('active', true)
       .order('full_name')
       .limit(500),
@@ -100,7 +99,7 @@ export default async function FidelidadePage() {
     supabase
       .from('loyalty_transactions')
       .select('id, customer_id, type, points, reason, created_at')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .order('created_at', { ascending: false })
       // Passou a ser lista paginada na tela, então vale trazer mais histórico
       .limit(500),

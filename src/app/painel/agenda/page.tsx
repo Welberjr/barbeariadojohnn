@@ -1,7 +1,8 @@
 import { requireStaff } from '@/lib/staff-auth';
 import { podeModulo } from '@/lib/staff-permissions';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { agendaDoDia, hojeStr, BARBERSHOP_ID } from '@/lib/painel/dados';
+import { agendaDoDia, hojeStr } from '@/lib/painel/dados';
+import { lojaAtual } from '@/lib/loja';
 import { AgendaView } from './_components/agenda-view';
 
 export const metadata = { title: 'Minha agenda' };
@@ -27,7 +28,7 @@ export default async function AgendaPainelPage({ searchParams }: AgendaPageProps
       ? createAdminClient()
           .from('services')
           .select('id, name, base_price, base_duration_minutes')
-          .eq('barbershop_id', BARBERSHOP_ID)
+          .eq('barbershop_id', (await lojaAtual()))
           .eq('active', true)
           .order('name')
       : Promise.resolve({ data: [] }),

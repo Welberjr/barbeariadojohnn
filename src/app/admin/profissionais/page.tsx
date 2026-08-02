@@ -4,8 +4,7 @@ import { StaffList } from './_components/staff-list';
 import { NovoStaffModal } from './_components/novo-staff-modal';
 import Link from 'next/link';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 export const metadata = {
   title: 'Profissionais',
 };
@@ -47,7 +46,7 @@ export default async function ProfissionaisPage() {
   const { data: shopCfg } = await supabase
     .from('barbershops')
     .select('staff_default_view')
-    .eq('id', BARBERSHOP_ID)
+    .eq('id', (await lojaAtual()))
     .maybeSingle();
   const defaultView: 'cards' | 'lista' =
     shopCfg?.staff_default_view === 'lista' ? 'lista' : 'cards';

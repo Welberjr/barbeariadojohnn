@@ -3,8 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 export interface StaffServiceData {
   staff_id: string;
   service_id: string;
@@ -43,7 +42,7 @@ export async function upsertStaffService(data: StaffServiceData) {
     if (error) return { ok: false, error: error.message };
   } else {
     const { error } = await admin.from('staff_services').insert({
-      barbershop_id: BARBERSHOP_ID,
+      barbershop_id: (await lojaAtual()),
       staff_id: data.staff_id,
       service_id: data.service_id,
       custom_price: data.custom_price ?? null,

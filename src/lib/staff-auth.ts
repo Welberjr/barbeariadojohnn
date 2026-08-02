@@ -15,6 +15,7 @@ import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { lojaAtual } from '@/lib/loja';
 import {
   parseStaffPermissions,
   podeModulo,
@@ -62,10 +63,17 @@ export const getSessionStaff = cache(async function getSessionStaff(): Promise<S
   // 28/07: duas consultas em paralelo custavam ~105 ms e esta custa ~73 ms.
   // Como toda acao do sistema passa por aqui, esses 30 ms aparecem em cada
   // clique que o Johnn da no dia.
+  //
+  // O filtro por loja NAO e enfeite: a mesma pessoa pode ter um cadastro por
+  // unidade, e a trava do banco e (barbershop_id, profile_id). Sem ele, no dia
+  // em que alguem trabalhar em duas lojas, esta consulta acharia duas linhas,
+  // o maybeSingle devolveria erro e a pessoa perderia o acesso inteiro, sem
+  // ninguem entender por que.
   const { data: staff } = await admin
     .from('staff')
     .select(`${CAMPOS_STAFF}, profile:profiles!staff_profile_id_fkey ( full_name, email )`)
     .eq('profile_id', user.id)
+    .eq('barbershop_id', await lojaAtual())
     .eq('active', true)
     .is('fired_at', null)
     .maybeSingle();

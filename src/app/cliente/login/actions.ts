@@ -16,7 +16,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { normalizarTelefone, variantesDoTelefone } from '@/lib/telefone';
-import { BARBERSHOP_ID } from '@/lib/painel/dados';
+import { lojaAtual } from '@/lib/loja';
 
 /** O que a pessoa digitou parece um telefone? */
 function pareceTelefone(valor: string): boolean {
@@ -47,7 +47,7 @@ export async function entrarComoCliente(dados: {
     const { data: fichas } = await admin
       .from('customers')
       .select('email, auth_user_id')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .in('phone', variantesDoTelefone(telefone))
       .not('auth_user_id', 'is', null)
       .limit(2);

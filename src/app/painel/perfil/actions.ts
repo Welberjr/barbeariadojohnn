@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getSessionStaff } from '@/lib/staff-auth';
-import { BARBERSHOP_ID } from '@/lib/painel/dados';
+import { lojaAtual } from '@/lib/loja';
 import { normalizarTelefone, variantesDoTelefone } from '@/lib/telefone';
 
 const MIN_SENHA = 8;
@@ -111,7 +111,7 @@ export async function ativarMinhaContaDeCliente(dados: { telefone?: string } = {
   const { data: existente } = await admin
     .from('customers')
     .select('id, auth_user_id, active')
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaAtual()))
     .in('phone', variantesDoTelefone(telefone))
     .limit(1)
     .maybeSingle();
@@ -138,7 +138,7 @@ export async function ativarMinhaContaDeCliente(dados: { telefone?: string } = {
   const { data: criada, error } = await admin
     .from('customers')
     .insert({
-      barbershop_id: BARBERSHOP_ID,
+      barbershop_id: (await lojaAtual()),
       full_name: nome,
       phone: telefone,
       email: staff.email ?? null,

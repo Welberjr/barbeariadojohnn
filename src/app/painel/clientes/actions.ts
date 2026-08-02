@@ -16,7 +16,7 @@ import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getSessionStaff } from '@/lib/staff-auth';
 import { podeModulo } from '@/lib/staff-permissions';
-import { BARBERSHOP_ID } from '@/lib/painel/dados';
+import { lojaAtual } from '@/lib/loja';
 import { normalizarTelefone, variantesDoTelefone } from '@/lib/telefone';
 
 
@@ -63,7 +63,7 @@ export async function cadastrarClienteRapido(dados: {
     const { data: encontradas } = await admin
       .from('customers')
       .select('id, full_name, phone, active')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .in('phone', variantesDoTelefone(telefone))
       .limit(1);
 
@@ -88,7 +88,7 @@ export async function cadastrarClienteRapido(dados: {
   const { data: criado, error } = await admin
     .from('customers')
     .insert({
-      barbershop_id: BARBERSHOP_ID,
+      barbershop_id: (await lojaAtual()),
       full_name: nome,
       phone: telefone,
       active: true,

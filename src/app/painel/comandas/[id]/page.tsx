@@ -3,7 +3,8 @@ import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { requireStaff } from '@/lib/staff-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { BARBERSHOP_ID, assinaturasPorCliente } from '@/lib/painel/dados';
+import { assinaturasPorCliente } from '@/lib/painel/dados';
+import { lojaAtual } from '@/lib/loja';
 import { montarSelo } from '@/lib/painel/assinatura-selo';
 import { saldoDeCredito } from '@/lib/creditos-db';
 import { ComandaDetalhe } from './_components/comanda-detalhe';
@@ -40,13 +41,13 @@ export default async function ComandaPainelPage({ params }: ComandaPageProps) {
       admin
         .from('services')
         .select('id, name, base_price')
-        .eq('barbershop_id', BARBERSHOP_ID)
+        .eq('barbershop_id', (await lojaAtual()))
         .eq('active', true)
         .order('name'),
       admin
         .from('products')
         .select('id, name, sale_price, stock_current')
-        .eq('barbershop_id', BARBERSHOP_ID)
+        .eq('barbershop_id', (await lojaAtual()))
         .eq('active', true)
         .eq('is_sellable', true)
         .gt('stock_current', 0)
@@ -54,7 +55,7 @@ export default async function ComandaPainelPage({ params }: ComandaPageProps) {
       admin
         .from('barbershops')
         .select('credit_fee_percent, debit_fee_percent')
-        .eq('id', BARBERSHOP_ID)
+        .eq('id', (await lojaAtual()))
         .maybeSingle(),
     ]);
 

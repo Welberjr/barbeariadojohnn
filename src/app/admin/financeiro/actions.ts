@@ -4,8 +4,7 @@ import { createManagerClient } from '@/lib/supabase/manager';
 import { revalidatePath } from 'next/cache';
 import { getSessionStaff } from '@/lib/staff-auth';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 // ============================================================
 // RECEITAS / DESPESAS MANUAIS
 // ============================================================
@@ -21,7 +20,7 @@ export async function addIncome(data: {
 }) {
   const supabase = await createManagerClient();
   const { error } = await supabase.from('transactions').insert({
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     type: 'other',
     amount: data.amount,
     description: data.description || data.category,
@@ -43,7 +42,7 @@ export async function addExpense(data: {
 }) {
   const supabase = await createManagerClient();
   const { error } = await supabase.from('transactions').insert({
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     type: 'expense',
     amount: data.amount,
     description: data.description || data.category,
@@ -68,7 +67,7 @@ export async function createAllowance(data: {
 }) {
   const supabase = await createManagerClient();
   const { error } = await supabase.from('allowances').insert({
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     staff_id: data.staff_id,
     amount: data.amount,
     reason: data.reason,
@@ -138,7 +137,7 @@ export async function payCommission(opts: {
   const supabase = await createManagerClient();
   const today = new Date().toISOString().split('T')[0];
   const { error } = await supabase.from('commission_payouts').insert({
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     staff_id: opts.staffId,
     amount_paid: opts.amount,
     total_commissions: opts.amount,

@@ -18,8 +18,7 @@
 import webpush from 'web-push';
 import { createAdminClient } from '@/lib/supabase/admin';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 let configurado = false;
 
 /** Diz se a barbearia tem as chaves configuradas. Sem elas, push nao existe. */
@@ -135,7 +134,7 @@ export async function tocarNaGestao(aviso: AvisoDeCelular): Promise<number> {
     const { data: gestores } = await admin
       .from('staff')
       .select('profile_id')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('active', true)
       .eq('can_manage', true)
       .is('fired_at', null);

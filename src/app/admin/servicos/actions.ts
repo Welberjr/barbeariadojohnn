@@ -3,8 +3,7 @@
 import { createManagerClient } from '@/lib/supabase/manager';
 import { revalidatePath } from 'next/cache';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 export interface ServiceFormData {
   name: string;
   description?: string;
@@ -21,7 +20,7 @@ export async function createService(data: ServiceFormData) {
   const admin = await createManagerClient();
 
   const { error } = await admin.from('services').insert({
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     name: data.name,
     description: data.description ?? null,
     category: data.category ?? null,

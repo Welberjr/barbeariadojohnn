@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { ChevronRight, Plus } from 'lucide-react';
 import { requireStaff } from '@/lib/staff-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { BARBERSHOP_ID, hojeStr, limitesDoDia, agendaDoDia } from '@/lib/painel/dados';
+import { hojeStr, limitesDoDia, agendaDoDia } from '@/lib/painel/dados';
+import { lojaAtual } from '@/lib/loja';
 import { formatCurrency } from '@/lib/utils';
 import { AbrirComandaBotao } from './_components/abrir-comanda-botao';
 
@@ -19,14 +20,14 @@ export default async function ComandasPainelPage() {
     admin
       .from('comandas')
       .select('id, total, opened_at, customers:customers ( full_name )')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('staff_id', staff.staffId)
       .eq('status', 'open')
       .order('opened_at', { ascending: false }),
     admin
       .from('comandas')
       .select('id, total, closed_at, customers:customers ( full_name )')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('staff_id', staff.staffId)
       .eq('status', 'closed')
       .gte('closed_at', inicio)

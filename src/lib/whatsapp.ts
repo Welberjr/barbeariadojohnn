@@ -1,3 +1,4 @@
+import { lojaPadrao } from '@/lib/loja';
 /**
  * WhatsApp integration helper.
  *
@@ -12,8 +13,6 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin';
-
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 const META_API_BASE = 'https://graph.facebook.com/v19.0';
 
 interface WhatsAppConfig {
@@ -68,7 +67,7 @@ export async function sendWhatsAppMessage(
   const { data: bs } = await admin
     .from('barbershops')
     .select('whatsapp_config')
-    .eq('id', BARBERSHOP_ID)
+    .eq('id', (await lojaPadrao()))
     .maybeSingle();
 
   const cfg = (bs?.whatsapp_config ?? {}) as WhatsAppConfig;

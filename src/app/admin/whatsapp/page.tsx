@@ -7,8 +7,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { WhatsAppForm } from './_components/whatsapp-form';
-
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
+import { lojaAtual } from '@/lib/loja';
 
 export const metadata = {
   title: 'WhatsApp',
@@ -20,7 +19,7 @@ export default async function WhatsAppPage() {
   const { data: bs } = await supabase
     .from('barbershops')
     .select('whatsapp_config')
-    .eq('id', BARBERSHOP_ID)
+    .eq('id', (await lojaAtual()))
     .maybeSingle();
 
   const cfg = (bs?.whatsapp_config ?? {}) as Record<string, unknown>;

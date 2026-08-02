@@ -6,8 +6,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { MPConfigForm } from './_components/mp-config-form';
-
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
+import { lojaAtual } from '@/lib/loja';
 
 export const metadata = {
   title: 'Mercado Pago',
@@ -19,7 +18,7 @@ export default async function MercadoPagoPage() {
   const { data: bs } = await supabase
     .from('barbershops')
     .select('mp_config')
-    .eq('id', BARBERSHOP_ID)
+    .eq('id', (await lojaAtual()))
     .maybeSingle();
 
   const cfg = (bs?.mp_config ?? {}) as Record<string, unknown>;

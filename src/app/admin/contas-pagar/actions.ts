@@ -3,8 +3,7 @@
 import { createManagerClient } from '@/lib/supabase/manager';
 import { revalidatePath } from 'next/cache';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 export interface BillFormData {
   description: string;
   amount: number;
@@ -28,7 +27,7 @@ export async function createBill(data: BillFormData) {
   const admin = await createManagerClient();
 
   const { error } = await admin.from('bills').insert({
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     description: data.description,
     amount: data.amount,
     due_date: data.due_date,
@@ -179,7 +178,7 @@ export async function generateNextRecurrence(billId: string) {
   const { data: existing } = await admin
     .from('bills')
     .select('id')
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaAtual()))
     .eq('description', bill.description)
     .eq('due_date', nextDueDate)
     .maybeSingle();
@@ -189,7 +188,7 @@ export async function generateNextRecurrence(billId: string) {
   }
 
   const { error } = await admin.from('bills').insert({
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     description: bill.description,
     amount: bill.amount,
     due_date: nextDueDate,

@@ -17,8 +17,7 @@ import { InfoTip } from '@/components/info-tip';
 import { RevenueChart } from './_components/revenue-chart';
 import { FinanceiroButtons } from './_components/financeiro-buttons';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 export const metadata = { title: 'Financeiro' };
 export const dynamic = 'force-dynamic';
 
@@ -50,7 +49,7 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
     supabase
       .from('comandas')
       .select('id, total, subtotal, net_total, staff_id, closed_at, customer_id')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('status', 'closed')
       .gte('closed_at', periodStart)
       .lte('closed_at', periodEnd)
@@ -63,21 +62,21 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
     supabase
       .from('commission_payouts')
       .select('id, staff_id, amount_paid, total_commissions, total_allowances, total_expenses, period_start, period_end, payment_date, payment_method, notes, staff:staff(display_name)')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .order('payment_date', { ascending: false })
       .limit(200),
     // Vales (todos, filtro de mês feito no cliente)
     supabase
       .from('allowances')
       .select('id, staff_id, amount, reason, status, requested_at, reviewed_at, staff:staff(display_name)')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .order('requested_at', { ascending: false })
       .limit(200),
     // Receitas e despesas manuais no período
     supabase
       .from('transactions')
       .select('type, amount, occurred_at, category')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .in('type', ['other', 'expense', 'product'])
       .gte('occurred_at', periodStart)
       .lte('occurred_at', periodEnd),

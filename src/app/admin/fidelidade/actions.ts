@@ -3,8 +3,7 @@
 import { createManagerClient } from '@/lib/supabase/manager';
 import { revalidatePath } from 'next/cache';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 // =============================================================================
 // CONFIG DE FIDELIDADE
 // =============================================================================
@@ -21,7 +20,7 @@ export async function updateLoyaltyConfig(data: {
       loyalty_enabled: data.loyalty_enabled,
       loyalty_points_per_brl: data.loyalty_points_per_brl,
     })
-    .eq('id', BARBERSHOP_ID);
+    .eq('id', (await lojaAtual()));
 
   if (error) return { ok: false, error: error.message };
 
@@ -56,7 +55,7 @@ export async function createReward(data: RewardFormData) {
   const admin = await createManagerClient();
 
   const { error } = await admin.from('loyalty_rewards').insert({
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     name: data.name,
     description: nullIfEmpty(data.description),
     points_required: data.points_required,
@@ -131,14 +130,14 @@ export async function adjustCustomerPoints(
   const { data: current } = await admin
     .from('loyalty_points')
     .select('id, balance, lifetime_earned, lifetime_redeemed')
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaAtual()))
     .eq('customer_id', customerId)
     .maybeSingle();
 
   if (!current) {
     const initBalance = Math.max(0, delta);
     const { error: errInsert } = await admin.from('loyalty_points').insert({
-      barbershop_id: BARBERSHOP_ID,
+      barbershop_id: (await lojaAtual()),
       customer_id: customerId,
       balance: initBalance,
       lifetime_earned: delta > 0 ? delta : 0,
@@ -169,7 +168,7 @@ export async function adjustCustomerPoints(
 
   // Registra transação
   await admin.from('loyalty_transactions').insert({
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     customer_id: customerId,
     type: 'adjust',
     points: delta,
@@ -200,7 +199,7 @@ export async function redeemReward(customerId: string, rewardId: string) {
   const { data: pts } = await admin
     .from('loyalty_points')
     .select('id, balance, lifetime_redeemed')
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaAtual()))
     .eq('customer_id', customerId)
     .maybeSingle();
 
@@ -228,7 +227,7 @@ export async function redeemReward(customerId: string, rewardId: string) {
 
   // Registra transação
   await admin.from('loyalty_transactions').insert({
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     customer_id: customerId,
     type: 'redeem',
     points: -required,

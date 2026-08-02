@@ -4,11 +4,10 @@ import { formatCurrency } from '@/lib/utils';
 import { ShoppingBag, Package, ChevronLeft, Tag } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { lojaAtual } from '@/lib/loja';
 
 export const metadata = { title: 'Loja' };
 export const dynamic = 'force-dynamic';
-
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
 export default async function LojaPage() {
   await requireCustomer();
@@ -19,13 +18,13 @@ export default async function LojaPage() {
     admin
       .from('products')
       .select('id, name, description, sale_price, stock_current, stock_minimum, category_id, photo_url, active, brand')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('active', true)
       .order('name'),
     admin
       .from('product_categories')
       .select('id, name')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .order('name'),
   ]);
 

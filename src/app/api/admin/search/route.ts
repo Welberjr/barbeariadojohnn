@@ -2,8 +2,7 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { exigirGestao } from '@/lib/staff-auth';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 export const dynamic = 'force-dynamic';
 
 /**
@@ -30,14 +29,14 @@ export async function GET(request: Request) {
     admin
       .from('customers')
       .select('id, full_name, phone')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .or(`full_name.ilike.${like},phone.ilike.${like},email.ilike.${like}`)
       .order('full_name')
       .limit(5),
     admin
       .from('services')
       .select('id, name, base_price')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .ilike('name', like)
       .order('name')
       .limit(5),
@@ -67,7 +66,7 @@ export async function GET(request: Request) {
     const { data: apts } = await admin
       .from('appointments')
       .select('id, start_at, customer_id, customers:customers(full_name)')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .in('customer_id', customerIds)
       .gte('start_at', new Date().toISOString())
       .order('start_at')

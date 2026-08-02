@@ -2,11 +2,10 @@
 import Link from 'next/link';
 import { requireCustomer } from '@/lib/customer-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { lojaAtual } from '@/lib/loja';
 
 export const metadata = { title: 'Clube VIP' };
 export const dynamic = 'force-dynamic';
-
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
 export default async function ClubeVipPage() {
   const { customer } = await requireCustomer();
@@ -15,7 +14,7 @@ export default async function ClubeVipPage() {
   const { data: plans } = await admin
     .from('subscription_plans')
     .select('id, name, price, included_uses, allowed_days, active')
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaAtual()))
     .eq('active', true)
     .order('price', { ascending: true });
 

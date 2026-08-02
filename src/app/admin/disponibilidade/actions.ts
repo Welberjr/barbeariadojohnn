@@ -2,13 +2,12 @@
 
 import { createManagerClient } from '@/lib/supabase/manager';
 import { revalidatePath } from 'next/cache';
+import { lojaAtual } from '@/lib/loja';
 import {
   validarJornada,
   paraHorarioSemanal,
   type JornadaSimples,
 } from '@/lib/jornada';
-
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
 // =============================================================
 // BUSINESS HOURS — horário de funcionamento da barbearia
@@ -36,7 +35,7 @@ export async function updateBusinessHours(hours: BusinessHours) {
   const { error } = await admin
     .from('barbershops')
     .update({ business_hours: hours })
-    .eq('id', BARBERSHOP_ID);
+    .eq('id', (await lojaAtual()));
 
   if (error) return { ok: false, error: error.message };
 
@@ -62,7 +61,7 @@ export async function createDayOff(data: DayOffData) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const payload: any = {
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     start_date: data.start_date,
     end_date: data.end_date ?? data.start_date,
     type: data.type ?? 'day_off',

@@ -7,8 +7,7 @@
  */
 import { createAdminClient } from '@/lib/supabase/admin';
 import { comoGastar, saldoDisponivel, type Credito } from '@/lib/credito-cliente';
-
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
+import { lojaAtual } from '@/lib/loja';
 
 /**
  * Todos os creditos de um cliente, com o quanto ja foi gasto de cada um.
@@ -121,9 +120,10 @@ export async function gastarCredito(opts: {
     };
   }
 
+  const loja = await lojaAtual();
   const { error } = await admin.from('customer_credit_uses').insert(
     plano.map((p) => ({
-      barbershop_id: BARBERSHOP_ID,
+      barbershop_id: loja,
       credit_id: p.creditoId,
       customer_id: opts.customerId,
       comanda_id: opts.comandaId,

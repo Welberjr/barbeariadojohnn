@@ -13,8 +13,7 @@ import { formatCurrency } from '@/lib/utils';
 import { GoalsManager } from './_components/goals-manager';
 import { InfoTip } from '@/components/info-tip';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Metas' };
 
@@ -173,7 +172,7 @@ export default async function MetasPage({ searchParams }: PageProps) {
         .select(
           'id, staff_id, period_type, year, month, week, revenue_target, appointments_target, avg_ticket_target'
         )
-        .eq('barbershop_id', BARBERSHOP_ID)
+        .eq('barbershop_id', (await lojaAtual()))
         .in('period_type', ['monthly', 'month'])
         .eq('year', currentYear)
         .eq('month', currentMonth),
@@ -187,7 +186,7 @@ export default async function MetasPage({ searchParams }: PageProps) {
       supabase
         .from('comandas')
         .select('id, total, staff_id')
-        .eq('barbershop_id', BARBERSHOP_ID)
+        .eq('barbershop_id', (await lojaAtual()))
         .eq('status', 'closed')
         .gte('closed_at', `${firstDay}T00:00:00.000-03:00`)
         .lte('closed_at', `${lastDay}T23:59:59.999-03:00`),

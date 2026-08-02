@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { exigirModulo } from '@/lib/staff-auth';
-import { BARBERSHOP_ID } from '@/lib/painel/dados';
+import { lojaAtual } from '@/lib/loja';
 
 const VALOR_MAXIMO = 5000;
 
@@ -37,7 +37,7 @@ export async function pedirVale(dados: { valor: number; motivo: string }) {
   const admin = createAdminClient();
 
   const { error } = await admin.from('allowances').insert({
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     staff_id: acesso.staff.staffId,
     amount: Number(valor.toFixed(2)),
     reason: motivo,
@@ -58,7 +58,7 @@ export async function pedirVale(dados: { valor: number; motivo: string }) {
 
   // Avisa a gestão pelo sino do admin
   await admin.from('notifications').insert({
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     staff_id: acesso.staff.staffId,
     type: 'vale_pedido',
     title: `Pedido de vale de ${acesso.staff.displayName}`,

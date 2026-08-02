@@ -3,8 +3,7 @@
 import { createManagerClient } from '@/lib/supabase/manager';
 import { revalidatePath } from 'next/cache';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 export interface BarbershopSettings {
   name?: string;
   slogan?: string | null;
@@ -82,7 +81,7 @@ export async function updateBarbershopSettings(data: BarbershopSettings) {
     const { data: atual } = await admin
       .from('barbershops')
       .select('site_config')
-      .eq('id', BARBERSHOP_ID)
+      .eq('id', (await lojaAtual()))
       .maybeSingle();
 
     payload.site_config = {
@@ -98,7 +97,7 @@ export async function updateBarbershopSettings(data: BarbershopSettings) {
   const { error } = await admin
     .from('barbershops')
     .update(payload)
-    .eq('id', BARBERSHOP_ID);
+    .eq('id', (await lojaAtual()));
 
   if (error) return { ok: false, error: error.message };
 
@@ -139,7 +138,7 @@ export async function uploadLogo(formData: FormData) {
   const { error } = await admin
     .from('barbershops')
     .update({ logo_url: pub.publicUrl })
-    .eq('id', BARBERSHOP_ID);
+    .eq('id', (await lojaAtual()));
 
   if (error) return { ok: false, error: error.message };
 

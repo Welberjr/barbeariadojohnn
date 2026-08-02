@@ -3,8 +3,7 @@
 import { createManagerClient } from '@/lib/supabase/manager';
 import { revalidatePath } from 'next/cache';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 export interface GoalFormData {
   staff_id?: string | null;
   period_type: 'monthly' | 'weekly';
@@ -22,7 +21,7 @@ export async function upsertGoal(data: GoalFormData) {
   // Cria payload sem campos não usados pelo period_type
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const payload: any = {
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     staff_id: data.staff_id || null,
     period_type: data.period_type,
     year: data.year,
@@ -42,7 +41,7 @@ export async function upsertGoal(data: GoalFormData) {
   let query: any = admin
     .from('goals')
     .select('id')
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaAtual()))
     .eq('period_type', data.period_type)
     .eq('year', data.year);
 

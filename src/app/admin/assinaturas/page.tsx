@@ -5,8 +5,7 @@ import { formatCurrency } from '@/lib/utils';
 import { AssinaturasView } from './_components/assinaturas-view';
 import { SobrasSection } from './_components/sobras-section';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 export const metadata = {
   title: 'Assinaturas',
 };
@@ -43,7 +42,7 @@ export default async function AssinaturasPage() {
       .select(
         'id, name, description, price, period, allowed_days, included_uses, barber_share_percent, accumulate_unused, show_on_public_menu, active, display_order, leftover_destination'
       )
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .order('display_order')
       .order('name'),
     // Assinaturas com cliente + plano
@@ -55,7 +54,7 @@ export default async function AssinaturasPage() {
        customer:customers (full_name, phone, photo_url),
        plan:subscription_plans (name, price, period, allowed_days, included_uses, barber_share_percent)`
       )
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .order('created_at', { ascending: false }),
     // Repasses recentes (potinho fechado)
     admin
@@ -65,14 +64,14 @@ export default async function AssinaturasPage() {
        pool_amount, total_uses, included_uses, unused_uses, leftover_amount, leftover_destination,
        subscription:subscriptions ( customer:customers (full_name) )`
       )
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .order('created_at', { ascending: false })
       .limit(20),
     // Clientes ativos (dropdown de nova assinatura)
     admin
       .from('customers')
       .select('id, full_name, phone')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('active', true)
       .order('full_name')
       .limit(500),

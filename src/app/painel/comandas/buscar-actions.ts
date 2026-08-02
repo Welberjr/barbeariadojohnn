@@ -7,7 +7,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { exigirModulo } from '@/lib/staff-auth';
-import { BARBERSHOP_ID } from '@/lib/painel/dados';
+import { lojaAtual } from '@/lib/loja';
 
 export async function buscarClienteParaComanda(termo: string) {
   const acesso = await exigirModulo('comanda');
@@ -22,7 +22,7 @@ export async function buscarClienteParaComanda(termo: string) {
   const { data } = await admin
     .from('customers')
     .select('id, full_name, phone')
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaAtual()))
     .eq('active', true)
     .or(`full_name.ilike.${like},phone.ilike.${like}`)
     .order('full_name')

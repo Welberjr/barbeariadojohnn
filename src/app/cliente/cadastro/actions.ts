@@ -26,7 +26,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { conviteValido } from '@/lib/convite-cliente';
-import { BARBERSHOP_ID } from '@/lib/painel/dados';
+import { lojaAtual } from '@/lib/loja';
 import { normalizarTelefone, variantesDoTelefone } from '@/lib/telefone';
 
 const MIN_SENHA = 8;
@@ -72,7 +72,7 @@ export async function cadastrarCliente(dados: {
       .from('customers')
       .select('id, auth_user_id')
       .eq('id', dados.clienteId)
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .maybeSingle();
 
     if (!data) return { ok: false as const, error: 'Cadastro não encontrado.' };
@@ -131,7 +131,7 @@ export async function cadastrarCliente(dados: {
   const { data: encontradas } = await admin
     .from('customers')
     .select('id, auth_user_id')
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaAtual()))
     .in('phone', variantesDoTelefone(telefone))
     .limit(2);
 
@@ -188,7 +188,7 @@ export async function cadastrarCliente(dados: {
 
   // Ninguem com esse telefone: cliente novo mesmo
   const { error: erroFicha } = await admin.from('customers').insert({
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     full_name: nome,
     phone: telefone,
     email,
@@ -215,7 +215,7 @@ export async function clienteDoConvite(clienteId: string, token: string) {
     .from('customers')
     .select('id, full_name, phone, email, auth_user_id, total_appointments, loyalty_points')
     .eq('id', clienteId)
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaAtual()))
     .maybeSingle();
 
   if (!data) return null;

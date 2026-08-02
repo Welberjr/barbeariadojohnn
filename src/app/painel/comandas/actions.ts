@@ -16,7 +16,7 @@
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { exigirModulo, type SessionStaff } from '@/lib/staff-auth';
-import { BARBERSHOP_ID } from '@/lib/painel/dados';
+import { lojaAtual } from '@/lib/loja';
 import { getActiveSubscription, isDayAllowed, formatAllowedDays } from '@/lib/subscriptions';
 import { creditosDoCliente } from '@/lib/creditos-db';
 import {
@@ -104,7 +104,7 @@ export async function abrirMinhaComanda(dados: {
     .from('customers')
     .select('id')
     .eq('id', customerId)
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaAtual()))
     .eq('active', true)
     .maybeSingle();
 
@@ -116,7 +116,7 @@ export async function abrirMinhaComanda(dados: {
   const { data: jaAberta } = await admin
     .from('comandas')
     .select('id')
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaAtual()))
     .eq('customer_id', customerId)
     .eq('staff_id', acesso.staff.staffId)
     .eq('status', 'open')
@@ -127,7 +127,7 @@ export async function abrirMinhaComanda(dados: {
   const { data: criada, error } = await admin
     .from('comandas')
     .insert({
-      barbershop_id: BARBERSHOP_ID,
+      barbershop_id: (await lojaAtual()),
       customer_id: customerId,
       staff_id: acesso.staff.staffId,
       appointment_id: dados.appointmentId ?? null,
@@ -178,7 +178,7 @@ export async function lancarServico(dados: {
     .from('services')
     .select('name, base_price')
     .eq('id', dados.serviceId)
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaAtual()))
     .eq('active', true)
     .maybeSingle();
 
@@ -220,7 +220,7 @@ export async function lancarServico(dados: {
     const { data: item, error: erroItem } = await admin
       .from('comanda_items')
       .insert({
-        barbershop_id: BARBERSHOP_ID,
+        barbershop_id: (await lojaAtual()),
         comanda_id: dados.comandaId,
         item_type: 'service',
         service_id: dados.serviceId,
@@ -245,7 +245,7 @@ export async function lancarServico(dados: {
     const { data: usageId, error: erroUso } = await admin.rpc('claim_subscription_use', {
       p_subscription_id: sub.id,
       p_included_uses: sub.plan.included_uses,
-      p_barbershop_id: BARBERSHOP_ID,
+      p_barbershop_id: (await lojaAtual()),
       p_staff_id: acesso.staff.staffId,
       p_service_id: dados.serviceId,
       p_comanda_id: dados.comandaId,
@@ -293,7 +293,7 @@ export async function lancarServico(dados: {
   const comissao = (preco * percentual) / 100;
 
   const { error } = await admin.from('comanda_items').insert({
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     comanda_id: dados.comandaId,
     item_type: 'service',
     service_id: dados.serviceId,
@@ -331,7 +331,7 @@ export async function lancarProduto(dados: {
     .from('products')
     .select('name, sale_price, stock_current, default_commission_percent')
     .eq('id', dados.productId)
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaAtual()))
     .eq('active', true)
     .maybeSingle();
 
@@ -341,7 +341,7 @@ export async function lancarProduto(dados: {
   // lancamentos ao mesmo tempo nao vendem a mesma ultima unidade.
   const { error: erroEstoque } = await admin.rpc('painel_baixar_estoque', {
     p_product_id: dados.productId,
-    p_barbershop_id: BARBERSHOP_ID,
+    p_barbershop_id: (await lojaAtual()),
     p_quantidade: quantidade,
   });
 
@@ -358,7 +358,7 @@ export async function lancarProduto(dados: {
   const percentual = Number(produto.default_commission_percent ?? 0);
 
   const { error } = await admin.from('comanda_items').insert({
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     comanda_id: dados.comandaId,
     item_type: 'product',
     product_id: dados.productId,
@@ -375,7 +375,7 @@ export async function lancarProduto(dados: {
     // Item nao entrou: devolve o que foi baixado, senao some do estoque
     await admin.rpc('painel_baixar_estoque', {
       p_product_id: dados.productId,
-      p_barbershop_id: BARBERSHOP_ID,
+      p_barbershop_id: (await lojaAtual()),
       p_quantidade: -quantidade,
     });
     return { ok: false, error: error.message };
@@ -481,7 +481,7 @@ export async function fecharMinhaComanda(dados: {
   const { data: taxas } = await admin
     .from('barbershops')
     .select('credit_fee_percent, debit_fee_percent')
-    .eq('id', BARBERSHOP_ID)
+    .eq('id', (await lojaAtual()))
     .maybeSingle();
 
   const metodo = normalizarMetodo(dados.metodo);
@@ -663,7 +663,7 @@ export async function cancelarMinhaComanda(comandaId: string, motivo: string) {
     if (item.item_type === 'product' && item.product_id) {
       await admin.rpc('painel_baixar_estoque', {
         p_product_id: item.product_id,
-        p_barbershop_id: BARBERSHOP_ID,
+        p_barbershop_id: (await lojaAtual()),
         p_quantidade: -Number(item.quantity ?? 0),
       });
     }

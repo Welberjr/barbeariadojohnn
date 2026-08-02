@@ -5,12 +5,11 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getActiveSubscription } from '@/lib/subscriptions';
 import { saldoDeCredito } from '@/lib/creditos-db';
 import { ComandaDetail } from '../_components/comanda-detail';
+import { lojaAtual } from '@/lib/loja';
 
 interface ComandaPageProps {
   params: Promise<{ id: string }>;
 }
-
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
 export default async function ComandaPage({ params }: ComandaPageProps) {
   const { id } = await params;
@@ -70,13 +69,13 @@ export default async function ComandaPage({ params }: ComandaPageProps) {
     supabase
       .from('services')
       .select('id, name, base_price, base_duration_minutes, category')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('active', true)
       .order('display_order'),
     supabase
       .from('products')
       .select('id, name, sale_price, product_categories ( name )')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('active', true)
       .eq('is_sellable', true)
       .order('name'),

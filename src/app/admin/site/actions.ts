@@ -3,8 +3,7 @@
 import { createManagerClient } from '@/lib/supabase/manager';
 import { revalidatePath } from 'next/cache';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 export interface SiteConfig {
   hero_title?: string;
   hero_subtitle?: string;
@@ -40,7 +39,7 @@ export async function updateSiteConfig(data: SiteConfig) {
   const { error } = await admin
     .from('barbershops')
     .update({ site_config: cleaned })
-    .eq('id', BARBERSHOP_ID);
+    .eq('id', (await lojaAtual()));
 
   if (error) return { ok: false, error: error.message };
 

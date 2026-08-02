@@ -1,9 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { exigirGestao } from '@/lib/staff-auth';
+import { lojaAtual } from '@/lib/loja';
 import { desdeQuandoOlhar, quandoEmPalavras, haQuantoTempo } from '@/lib/avisos';
-
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 const STALE_COMANDA_MIN = 240; // 4h aberta = alerta
 
 export const dynamic = 'force-dynamic';
@@ -55,18 +54,18 @@ export async function GET(req: NextRequest) {
     admin
       .from('comandas')
       .select('id, opened_at, customers:customers(full_name)')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('status', 'open')
       .order('opened_at'),
     admin
       .from('products')
       .select('id, name, stock_current, stock_minimum')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('active', true),
     admin
       .from('bills')
       .select('id, description, due_date, amount')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('status', 'pending')
       .lte('due_date', plus7Str)
       .order('due_date')
@@ -75,7 +74,7 @@ export async function GET(req: NextRequest) {
     admin
       .from('allowances')
       .select('id, amount, requested_at, staff:staff(display_name)')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('status', 'pending')
       .order('requested_at')
       .limit(10),
@@ -86,7 +85,7 @@ export async function GET(req: NextRequest) {
       .select(
         'id, start_at, created_at, customers:customers(full_name), staff:staff(display_name)'
       )
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       // 'public_site' é o que o aplicativo do cliente grava. O enum do banco
       // tem só manual, whatsapp e public_site: inventar outro valor aqui faz a
       // consulta inteira falhar em silêncio e o sino ficar vazio para sempre.
@@ -102,7 +101,7 @@ export async function GET(req: NextRequest) {
   let aptsRes = await admin
     .from('appointments')
     .select('id', { count: 'exact', head: true })
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaAtual()))
     .in('status', ['scheduled', 'confirmed'])
     .gte('start_at', nowIso)
     .lte('start_at', dayEnd);
@@ -110,7 +109,7 @@ export async function GET(req: NextRequest) {
     aptsRes = await admin
       .from('appointments')
       .select('id', { count: 'exact', head: true })
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('status', 'scheduled')
       .gte('start_at', nowIso)
       .lte('start_at', dayEnd);

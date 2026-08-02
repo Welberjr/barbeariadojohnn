@@ -12,7 +12,7 @@
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { exigirModulo } from '@/lib/staff-auth';
-import { BARBERSHOP_ID } from '@/lib/painel/dados';
+import { lojaAtual } from '@/lib/loja';
 import {
   avaliarAcao,
   type AcaoAgenda,
@@ -152,7 +152,7 @@ export async function bloquearMeuDia(dataStr: string, motivo: string) {
   }
 
   const { error } = await admin.from('days_off').insert({
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     staff_id: acesso.staff.staffId,
     start_date: dataStr,
     end_date: dataStr,
@@ -182,7 +182,7 @@ export async function buscarClienteParaEncaixe(termo: string) {
   const { data } = await admin
     .from('customers')
     .select('id, full_name, phone')
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaAtual()))
     .eq('active', true)
     .or(`full_name.ilike.${like},phone.ilike.${like}`)
     .order('full_name')
@@ -199,7 +199,7 @@ export async function servicosDisponiveis() {
   const { data } = await admin
     .from('services')
     .select('id, name, base_price, base_duration_minutes')
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaAtual()))
     .eq('active', true)
     .order('name');
 
@@ -228,14 +228,14 @@ export async function encaixarCliente(dados: {
       .from('customers')
       .select('id')
       .eq('id', dados.customerId)
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('active', true)
       .maybeSingle(),
     admin
       .from('services')
       .select('name, base_price, base_duration_minutes')
       .eq('id', dados.serviceId)
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('active', true)
       .maybeSingle(),
   ]);
@@ -277,7 +277,7 @@ export async function encaixarCliente(dados: {
   const { data: criado, error } = await admin
     .from('appointments')
     .insert({
-      barbershop_id: BARBERSHOP_ID,
+      barbershop_id: (await lojaAtual()),
       customer_id: dados.customerId,
       staff_id: acesso.staff.staffId,
       start_at: inicio.toISOString(),
@@ -300,7 +300,7 @@ export async function encaixarCliente(dados: {
   }
 
   const { error: erroServico } = await admin.from('appointment_services').insert({
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     appointment_id: criado.id,
     service_id: dados.serviceId,
     price: Number(servico.base_price ?? 0),

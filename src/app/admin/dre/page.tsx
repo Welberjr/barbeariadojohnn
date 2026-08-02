@@ -15,8 +15,7 @@ import { InfoTip } from '@/components/info-tip';
 import { DrePdfButton } from './_components/dre-pdf-button';
 import { RelatorioImpresso } from './_components/relatorio-impresso';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 export const metadata = {
   title: 'DRE, o demonstrativo de resultados',
 };
@@ -50,7 +49,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
       supabase
         .from('comandas')
         .select('id, total, net_total, card_fee_total')
-        .eq('barbershop_id', BARBERSHOP_ID)
+        .eq('barbershop_id', (await lojaAtual()))
         .eq('status', 'closed')
         .gte('closed_at', periodStart)
         .lte('closed_at', periodEnd),
@@ -58,7 +57,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
       supabase
         .from('bills')
         .select('amount, paid_amount, paid_at, category_id, description')
-        .eq('barbershop_id', BARBERSHOP_ID)
+        .eq('barbershop_id', (await lojaAtual()))
         .eq('status', 'paid')
         .gte('paid_at', periodStart)
         .lte('paid_at', periodEnd),
@@ -67,7 +66,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
       supabase
         .from('transactions')
         .select('type, amount, cost_amount')
-        .eq('barbershop_id', BARBERSHOP_ID)
+        .eq('barbershop_id', (await lojaAtual()))
         .in('type', ['product', 'expense', 'other'])
         .gte('occurred_at', periodStart)
         .lte('occurred_at', periodEnd),
@@ -75,7 +74,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
       supabase
         .from('expense_categories')
         .select('id, name, color')
-        .eq('barbershop_id', BARBERSHOP_ID),
+        .eq('barbershop_id', (await lojaAtual())),
     ]);
 
   const comandas = comandasRaw ?? [];
@@ -166,7 +165,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
     const fallback = await supabase
       .from('transactions')
       .select('type, amount')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .in('type', ['product', 'expense', 'other'])
       .gte('occurred_at', periodStart)
       .lte('occurred_at', periodEnd);

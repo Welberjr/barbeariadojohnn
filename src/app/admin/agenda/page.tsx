@@ -2,8 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { SHOP_TIME_ZONE } from '@/lib/utils';
 import { AgendaView } from './_components/agenda-view';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 export const metadata = {
   title: 'Agenda',
 };
@@ -61,7 +60,7 @@ export default async function AgendaPage({ searchParams }: AgendaPageProps) {
       customers:customers ( full_name, phone )
     `
       )
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .gte('start_at', dayStart)
       .lte('start_at', dayEnd)
       .order('start_at'),
@@ -69,20 +68,20 @@ export default async function AgendaPage({ searchParams }: AgendaPageProps) {
     supabase
       .from('barbershops')
       .select('business_hours')
-      .eq('id', BARBERSHOP_ID)
+      .eq('id', (await lojaAtual()))
       .maybeSingle(),
     // Folgas do dia
     supabase
       .from('days_off')
       .select('staff_id, start_date, end_date, reason, type')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .lte('start_date', dateStr)
       .gte('end_date', dateStr),
     // Clientes pra dropdown de criar agendamento
     supabase
       .from('customers')
       .select('id, full_name, phone')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('active', true)
       .order('full_name')
       .limit(500),

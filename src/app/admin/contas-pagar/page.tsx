@@ -14,8 +14,7 @@ import { formatCurrency } from '@/lib/utils';
 import { ContasPagarFilters } from './_components/contas-pagar-filters';
 import { QuickPayButton } from './_components/quick-pay-button';
 import { InfoTip } from '@/components/info-tip';
-
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
+import { lojaAtual } from '@/lib/loja';
 
 export const metadata = {
   title: 'Contas a Pagar',
@@ -71,7 +70,7 @@ export default async function ContasPagarPage({
       'id, description, amount, due_date, paid_at, paid_amount, payment_method, category_id, supplier, status, is_recurring, recurrence_type',
       { count: 'exact' }
     )
-    .eq('barbershop_id', BARBERSHOP_ID);
+    .eq('barbershop_id', (await lojaAtual()));
 
   if (statusParam && statusParam !== 'all') {
     query = query.eq('status', statusParam);
@@ -106,7 +105,7 @@ export default async function ContasPagarPage({
     supabase
       .from('expense_categories')
       .select('id, name, color')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('active', true)
       .order('display_order')
       .order('name'),
@@ -114,7 +113,7 @@ export default async function ContasPagarPage({
     supabase
       .from('bills')
       .select('amount, due_date, paid_at, status')
-      .eq('barbershop_id', BARBERSHOP_ID),
+      .eq('barbershop_id', (await lojaAtual())),
   ]);
 
   const bills = (billsRaw ?? []) as Bill[];

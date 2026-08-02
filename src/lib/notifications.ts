@@ -10,8 +10,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendWhatsAppMessage } from '@/lib/whatsapp';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 export type NotificationType =
   | 'agendamento_confirmado'
   | 'agendamento_cancelado'
@@ -43,10 +42,21 @@ export async function notifyCustomer(input: NotifyInput) {
   try {
     const admin = createAdminClient();
 
+    // A loja do aviso e a da FICHA de quem vai receber, nao a de quem esta
+    // logado. Este aviso nasce em tres situacoes diferentes: o cliente mexendo
+    // na propria agenda, a recepcao mexendo por ele, e a tarefa da madrugada,
+    // que nao tem ninguem logado. Sem perguntar a ficha, o aviso da tarefa
+    // nasceria carimbado na loja errada quando a rede tiver mais de uma.
+    const { data: dono } = await admin
+      .from('customers')
+      .select('barbershop_id')
+      .eq('id', input.customerId)
+      .maybeSingle();
+
     const { data: created, error } = await admin
       .from('notifications')
       .insert({
-        barbershop_id: BARBERSHOP_ID,
+        barbershop_id: (dono?.barbershop_id as string) ?? (await lojaAtual()),
         customer_id: input.customerId,
         type: input.type,
         title: input.title,

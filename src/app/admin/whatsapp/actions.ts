@@ -3,8 +3,7 @@
 import { createManagerClient } from '@/lib/supabase/manager';
 import { revalidatePath } from 'next/cache';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 export interface WhatsAppConfig {
   enabled?: boolean;
   phone_number_id?: string;
@@ -33,7 +32,7 @@ export async function updateWhatsAppConfig(data: WhatsAppConfig) {
   const { error } = await admin
     .from('barbershops')
     .update({ whatsapp_config: cleaned })
-    .eq('id', BARBERSHOP_ID);
+    .eq('id', (await lojaAtual()));
 
   if (error) return { ok: false, error: error.message };
 

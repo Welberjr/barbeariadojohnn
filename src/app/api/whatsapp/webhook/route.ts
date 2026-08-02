@@ -21,13 +21,12 @@ export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { lojaPadrao } from '@/lib/loja';
 import {
   sendWhatsAppMessage,
   normalizePhoneE164,
   confirmationTemplate,
 } from '@/lib/whatsapp';
-
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
 interface WhatsAppConfig {
   verify_token?: string;
@@ -53,7 +52,7 @@ export async function GET(req: NextRequest) {
     const { data: bs } = await admin
       .from('barbershops')
       .select('whatsapp_config')
-      .eq('id', BARBERSHOP_ID)
+      .eq('id', (await lojaPadrao()))
       .maybeSingle();
 
     const cfg = (bs?.whatsapp_config ?? {}) as WhatsAppConfig;
@@ -93,7 +92,7 @@ export async function POST(req: NextRequest) {
     const { data: bs } = await admin
       .from('barbershops')
       .select('whatsapp_config')
-      .eq('id', BARBERSHOP_ID)
+      .eq('id', (await lojaPadrao()))
       .maybeSingle();
 
     const cfg = (bs?.whatsapp_config ?? {}) as WhatsAppConfig;
@@ -148,7 +147,7 @@ async function handleIncomingMessage(input: {
 
   // Loga mensagem recebida
   await admin.from('whatsapp_messages').insert({
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaPadrao()),
     direction: 'in',
     phone,
     body: input.text,
@@ -236,7 +235,7 @@ async function handleMenuChoice(
     const { data: services } = await admin
       .from('services')
       .select('id, name, base_price, base_duration_minutes')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaPadrao()))
       .eq('active', true)
       .eq('show_on_public_menu', true)
       .order('display_order', { ascending: true })
@@ -427,7 +426,7 @@ async function handleDateChoice(
   const { data: existing } = await admin
     .from('appointments')
     .select('start_at, end_at')
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaPadrao()))
     .in('status', ['scheduled', 'in_progress'])
     .gte('start_at', dayStart.toISOString())
     .lte('start_at', dayEnd.toISOString());
@@ -577,7 +576,7 @@ async function handleConfirm(
     const { data: created, error } = await admin
       .from('customers')
       .insert({
-        barbershop_id: BARBERSHOP_ID,
+        barbershop_id: (await lojaPadrao()),
         full_name: `Cliente WhatsApp ${phone.slice(-4)}`,
         phone,
         source: 'whatsapp',
@@ -606,7 +605,7 @@ async function handleConfirm(
   const { data: staff } = await admin
     .from('staff')
     .select('id, default_commission_percent, display_name')
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaPadrao()))
     .eq('active', true)
     .order('display_order', { ascending: true })
     .limit(1)
@@ -625,7 +624,7 @@ async function handleConfirm(
   const { data: app, error: errApp } = await admin
     .from('appointments')
     .insert({
-      barbershop_id: BARBERSHOP_ID,
+      barbershop_id: (await lojaPadrao()),
       customer_id: customer.id,
       staff_id: staff.id,
       start_at: startAt.toISOString(),
@@ -647,7 +646,7 @@ async function handleConfirm(
 
   // Cria appointment_service
   await admin.from('appointment_services').insert({
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaPadrao()),
     appointment_id: app.id,
     service_id: service.id,
     price: service.price,
@@ -659,7 +658,7 @@ async function handleConfirm(
   const { data: bs } = await admin
     .from('barbershops')
     .select('name')
-    .eq('id', BARBERSHOP_ID)
+    .eq('id', (await lojaPadrao()))
     .maybeSingle();
 
   const confirmMsg = confirmationTemplate({
@@ -691,7 +690,7 @@ async function getOrCreateSession(phone: string): Promise<SessionRow> {
   const { data: existing } = await admin
     .from('whatsapp_sessions')
     .select('id, state, customer_id, context')
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaPadrao()))
     .eq('phone', phone)
     .maybeSingle();
 
@@ -710,7 +709,7 @@ async function getOrCreateSession(phone: string): Promise<SessionRow> {
   const { data: created } = await admin
     .from('whatsapp_sessions')
     .insert({
-      barbershop_id: BARBERSHOP_ID,
+      barbershop_id: (await lojaPadrao()),
       phone,
       customer_id: customer?.id ?? null,
       state: 'idle',
@@ -749,7 +748,7 @@ async function sendAndLog(phone: string, body: string, sessionId: string) {
   const admin = createAdminClient();
   const result = await sendWhatsAppMessage(phone, body);
   await admin.from('whatsapp_messages').insert({
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaPadrao()),
     session_id: sessionId,
     direction: 'out',
     phone,
@@ -766,7 +765,7 @@ async function findCustomerByPhone(
   const { data } = await admin
     .from('customers')
     .select('id, full_name')
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaPadrao()))
     .eq('phone', phone)
     .maybeSingle();
 

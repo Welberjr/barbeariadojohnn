@@ -1,3 +1,4 @@
+import { lojaPadrao } from '@/lib/loja';
 /**
  * Mercado Pago integration helper.
  *
@@ -9,8 +10,6 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin';
-
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 const MP_API_BASE = 'https://api.mercadopago.com';
 
 export interface MercadoPagoConfig {
@@ -62,7 +61,7 @@ export async function createMPPreference(
   const { data: bs } = await admin
     .from('barbershops')
     .select('mp_config')
-    .eq('id', BARBERSHOP_ID)
+    .eq('id', (await lojaPadrao()))
     .maybeSingle();
 
   const cfg = (bs?.mp_config ?? {}) as MercadoPagoConfig;
@@ -167,7 +166,7 @@ export async function fetchMPPayment(paymentId: string): Promise<
   const { data: bs } = await admin
     .from('barbershops')
     .select('mp_config')
-    .eq('id', BARBERSHOP_ID)
+    .eq('id', (await lojaPadrao()))
     .maybeSingle();
 
   const cfg = (bs?.mp_config ?? {}) as MercadoPagoConfig;

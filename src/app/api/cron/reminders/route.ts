@@ -22,13 +22,12 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { notifyCustomer } from '@/lib/notifications';
+import { lojaPadrao } from '@/lib/loja';
 import {
   devePedirConfirmacao,
   textoDoPedido,
   HORAS_ANTES_PADRAO,
 } from '@/lib/confirmacao-agendamento';
-
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization');
@@ -45,7 +44,7 @@ export async function GET(req: NextRequest) {
     const { data: barbearia } = await admin
       .from('barbershops')
       .select('name, confirmation_hours_before')
-      .eq('id', BARBERSHOP_ID)
+      .eq('id', (await lojaPadrao()))
       .maybeSingle();
 
     const horasAntes = Number(
@@ -61,7 +60,7 @@ export async function GET(req: NextRequest) {
       .select(
         'id, customer_id, staff_id, start_at, status, confirmation_requested_at, confirmed_by_customer_at'
       )
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaPadrao()))
       .eq('status', 'scheduled')
       .is('confirmation_requested_at', null)
       .gte('start_at', agora.toISOString())

@@ -15,10 +15,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireStaff } from '@/lib/staff-auth';
 import { desdeQuandoOlhar, quandoEmPalavras, haQuantoTempo } from '@/lib/avisos';
+import { lojaAtual } from '@/lib/loja';
 
 export const dynamic = 'force-dynamic';
-
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
 export interface AvisoDoPainel {
   tipo: 'agendamento' | 'cancelamento' | 'vale' | 'comanda';
@@ -43,7 +42,7 @@ export async function GET(req: NextRequest) {
     admin
       .from('appointments')
       .select('id, start_at, created_at, source, customers:customers(full_name)')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('staff_id', staff.staffId)
       .neq('status', 'cancelled')
       .gte('created_at', desde)
@@ -54,7 +53,7 @@ export async function GET(req: NextRequest) {
     admin
       .from('appointments')
       .select('id, start_at, cancelled_at, customers:customers(full_name)')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('staff_id', staff.staffId)
       .eq('status', 'cancelled')
       .gte('cancelled_at', desde)
@@ -64,7 +63,7 @@ export async function GET(req: NextRequest) {
     admin
       .from('allowances')
       .select('id, amount, status, updated_at')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('staff_id', staff.staffId)
       .in('status', ['approved', 'rejected'])
       .gte('updated_at', desde)
@@ -74,7 +73,7 @@ export async function GET(req: NextRequest) {
     admin
       .from('comandas')
       .select('id, opened_at, customers:customers(full_name)')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('staff_id', staff.staffId)
       .eq('status', 'open')
       .order('opened_at')

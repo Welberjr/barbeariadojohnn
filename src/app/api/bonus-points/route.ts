@@ -3,8 +3,7 @@ import { getSessionCustomer } from '@/lib/customer-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getISOWeek, weeklyBonusReason } from '@/lib/weekly-bonus';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaPadrao } from '@/lib/loja';
 // GET: verifica se o cliente já raspou esta semana
 export async function GET() {
   const customer = await getSessionCustomer();
@@ -52,7 +51,7 @@ export async function POST(req: NextRequest) {
 
   // Registrar transação
   await admin.from('loyalty_transactions').insert({
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaPadrao()),
     customer_id: customer.id,
     type: 'bonus',
     points,
@@ -77,7 +76,7 @@ export async function POST(req: NextRequest) {
       .eq('customer_id', customer.id);
   } else {
     await admin.from('loyalty_points').insert({
-      barbershop_id: BARBERSHOP_ID,
+      barbershop_id: (await lojaPadrao()),
       customer_id: customer.id,
       balance: points,
       lifetime_earned: points,

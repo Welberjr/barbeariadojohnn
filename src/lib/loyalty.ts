@@ -12,8 +12,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { notifyCustomer } from '@/lib/notifications';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 export function currentSemesterStart(now = new Date()): Date {
   const year = now.getFullYear();
   const startMonth = now.getMonth() < 6 ? 0 : 6; // jan ou jul
@@ -38,10 +37,21 @@ export async function awardPointsForComanda(opts: {
     const admin = createAdminClient();
     if (opts.amount <= 0) return { ok: true, points: 0 };
 
+    // Ponto e da loja onde o atendimento aconteceu, que sai da propria comanda.
+    // Quem fechou pode ser o barbeiro, a gestao ou nem ter sessao: o que nao
+    // muda e onde o cliente sentou na cadeira.
+    const { data: comanda } = await admin
+      .from('comandas')
+      .select('barbershop_id')
+      .eq('id', opts.comandaId)
+      .maybeSingle();
+
+    const loja = (comanda?.barbershop_id as string) ?? (await lojaAtual());
+
     const { data: shop } = await admin
       .from('barbershops')
       .select('loyalty_enabled, loyalty_points_per_brl')
-      .eq('id', BARBERSHOP_ID)
+      .eq('id', loja)
       .maybeSingle();
 
     if (!shop?.loyalty_enabled) return { ok: true, points: 0 };
@@ -64,14 +74,14 @@ export async function awardPointsForComanda(opts: {
     const { data: current } = await admin
       .from('loyalty_points')
       .select('id, balance, lifetime_earned')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', loja)
       .eq('customer_id', opts.customerId)
       .maybeSingle();
 
     let balanceAfter = points;
     if (!current) {
       await admin.from('loyalty_points').insert({
-        barbershop_id: BARBERSHOP_ID,
+        barbershop_id: loja,
         customer_id: opts.customerId,
         balance: points,
         lifetime_earned: points,
@@ -90,7 +100,7 @@ export async function awardPointsForComanda(opts: {
 
     // Evento (alimenta ranking semestral) + extrato legado
     await admin.from('loyalty_points_events').insert({
-      barbershop_id: BARBERSHOP_ID,
+      barbershop_id: loja,
       customer_id: opts.customerId,
       event_type: 'earned_service',
       points,
@@ -99,7 +109,7 @@ export async function awardPointsForComanda(opts: {
       description: 'Pontos do atendimento',
     });
     await admin.from('loyalty_transactions').insert({
-      barbershop_id: BARBERSHOP_ID,
+      barbershop_id: loja,
       customer_id: opts.customerId,
       type: 'earn',
       points,
@@ -155,7 +165,7 @@ export async function getRankings(opts: {
     .select(
       'customer_id, lifetime_earned, customers:customers(full_name, photo_url, active)'
     )
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaAtual()))
     .order('lifetime_earned', { ascending: false })
     .limit(500);
 
@@ -165,7 +175,7 @@ export async function getRankings(opts: {
     ? admin
         .from('loyalty_points_events')
         .select('customer_id, points')
-        .eq('barbershop_id', BARBERSHOP_ID)
+        .eq('barbershop_id', (await lojaAtual()))
         .gt('points', 0)
         .gte('created_at', currentSemesterStart().toISOString())
         .limit(10000)

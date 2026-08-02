@@ -26,8 +26,7 @@ import {
 } from '@/lib/subscriptions-rateio';
 import { notifyCustomer } from '@/lib/notifications';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 function nullIfEmpty(v?: string | null) {
   if (!v) return null;
   const t = v.trim();
@@ -67,7 +66,7 @@ export async function createPlan(data: PlanFormData) {
   const admin = await createManagerClient();
 
   const { error } = await admin.from('subscription_plans').insert({
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     name: data.name,
     description: nullIfEmpty(data.description),
     price: data.price,
@@ -170,7 +169,7 @@ export async function createSubscription(input: CreateSubscriptionInput) {
   const { data: sub, error } = await admin
     .from('subscriptions')
     .insert({
-      barbershop_id: BARBERSHOP_ID,
+      barbershop_id: (await lojaAtual()),
       customer_id: input.customer_id,
       plan_id: input.plan_id,
       status: 'active',
@@ -199,7 +198,7 @@ export async function createSubscription(input: CreateSubscriptionInput) {
     const { data: tx } = await admin
       .from('transactions')
       .insert({
-        barbershop_id: BARBERSHOP_ID,
+        barbershop_id: (await lojaAtual()),
         type: 'subscription',
         amount: Number(plan.price),
         description: `Assinatura ${plan.name} - ${customer?.full_name ?? 'Cliente'}`,
@@ -212,7 +211,7 @@ export async function createSubscription(input: CreateSubscriptionInput) {
       .single();
 
     await admin.from('subscription_payments').insert({
-      barbershop_id: BARBERSHOP_ID,
+      barbershop_id: (await lojaAtual()),
       subscription_id: sub.id,
       amount: Number(plan.price),
       method,
@@ -448,7 +447,7 @@ export async function registerSubscriptionPayment(
     const { data: payout, error: errPayout } = await admin
       .from('subscription_payouts')
       .insert({
-        barbershop_id: BARBERSHOP_ID,
+        barbershop_id: (await lojaAtual()),
         subscription_id: subscriptionId,
         period_start: sub.current_period_start,
         period_end: sub.current_period_end,
@@ -479,7 +478,7 @@ export async function registerSubscriptionPayment(
       const { data: tx } = await admin
         .from('transactions')
         .insert({
-          barbershop_id: BARBERSHOP_ID,
+          barbershop_id: (await lojaAtual()),
           type: 'commission',
           amount,
           description: `Repasse assinatura ${customerName} (${item.uses}x) - ${staffName}`,
@@ -492,7 +491,7 @@ export async function registerSubscriptionPayment(
         .single();
 
       await admin.from('subscription_payout_items').insert({
-        barbershop_id: BARBERSHOP_ID,
+        barbershop_id: (await lojaAtual()),
         payout_id: payoutId,
         staff_id: item.staff_id,
         uses_count: item.uses,
@@ -519,7 +518,7 @@ export async function registerSubscriptionPayment(
   const { data: incomeTx } = await admin
     .from('transactions')
     .insert({
-      barbershop_id: BARBERSHOP_ID,
+      barbershop_id: (await lojaAtual()),
       type: 'subscription',
       amount: price,
       description: `Assinatura ${sub.plan.name} - ${customerName}`,
@@ -534,7 +533,7 @@ export async function registerSubscriptionPayment(
   const { data: payment, error: errPay } = await admin
     .from('subscription_payments')
     .insert({
-      barbershop_id: BARBERSHOP_ID,
+      barbershop_id: (await lojaAtual()),
       subscription_id: subscriptionId,
       amount: price,
       method: paymentMethod,

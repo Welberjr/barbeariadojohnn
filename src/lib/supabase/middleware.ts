@@ -25,14 +25,26 @@ interface StaffAccess {
  * Confere o acesso direto no banco. É uma consulta por navegação em área
  * logada, e é o que faz profissional desligado perder o acesso na hora.
  */
-async function fetchStaffAccess(userId: string): Promise<StaffAccess> {
+async function fetchStaffAccess(
+  userId: string,
+  lojaEscolhida?: string
+): Promise<StaffAccess> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/^﻿/, '').trim();
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.replace(/^﻿/, '').trim();
   if (!url || !key) return { isStaff: false, canManage: false };
 
   try {
+    // Quem trabalha em mais de uma unidade tem um cadastro em cada, e o acesso
+    // de gestão pode ser diferente entre elas: gerente numa, barbeiro na outra.
+    // Sem filtrar pela unidade escolhida, a portaria responderia pela primeira
+    // que o banco devolvesse, que é sorteio, não regra.
+    const daLoja =
+      lojaEscolhida && /^[0-9a-f-]{36}$/i.test(lojaEscolhida)
+        ? `&barbershop_id=eq.${lojaEscolhida}`
+        : '';
+
     const res = await fetch(
-      `${url}/rest/v1/staff?select=can_manage&profile_id=eq.${userId}&active=is.true&fired_at=is.null&limit=1`,
+      `${url}/rest/v1/staff?select=can_manage&profile_id=eq.${userId}${daLoja}&active=is.true&fired_at=is.null&limit=1`,
       {
         headers: { apikey: key, Authorization: `Bearer ${key}` },
         cache: 'no-store',
@@ -141,6 +153,15 @@ export async function updateSession(
    */
   const saltos = Number(request.cookies.get('bj_saltos')?.value ?? 0);
 
+  /**
+   * Unidade escolhida por quem trabalha em mais de uma.
+   *
+   * O valor vem do navegador, entao nao merece confianca sozinho: ele so serve
+   * para FILTRAR a consulta ao banco. Se a pessoa nao tiver cadastro naquela
+   * unidade, a consulta nao acha nada e ela simplesmente nao entra.
+   */
+  const lojaEscolhida = request.cookies.get('bj_loja')?.value;
+
   /** Apaga o cookie de sessao do Supabase, que vem partido em pedacos. */
   function limparSessao(resposta: NextResponse) {
     for (const cookie of request.cookies.getAll()) {
@@ -185,7 +206,7 @@ export async function updateSession(
   if (isAdminRoute || isPanelRoute) {
     if (!user) return redirectTo('/login');
 
-    const acesso = await fetchStaffAccess(user.id);
+    const acesso = await fetchStaffAccess(user.id, lojaEscolhida);
 
     // Quem trabalha aqui entra, mesmo que o login tenha nascido como cliente.
     // E o caso de quem era freguês da casa e passou a trabalhar nela: o papel
@@ -208,7 +229,7 @@ export async function updateSession(
   // ela escolhe. Antes o dono que tambem corta cabelo caia sempre na gestao e
   // tinha que procurar o caminho de volta.
   if ((isAdminLogin || isCustomerLogin) && user) {
-    const acesso = await fetchStaffAccess(user.id);
+    const acesso = await fetchStaffAccess(user.id, lojaEscolhida);
     if (acesso.isStaff || (await temFichaDeCliente(user.id))) {
       return redirectTo('/entrar');
     }

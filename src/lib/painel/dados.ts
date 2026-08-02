@@ -18,8 +18,7 @@ import { toCents, centsToBRL } from '@/lib/subscriptions';
 import { ratearPotinho, lerDestinoSobra } from '@/lib/subscriptions-rateio';
 import type { AssinaturaResumo } from './assinatura-selo';
 
-export const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 /** Inicio e fim do dia no fuso da barbearia. */
 export function limitesDoDia(dateStr: string) {
   return {
@@ -139,7 +138,7 @@ export async function agendaDoDia(
        confirmation_requested_at, confirmed_by_customer_at,
        customers:customers ( full_name, phone )`
     )
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaAtual()))
     .eq('staff_id', staff.staffId)
     .gte('start_at', inicio)
     .lte('start_at', fim)
@@ -235,7 +234,7 @@ export async function financeiroDoPeriodo(
     admin
       .from('comandas')
       .select('id')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('staff_id', staff.staffId)
       .eq('status', 'closed')
       .gte('closed_at', inicio)
@@ -245,14 +244,14 @@ export async function financeiroDoPeriodo(
     admin
       .from('comanda_items')
       .select('item_type, total_price, commission_value, comanda_id')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('staff_id', staff.staffId)
       .gte('created_at', inicio)
       .lte('created_at', fim),
     admin
       .from('allowances')
       .select('amount, status, requested_at')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('staff_id', staff.staffId)
       .eq('status', 'approved')
       .gte('requested_at', inicio)
@@ -260,21 +259,21 @@ export async function financeiroDoPeriodo(
     admin
       .from('commission_payouts')
       .select('amount_paid, payment_date')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('staff_id', staff.staffId)
       .gte('payment_date', fromStr)
       .lte('payment_date', toStr),
     admin
       .from('subscription_usages')
       .select('id, subscription_id, settled_payout_id')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('staff_id', staff.staffId)
       .gte('used_at', inicio)
       .lte('used_at', fim),
     admin
       .from('subscription_payout_items')
       .select('amount, created_at')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('staff_id', staff.staffId)
       .gte('created_at', inicio)
       .lte('created_at', fim),
@@ -446,7 +445,7 @@ export async function valesDoStaff(staff: SessionStaff): Promise<ValePainel[]> {
   const { data } = await admin
     .from('allowances')
     .select('id, amount, reason, status, requested_at, reviewed_at, review_notes')
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaAtual()))
     .eq('staff_id', staff.staffId)
     .order('requested_at', { ascending: false })
     .limit(100);
@@ -491,7 +490,7 @@ export async function clientesDoStaff(staff: SessionStaff): Promise<ClientePaine
   const { data: itens } = await admin
     .from('comanda_items')
     .select('name, item_type, created_at, comanda:comandas!inner ( customer_id, status, closed_at )')
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaAtual()))
     .eq('staff_id', staff.staffId)
     .eq('comanda.status', 'closed')
     .order('created_at', { ascending: false })

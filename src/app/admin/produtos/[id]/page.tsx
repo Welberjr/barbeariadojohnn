@@ -2,8 +2,7 @@ import { notFound } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ProductForm } from '../_components/produto-form';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 export const metadata = {
   title: 'Editar produto',
 };
@@ -29,7 +28,7 @@ export default async function EditProductPage({
   const { data: categories } = await supabase
     .from('product_categories')
     .select('id, name')
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaAtual()))
     .order('name');
 
   return (

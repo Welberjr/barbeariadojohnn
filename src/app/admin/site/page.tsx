@@ -2,8 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { Globe, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { SiteForm } from './_components/site-form';
-
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
+import { lojaAtual } from '@/lib/loja';
 
 export const metadata = {
   title: 'Site Público',
@@ -15,7 +14,7 @@ export default async function SitePage() {
   const { data: bs } = await supabase
     .from('barbershops')
     .select('slug, name, site_config')
-    .eq('id', BARBERSHOP_ID)
+    .eq('id', (await lojaAtual()))
     .maybeSingle();
 
   const cfg = (bs?.site_config ?? {}) as Record<string, unknown>;

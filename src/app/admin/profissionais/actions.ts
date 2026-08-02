@@ -6,8 +6,7 @@ import { getSessionStaff } from '@/lib/staff-auth';
 import { buildStaffPermissions, PRESETS_POR_PAPEL } from '@/lib/staff-permissions';
 import { gerarSenhaTemporariaProfissional } from '@/lib/staff-password';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 export interface StaffFormData {
   full_name: string;
   email: string;
@@ -82,7 +81,7 @@ export async function createStaff(data: StaffFormData) {
   const preset = PRESETS_POR_PAPEL[data.role] ?? { canManage: false, modulos: [] };
 
   const { error: staffError } = await admin.from('staff').insert({
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     profile_id: profileId,
     display_name: data.display_name,
     role: data.role,

@@ -9,8 +9,7 @@ import { gastarCredito, saldoDeCredito } from '@/lib/creditos-db';
 import { quantoOCreditoCobre } from '@/lib/credito-cliente';
 import { notifyCustomer } from '@/lib/notifications';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 export interface CreateComandaData {
   customer_id: string;
   staff_id: string;
@@ -41,7 +40,7 @@ export async function createComanda(data: CreateComandaData) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const payload: any = {
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     customer_id: data.customer_id,
     staff_id: data.staff_id,
     status: 'open',
@@ -165,9 +164,10 @@ export async function populateComandaFromAppointment(
     (services ?? []).map((s) => [s.id as string, s.name as string])
   );
 
+  const loja = await lojaAtual();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const itemsToInsert = apptServices.map((s: any) => ({
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: loja,
     comanda_id: comandaId,
     item_type: 'service',
     service_id: s.service_id,
@@ -275,7 +275,7 @@ export async function addServiceToComanda(
     // Item com preco zero (coberto)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const itemPayload: any = {
-      barbershop_id: BARBERSHOP_ID,
+      barbershop_id: (await lojaAtual()),
       comanda_id: comandaId,
       item_type: 'service',
       service_id: serviceId,
@@ -302,7 +302,7 @@ export async function addServiceToComanda(
     const { data: usage, error: errUsage } = await admin
       .from('subscription_usages')
       .insert({
-        barbershop_id: BARBERSHOP_ID,
+        barbershop_id: (await lojaAtual()),
         subscription_id: sub.id,
         appointment_id: comanda.appointment_id ?? null,
         service_id: serviceId,
@@ -350,7 +350,7 @@ export async function addServiceToComanda(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const payload: any = {
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     comanda_id: comandaId,
     item_type: 'service',
     service_id: serviceId,
@@ -402,7 +402,7 @@ export async function addProductToComanda(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const payload: any = {
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     comanda_id: comandaId,
     item_type: 'product',
     product_id: productId,
@@ -580,7 +580,7 @@ export async function closeComanda(
   const { data: feeCfg } = await admin
     .from('barbershops')
     .select('credit_fee_percent, debit_fee_percent')
-    .eq('id', BARBERSHOP_ID)
+    .eq('id', (await lojaAtual()))
     .maybeSingle();
 
   function taxaDoMetodo(m: string) {
@@ -685,7 +685,7 @@ export async function closeComanda(
     creditoUsado > 0
       ? [
           {
-            barbershop_id: BARBERSHOP_ID,
+            barbershop_id: (await lojaAtual()),
             comanda_id: comandaId,
             method: 'store_credit',
             amount: creditoUsado,
@@ -697,7 +697,7 @@ export async function closeComanda(
           ...(restante > 0
             ? [
                 {
-                  barbershop_id: BARBERSHOP_ID,
+                  barbershop_id: (await lojaAtual()),
                   comanda_id: comandaId,
                   method: metodoDoRestante,
                   amount: restante,
@@ -711,7 +711,7 @@ export async function closeComanda(
         ]
       : [
           {
-            barbershop_id: BARBERSHOP_ID,
+            barbershop_id: (await lojaAtual()),
             comanda_id: comandaId,
             method,
             amount: total,

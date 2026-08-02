@@ -6,8 +6,7 @@ import { InfoTip } from '@/components/info-tip';
 import { ProductsTable } from './_components/products-table';
 import { PeriodSelector } from './_components/period-selector';
 import { QuickSellButton } from './_components/quick-sell-button';
-
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
+import { lojaAtual } from '@/lib/loja';
 
 export const metadata = { title: 'Produtos' };
 
@@ -32,19 +31,19 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
       supabase
         .from('products')
         .select('id, name, brand, sale_price, cost_price, stock_current, stock_minimum, is_sellable, active, category_id')
-        .eq('barbershop_id', BARBERSHOP_ID)
+        .eq('barbershop_id', (await lojaAtual()))
         .order('name'),
       supabase
         .from('product_categories')
         .select('id, name')
-        .eq('barbershop_id', BARBERSHOP_ID)
+        .eq('barbershop_id', (await lojaAtual()))
         .order('name'),
       // Vendas avulsas do mes. Tenta ler cost_amount (custo registrado na
       // venda); se a coluna ainda nao existir, o fallback roda logo abaixo.
       supabase
         .from('transactions')
         .select('amount, cost_amount')
-        .eq('barbershop_id', BARBERSHOP_ID)
+        .eq('barbershop_id', (await lojaAtual()))
         .eq('type', 'product')
         .gte('occurred_at', firstDay)
         .lte('occurred_at', lastDay),
@@ -56,7 +55,7 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
     const fallback = await supabase
       .from('transactions')
       .select('amount')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('type', 'product')
       .gte('occurred_at', firstDay)
       .lte('occurred_at', lastDay);

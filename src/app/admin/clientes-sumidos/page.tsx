@@ -8,8 +8,7 @@ import {
   type ClienteSumido,
 } from '@/lib/clientes-sumidos';
 import { ClientesSumidosView } from './_components/clientes-sumidos-view';
-
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
+import { lojaAtual } from '@/lib/loja';
 
 export const metadata = { title: 'Clientes sumidos' };
 export const dynamic = 'force-dynamic';
@@ -31,10 +30,10 @@ export default async function ClientesSumidosPage({ searchParams }: PageProps) {
       .select(
         'id, full_name, phone, last_visit_at, total_spent, total_appointments, reactivation_contacted_at, reactivation_notes'
       )
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('active', true)
       .limit(2000),
-    admin.from('barbershops').select('name').eq('id', BARBERSHOP_ID).maybeSingle(),
+    admin.from('barbershops').select('name').eq('id', (await lojaAtual())).maybeSingle(),
   ]);
 
   // Historico de visitas para descobrir o ritmo de cada um.
@@ -44,7 +43,7 @@ export default async function ClientesSumidosPage({ searchParams }: PageProps) {
     const { data } = await admin
       .from('comandas')
       .select('customer_id, closed_at')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('status', 'closed')
       .not('customer_id', 'is', null)
       .order('closed_at')
@@ -67,7 +66,7 @@ export default async function ClientesSumidosPage({ searchParams }: PageProps) {
   const { data: itens } = await admin
     .from('comanda_items')
     .select('name, comanda:comandas!inner ( customer_id, status )')
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaAtual()))
     .eq('item_type', 'service')
     .eq('comanda.status', 'closed')
     .limit(2000);

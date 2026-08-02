@@ -7,6 +7,7 @@ import { formatCurrency } from '@/lib/utils';
 import { InfoTip } from '@/components/info-tip';
 import { headers } from 'next/headers';
 import { LinkDoAplicativo } from './_components/link-do-aplicativo';
+import { lojaAtual } from '@/lib/loja';
 
 export const metadata = {
   title: 'Clientes',
@@ -16,7 +17,6 @@ export const metadata = {
 export const dynamic = 'force-dynamic';
 
 const PAGE_SIZE = 24;
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
 interface ClientesPageProps {
   searchParams: Promise<{ q?: string; tier?: string; page?: string }>;
@@ -36,7 +36,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
       'id, full_name, phone, email, cpf, birth_date, tier, loyalty_tier, loyalty_points, total_appointments, total_spent, last_visit_at, photo_url, active, created_at',
       { count: 'exact' }
     )
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaAtual()))
     .order('full_name', { ascending: true });
 
   if (q && q.trim()) {
@@ -58,21 +58,21 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
   const [{ data: customers, count, error }, { count: totalAll }, { count: vips }, { count: regulars }, { count: news }, { data: topCustomers }, { data: shopConfig }] =
     await Promise.all([
       query.range(from, to),
-      supabase.from('customers').select('id', { count: 'exact', head: true }).eq('barbershop_id', BARBERSHOP_ID),
-      supabase.from('customers').select('id', { count: 'exact', head: true }).eq('barbershop_id', BARBERSHOP_ID).eq('tier', 'vip'),
-      supabase.from('customers').select('id', { count: 'exact', head: true }).eq('barbershop_id', BARBERSHOP_ID).eq('tier', 'active'),
-      supabase.from('customers').select('id', { count: 'exact', head: true }).eq('barbershop_id', BARBERSHOP_ID).eq('tier', 'new'),
+      supabase.from('customers').select('id', { count: 'exact', head: true }).eq('barbershop_id', (await lojaAtual())),
+      supabase.from('customers').select('id', { count: 'exact', head: true }).eq('barbershop_id', (await lojaAtual())).eq('tier', 'vip'),
+      supabase.from('customers').select('id', { count: 'exact', head: true }).eq('barbershop_id', (await lojaAtual())).eq('tier', 'active'),
+      supabase.from('customers').select('id', { count: 'exact', head: true }).eq('barbershop_id', (await lojaAtual())).eq('tier', 'new'),
       admin
         .from('customers')
         .select('id, full_name, photo_url, total_spent, total_appointments, tier')
-        .eq('barbershop_id', '11111111-1111-1111-1111-111111111111')
+        .eq('barbershop_id', (await lojaAtual()))
         .eq('active', true)
         .order('total_spent', { ascending: false })
         .limit(5),
       admin
         .from('barbershops')
         .select('vip_total_spent_threshold')
-        .eq('id', '11111111-1111-1111-1111-111111111111')
+        .eq('id', (await lojaAtual()))
         .maybeSingle(),
     ]);
 
@@ -98,7 +98,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
   const { data: dadosBarbearia } = await supabase
     .from('barbershops')
     .select('name')
-    .eq('id', BARBERSHOP_ID)
+    .eq('id', (await lojaAtual()))
     .maybeSingle();
 
   const nomeDaBarbearia = (dadosBarbearia?.name as string) ?? 'Barbearia do Johnn';

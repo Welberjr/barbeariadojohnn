@@ -3,8 +3,7 @@
 import { createManagerClient } from '@/lib/supabase/manager';
 import { revalidatePath } from 'next/cache';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 export interface ProductFormData {
   name: string;
   brand?: string | null;
@@ -32,7 +31,7 @@ export async function createProduct(data: ProductFormData) {
   const admin = await createManagerClient();
 
   const { error } = await admin.from('products').insert({
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     name: data.name,
     brand: nullIfEmpty(data.brand),
     description: nullIfEmpty(data.description),
@@ -62,7 +61,7 @@ export async function duplicateProductAction(productId: string) {
     .from('products')
     .select('*')
     .eq('id', productId)
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaAtual()))
     .single();
 
   if (errFetch || !original) {
@@ -72,7 +71,7 @@ export async function duplicateProductAction(productId: string) {
   const { data: copy, error: errInsert } = await admin
     .from('products')
     .insert({
-      barbershop_id: BARBERSHOP_ID,
+      barbershop_id: (await lojaAtual()),
       category_id: original.category_id,
       name: `${original.name} (cópia)`,
       brand: original.brand,
@@ -168,7 +167,7 @@ export async function registerSale(productId: string, quantity: number) {
   // Registra a transacao guardando tambem o custo (cost_amount) para DRE/lucro.
   // Se a coluna cost_amount ainda nao existir no banco, insere sem ela.
   const txPayload = {
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     type: 'product',
     amount: totalValue,
     cost_amount: totalCost,

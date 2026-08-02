@@ -4,8 +4,7 @@ import { createManagerClient } from '@/lib/supabase/manager';
 import { createMPPreference } from '@/lib/mercadopago';
 import { revalidatePath } from 'next/cache';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 /**
  * Gera link de pagamento online (Mercado Pago) para uma comanda aberta.
  * Retorna initPoint (URL pra abrir o checkout).
@@ -126,7 +125,7 @@ export async function updateMPConfig(data: {
   const { error } = await admin
     .from('barbershops')
     .update({ mp_config: cleaned })
-    .eq('id', BARBERSHOP_ID);
+    .eq('id', (await lojaAtual()));
 
   if (error) return { ok: false, error: error.message };
 

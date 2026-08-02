@@ -1,7 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import { lojaAtual } from '@/lib/loja';
 import { ComandasView } from './_components/comandas-view';
-
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 const PAGE_SIZE = 10;
 
 export const metadata = {
@@ -53,7 +52,7 @@ export default async function ComandasPage({ searchParams }: PageProps) {
     filteredPromise = supabase
       .from('comandas')
       .select(closedSelect)
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('status', 'closed')
       .gte('closed_at', dayStart)
       .lt('closed_at', dayEnd)
@@ -64,7 +63,7 @@ export default async function ComandasPage({ searchParams }: PageProps) {
     filteredPromise = supabase
       .from('comandas')
       .select(closedSelect, { count: 'exact' })
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('status', 'closed')
       .order('closed_at', { ascending: false })
       .range(from, from + PAGE_SIZE - 1);
@@ -93,13 +92,13 @@ export default async function ComandasPage({ searchParams }: PageProps) {
       staff:staff ( display_name )
     `
       )
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('status', 'open')
       .order('opened_at', { ascending: false }),
     supabase
       .from('comandas')
       .select(closedSelect)
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('status', 'closed')
       .gte('closed_at', todayStart)
       .order('closed_at', { ascending: false })
@@ -108,7 +107,7 @@ export default async function ComandasPage({ searchParams }: PageProps) {
     supabase
       .from('customers')
       .select('id, full_name, phone')
-      .eq('barbershop_id', BARBERSHOP_ID)
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('active', true)
       .order('full_name')
       .limit(500),

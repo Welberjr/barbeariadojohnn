@@ -2,8 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { ConfiguracoesForm } from './_components/configuracoes-form';
 import { AvisosNoCelular } from '@/components/avisos-no-celular';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 export const metadata = {
   title: 'Configurações',
 };
@@ -14,7 +13,7 @@ export default async function ConfiguracoesPage() {
   const { data: barbershop } = await supabase
     .from('barbershops')
     .select('*')
-    .eq('id', BARBERSHOP_ID)
+    .eq('id', (await lojaAtual()))
     .maybeSingle();
 
   return (

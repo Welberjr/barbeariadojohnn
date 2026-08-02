@@ -5,8 +5,7 @@ import { BusinessHoursForm } from './_components/business-hours-form';
 import { DaysOffList } from './_components/days-off-list';
 import { JornadaProfissionais } from './_components/jornada-profissionais';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 export const metadata = {
   title: 'Disponibilidade',
 };
@@ -33,7 +32,7 @@ export default async function DisponibilidadePage() {
       supabase
         .from('barbershops')
         .select('business_hours')
-        .eq('id', BARBERSHOP_ID)
+        .eq('id', (await lojaAtual()))
         .maybeSingle(),
       // Folgas futuras (próximos 90 dias)
       supabase

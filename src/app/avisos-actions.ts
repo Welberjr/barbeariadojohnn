@@ -10,8 +10,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-
+import { lojaAtual } from '@/lib/loja';
 export async function guardarAparelho(dados: {
   endpoint: string;
   p256dh: string;
@@ -35,7 +34,7 @@ export async function guardarAparelho(dados: {
   // manda e o login de agora.
   const { error } = await admin.from('push_subscriptions').upsert(
     {
-      barbershop_id: BARBERSHOP_ID,
+      barbershop_id: (await lojaAtual()),
       user_id: user.id,
       endpoint: dados.endpoint,
       p256dh: dados.p256dh,

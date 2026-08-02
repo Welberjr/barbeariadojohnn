@@ -12,6 +12,7 @@ import { requireCustomer } from '@/lib/customer-auth';
 import { getActiveSubscription, formatAllowedDays } from '@/lib/subscriptions';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { cn } from '@/lib/utils';
+import { lojaAtual } from '@/lib/loja';
 
 export const metadata = { title: 'Benefícios' };
 export const dynamic = 'force-dynamic';
@@ -48,7 +49,7 @@ export default async function BeneficiosPage() {
     admin
       .from('loyalty_rewards')
       .select('name, points_required')
-      .eq('barbershop_id', '11111111-1111-1111-1111-111111111111')
+      .eq('barbershop_id', (await lojaAtual()))
       .eq('active', true)
       .order('points_required', { ascending: true }),
   ]);

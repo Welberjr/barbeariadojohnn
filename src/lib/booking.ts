@@ -11,9 +11,8 @@
  * dentro do expediente sem conflitar com nada.
  */
 import { createAdminClient } from '@/lib/supabase/admin';
+import { lojaAtual } from '@/lib/loja';
 import { shopDayOfWeek } from '@/lib/subscriptions';
-
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 const SLOT_STEP_MINUTES = 30;
 const SHOP_UTC_OFFSET = '-03:00'; // Brasília (sem horario de verao)
 
@@ -98,7 +97,7 @@ export async function getAvailableSlots(opts: {
       admin
         .from('barbershops')
         .select('business_hours')
-        .eq('id', BARBERSHOP_ID)
+        .eq('id', (await lojaAtual()))
         .maybeSingle(),
     ]);
 
@@ -148,7 +147,7 @@ export async function getAvailableSlots(opts: {
   const { data: daysOff } = await admin
     .from('days_off')
     .select('staff_id, start_date, end_date, full_day, start_time, end_time')
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaAtual()))
     .lte('start_date', dateStr)
     .gte('end_date', dateStr);
 
@@ -183,7 +182,7 @@ export async function getAvailableSlots(opts: {
   const { data: appts } = await admin
     .from('appointments')
     .select('start_at, end_at, status')
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaAtual()))
     .eq('staff_id', staffId)
     .in('status', ['scheduled', 'in_progress'])
     .gte('start_at', dayStart)
@@ -243,7 +242,7 @@ export async function isSlotStillFree(opts: {
   const { data: conflicts } = await admin
     .from('appointments')
     .select('id')
-    .eq('barbershop_id', BARBERSHOP_ID)
+    .eq('barbershop_id', (await lojaAtual()))
     .eq('staff_id', opts.staffId)
     .in('status', ['scheduled', 'in_progress'])
     .lt('start_at', opts.endISO)

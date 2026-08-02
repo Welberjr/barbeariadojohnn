@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import { notifyCustomer } from '@/lib/notifications';
 import { avisoDeHorarioMarcado, avisoDeHorarioDesmarcado } from '@/lib/avisos';
+import { lojaAtual } from '@/lib/loja';
 import {
   avisarClienteQueMarcamos,
   avisarClienteQueDesmarcamos,
@@ -13,8 +14,6 @@ import {
   sendWhatsAppMessage,
   confirmationTemplate,
 } from '@/lib/whatsapp';
-
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
 export interface AppointmentData {
   customer_id: string;
@@ -60,7 +59,7 @@ export async function createAppointment(data: AppointmentData) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const payload: any = {
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     customer_id: data.customer_id,
     staff_id: data.staff_id,
     start_at: data.start_at,
@@ -104,7 +103,7 @@ export async function createAppointment(data: AppointmentData) {
         Number(service.base_duration_minutes ?? 30);
 
       await admin.from('appointment_services').insert({
-        barbershop_id: BARBERSHOP_ID,
+        barbershop_id: (await lojaAtual()),
         appointment_id: created.id,
         service_id: data.service_id,
         price: Number(service.base_price ?? 0),

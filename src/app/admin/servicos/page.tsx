@@ -2,8 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
 import { ServicesAccordion } from './_components/services-accordion';
-
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
+import { lojaAtual } from '@/lib/loja';
 
 export const metadata = { title: 'Serviços' };
 
@@ -15,23 +14,23 @@ export default async function ServicosPage() {
       admin
         .from('services')
         .select('id, name, category, base_price, base_duration_minutes, base_commission_percent, active, display_order, show_on_public_menu')
-        .eq('barbershop_id', BARBERSHOP_ID)
+        .eq('barbershop_id', (await lojaAtual()))
         .order('category', { ascending: true })
         .order('display_order', { ascending: true }),
       admin
         .from('staff')
         .select('id, display_name')
-        .eq('barbershop_id', BARBERSHOP_ID)
+        .eq('barbershop_id', (await lojaAtual()))
         .eq('active', true)
         .order('display_name'),
       admin
         .from('staff_services')
         .select('staff_id, service_id, custom_price, custom_duration_minutes, custom_commission_percent, active')
-        .eq('barbershop_id', BARBERSHOP_ID),
+        .eq('barbershop_id', (await lojaAtual())),
       admin
         .from('service_promotions')
         .select('service_id, day_of_week, promotional_price')
-        .eq('barbershop_id', BARBERSHOP_ID)
+        .eq('barbershop_id', (await lojaAtual()))
         .eq('active', true),
     ]);
 

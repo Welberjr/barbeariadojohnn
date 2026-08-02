@@ -2,9 +2,8 @@
 
 import { createManagerClient } from '@/lib/supabase/manager';
 import { getSessionStaff } from '@/lib/staff-auth';
+import { lojaAtual } from '@/lib/loja';
 import { revalidatePath } from 'next/cache';
-
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 const PHOTO_BUCKET = 'customer-photos';
 
 export interface CustomerFormData {
@@ -27,7 +26,7 @@ export async function createCustomer(data: CustomerFormData) {
   const { data: created, error } = await admin
     .from('customers')
     .insert({
-      barbershop_id: BARBERSHOP_ID,
+      barbershop_id: (await lojaAtual()),
       full_name: data.full_name,
       phone: data.phone,
       email: data.email || null,
@@ -263,7 +262,7 @@ export async function concederCredito(dados: {
   const staff = await getSessionStaff();
 
   const { error } = await admin.from('customer_credits').insert({
-    barbershop_id: BARBERSHOP_ID,
+    barbershop_id: (await lojaAtual()),
     customer_id: dados.customerId,
     amount: valor,
     reason: dados.motivo.trim(),
