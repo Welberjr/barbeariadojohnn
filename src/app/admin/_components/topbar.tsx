@@ -300,6 +300,19 @@ function NotificationsBell() {
     }
   }
 
+  /**
+   * Some com a lista agora.
+   *
+   * O que é pendência de verdade volta na próxima consulta mesmo marcado como
+   * visto: comanda esquecida aberta, conta vencida e estoque no fim não somem
+   * porque alguém olhou. Some o que era só novidade.
+   */
+  function marcarTudoVisto() {
+    localStorage.setItem(CHAVE_VISTO, new Date().toISOString());
+    setItems([]);
+    setCount(0);
+  }
+
   function go(href: string) {
     setOpen(false);
     router.push(href);
@@ -323,10 +336,20 @@ function NotificationsBell() {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="absolute right-0 top-full mt-2 w-80 max-w-[85vw] card-premium p-2 z-50 animate-fade-in max-h-[70vh] overflow-y-auto">
-            <div className="px-3 py-2 border-b border-border/60 mb-1 flex items-center justify-between">
+            <div className="px-3 py-2 border-b border-border/60 mb-1 flex items-center justify-between gap-2">
               <p className="text-xs text-fg-muted">Notificações</p>
-              {loading && (
+              {loading ? (
                 <Loader2 className="w-3.5 h-3.5 text-gold animate-spin" />
+              ) : (
+                items.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={marcarTudoVisto}
+                    className="text-[10px] text-fg-subtle transition-colors hover:text-gold"
+                  >
+                    Marcar tudo como visto
+                  </button>
+                )
               )}
             </div>
 

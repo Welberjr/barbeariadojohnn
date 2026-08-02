@@ -4,22 +4,13 @@ import { requireCustomer } from '@/lib/customer-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { cn } from '@/lib/utils';
 import { MarkAllReadButton } from './_components/mark-all-read-button';
+import { LimparTudo } from './_components/acoes-notificacao';
+import { ListaDeAvisos, type Aviso } from './_components/lista-de-avisos';
 
 export const metadata = { title: 'Notificações' };
 export const dynamic = 'force-dynamic';
 
 const PAGE_SIZE = 15;
-
-function fmtDateTime(iso: string) {
-  return new Intl.DateTimeFormat('pt-BR', {
-    timeZone: 'America/Sao_Paulo',
-    day: '2-digit',
-    month: '2-digit',
-    year: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(iso));
-}
 
 interface PageProps {
   searchParams: Promise<{ page?: string }>;
@@ -70,7 +61,10 @@ export default async function NotificacoesPage({ searchParams }: PageProps) {
             </p>
           )}
         </div>
-        {unreadCount > 0 && <MarkAllReadButton />}
+        <div className="flex items-center gap-2">
+          {unreadCount > 0 && <MarkAllReadButton />}
+          {(count ?? 0) > 0 && <LimparTudo />}
+        </div>
       </div>
 
       {!notifications || notifications.length === 0 ? (
@@ -83,27 +77,7 @@ export default async function NotificacoesPage({ searchParams }: PageProps) {
         </div>
       ) : (
         <>
-          <div className="space-y-2">
-            {notifications.map((n) => (
-              <div
-                key={n.id}
-                className={cn('card p-4', !n.read_at && 'border-gold/30')}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm text-fg font-medium">{n.title}</p>
-                  {!n.read_at && (
-                    <span className="w-2 h-2 rounded-full bg-gold flex-shrink-0 mt-1.5" />
-                  )}
-                </div>
-                <p className="text-[11px] text-fg-muted mt-1 leading-relaxed whitespace-pre-line">
-                  {n.body}
-                </p>
-                <p className="text-[10px] text-fg-dim mt-1.5">
-                  {fmtDateTime(n.created_at)}
-                </p>
-              </div>
-            ))}
-          </div>
+          <ListaDeAvisos avisos={notifications as Aviso[]} />
 
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-2 pt-2">

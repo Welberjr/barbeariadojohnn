@@ -77,6 +77,18 @@ export function SinoDoPainel() {
     }
   }
 
+  /**
+   * Some com tudo agora, sem esperar.
+   *
+   * Comanda aberta e pendencia, nao novidade: essa volta na proxima consulta
+   * mesmo marcada como vista, e e o certo, porque continua sendo dinheiro que
+   * nao entrou.
+   */
+  function marcarTudoVisto() {
+    localStorage.setItem(CHAVE_VISTO, new Date().toISOString());
+    setAvisos([]);
+  }
+
   function ir(href: string) {
     setAberto(false);
     localStorage.setItem(CHAVE_VISTO, new Date().toISOString());
@@ -101,9 +113,18 @@ export function SinoDoPainel() {
         <>
           <div className="fixed inset-0 z-40" onClick={alternar} />
           <div className="card-premium absolute right-0 top-full z-50 mt-2 w-72 animate-fade-in p-2">
-            <p className="px-3 py-2 text-[10px] uppercase tracking-wider text-fg-dim">
-              Avisos
-            </p>
+            <div className="flex items-center justify-between px-3 py-2">
+              <p className="text-[10px] uppercase tracking-wider text-fg-dim">Avisos</p>
+              {avisos.length > 0 && (
+                <button
+                  type="button"
+                  onClick={marcarTudoVisto}
+                  className="text-[10px] text-fg-subtle transition-colors hover:text-gold"
+                >
+                  Marcar tudo como visto
+                </button>
+              )}
+            </div>
 
             {carregando && avisos.length === 0 ? (
               <div className="flex justify-center py-6">

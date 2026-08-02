@@ -6,6 +6,10 @@ import { revalidatePath } from 'next/cache';
 import { notifyCustomer } from '@/lib/notifications';
 import { avisoDeHorarioMarcado, avisoDeHorarioDesmarcado } from '@/lib/avisos';
 import {
+  avisarClienteQueMarcamos,
+  avisarClienteQueDesmarcamos,
+} from '@/lib/avisos-da-agenda';
+import {
   sendWhatsAppMessage,
   confirmationTemplate,
 } from '@/lib/whatsapp';
@@ -164,6 +168,14 @@ async function avisarClienteDoHorario(opts: {
       // O WhatsApp da barbearia fica com uma pessoa de verdade
       whatsapp: false,
     });
+
+    // E toca no celular dele, para nao depender de abrir o aplicativo
+    await avisarClienteQueMarcamos({
+      customerId: opts.customerId,
+      quandoISO: opts.startAt,
+      servico: (service?.name as string) ?? null,
+      profissional: (staff?.display_name as string) ?? null,
+    });
   } catch {
     // Silencio: o agendamento vale mais que o aviso
   }
@@ -299,6 +311,11 @@ async function avisarClienteDoCancelamento(appointmentId: string) {
       body: texto.corpo,
       metadata: { appointment_id: appointmentId },
       whatsapp: false,
+    });
+
+    await avisarClienteQueDesmarcamos({
+      customerId: agendamento.customer_id as string,
+      quandoISO: agendamento.start_at as string,
     });
   } catch {
     // Silencio: o cancelamento ja esta gravado

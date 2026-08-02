@@ -11,6 +11,7 @@ import {
   Calendar,
   Scissors,
   Wallet,
+  Bell,
 } from 'lucide-react';
 import { requireCustomer } from '@/lib/customer-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -20,6 +21,7 @@ import {
 } from '@/lib/subscriptions';
 import { creditosDoCliente } from '@/lib/creditos-db';
 import { portasDoUsuario } from '@/lib/portas-de-entrada';
+import { AvisosNoCelular } from '@/components/avisos-no-celular';
 import {
   saldoDisponivel,
   saldoDoCredito,
@@ -182,6 +184,24 @@ export default async function PerfilPage() {
           </p>
         </section>
       )}
+
+      {/* AVISOS NO CELULAR */}
+      <section className="card space-y-3 p-5">
+        <div>
+          <h2
+            className="flex items-center gap-2 text-base font-semibold text-fg"
+            style={{ fontFamily: 'var(--font-playfair), serif' }}
+          >
+            <Bell className="h-4 w-4 text-gold" />
+            Avisos no celular
+          </h2>
+          <p className="mt-1 text-[11px] text-fg-muted">
+            Horário marcado, confirmação e lembrete chegam no aparelho, mesmo com o app
+            fechado.
+          </p>
+        </div>
+        <AvisosNoCelular />
+      </section>
 
       {/* CRÉDITO NA CASA */}
       {saldoCredito > 0 && (

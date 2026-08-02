@@ -19,7 +19,11 @@ import {
   type StatusAgendamento,
 } from '@/lib/painel/agenda-estados';
 import { notifyCustomer } from '@/lib/notifications';
-import { avisoDeHorarioMarcado } from '@/lib/avisos';
+import { avisoDeHorarioMarcado, avisoDeHorarioDesmarcado } from '@/lib/avisos';
+import {
+  avisarClienteQueMarcamos,
+  avisarClienteQueDesmarcamos,
+} from '@/lib/avisos-da-agenda';
 
 export async function mudarStatusAgendamento(
   appointmentId: string,
@@ -33,7 +37,7 @@ export async function mudarStatusAgendamento(
   // Guarda de dono: o agendamento tem que ser do profissional da sessao
   const { data: agendamento } = await admin
     .from('appointments')
-    .select('id, status, start_at, staff_id')
+    .select('id, status, start_at, staff_id, customer_id')
     .eq('id', appointmentId)
     .eq('staff_id', acesso.staff.staffId)
     .maybeSingle();
@@ -78,6 +82,30 @@ export async function mudarStatusAgendamento(
       ok: false,
       error: 'Este atendimento mudou enquanto você olhava. Atualize a agenda.',
     };
+  }
+
+  // Barbeiro desmarcou: quem fica sem horario e o cliente, e ele nao esta
+  // olhando a tela. Aviso no aplicativo e no celular.
+  if (avaliacao.proximo === 'cancelled' && agendamento.customer_id) {
+    try {
+      const texto = avisoDeHorarioDesmarcado({
+        quandoISO: agendamento.start_at as string,
+      });
+      await notifyCustomer({
+        customerId: agendamento.customer_id as string,
+        type: 'agendamento_cancelado',
+        title: texto.titulo,
+        body: texto.corpo,
+        metadata: { appointment_id: appointmentId },
+        whatsapp: false,
+      });
+      await avisarClienteQueDesmarcamos({
+        customerId: agendamento.customer_id as string,
+        quandoISO: agendamento.start_at as string,
+      });
+    } catch {
+      // O cancelamento ja esta gravado
+    }
   }
 
   revalidatePath('/painel');
@@ -307,6 +335,12 @@ export async function encaixarCliente(dados: {
       body: texto.corpo,
       metadata: { appointment_id: criado.id },
       whatsapp: false,
+    });
+    await avisarClienteQueMarcamos({
+      customerId: dados.customerId,
+      quandoISO: inicio.toISOString(),
+      servico: servico.name as string,
+      profissional: acesso.staff.displayName,
     });
   } catch {
     // Silencio: o encaixe ja esta na agenda

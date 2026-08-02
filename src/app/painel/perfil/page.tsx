@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ShieldCheck, UserRound, ChevronRight } from 'lucide-react';
 import { requireStaff } from '@/lib/staff-auth';
 import { portasDoUsuario } from '@/lib/portas-de-entrada';
+import { AvisosNoCelular } from '@/components/avisos-no-celular';
 import { modulosLiberados, MODULO_INFO } from '@/lib/staff-permissions';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { TrocarSenhaForm } from './_components/trocar-senha-form';
@@ -54,6 +55,21 @@ export default async function PerfilPage() {
       </div>
 
       <TrocarSenhaForm obrigatoria={staff.mustChangePassword} />
+
+      {!staff.mustChangePassword && (
+        <section className="card space-y-3 p-5">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.25em] text-fg-dim">
+              Avisos no celular
+            </p>
+            <p className="mt-1 text-[11px] text-fg-muted">
+              Cliente novo na sua agenda, confirmação e cancelamento chegam no aparelho,
+              mesmo com o app fechado.
+            </p>
+          </div>
+          <AvisosNoCelular />
+        </section>
+      )}
 
       {/* Trocar de lado sem sair da conta. Enquanto a senha for provisoria,
           nao aparece: primeiro ele troca a senha, depois circula. */}

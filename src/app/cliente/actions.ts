@@ -16,6 +16,11 @@ import {
 } from '@/lib/subscriptions';
 import { notifyCustomer } from '@/lib/notifications';
 import { podeConfirmar } from '@/lib/confirmacao-agendamento';
+import {
+  avisarQueClienteMarcou,
+  avisarQueClienteConfirmou,
+  avisarQueClienteDesmarcou,
+} from '@/lib/avisos-da-agenda';
 
 const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -184,6 +189,15 @@ export async function bookAppointment(input: BookInput) {
     metadata: { appointment_id: created.id },
   });
 
+  // Toca no celular do barbeiro e da gestão: cliente novo na agenda é a
+  // informação que só vale se chegar na hora.
+  await avisarQueClienteMarcou({
+    staffId: input.staff_id,
+    nomeCliente: customer.full_name,
+    quandoISO: start.toISOString(),
+    servico: service.name,
+  });
+
   if (sub && outsideDays) {
     await notifyCustomer({
       customerId: customer.id,
@@ -215,7 +229,7 @@ export async function cancelCustomerAppointment(appointmentId: string) {
 
   const { data: appt } = await admin
     .from('appointments')
-    .select('id, start_at, status, customer_id')
+    .select('id, start_at, status, customer_id, staff_id')
     .eq('id', appointmentId)
     .eq('customer_id', customer.id)
     .maybeSingle();
@@ -248,6 +262,16 @@ export async function cancelCustomerAppointment(appointmentId: string) {
     whatsapp: false,
   });
 
+  // O barbeiro precisa saber que abriu um buraco no dia dele, e precisa saber
+  // agora: com uma hora de antecedencia ele ainda consegue chamar outro cliente.
+  if (appt.staff_id) {
+    await avisarQueClienteDesmarcou({
+      staffId: appt.staff_id as string,
+      nomeCliente: customer.full_name,
+      quandoISO: appt.start_at as string,
+    });
+  }
+
   revalidatePath('/cliente');
   revalidatePath('/cliente/agendamentos');
   revalidatePath('/admin/agenda');
@@ -270,7 +294,7 @@ export async function confirmarPresenca(appointmentId: string) {
 
   const { data: agendamento } = await admin
     .from('appointments')
-    .select('id, start_at, status, confirmed_by_customer_at')
+    .select('id, start_at, status, confirmed_by_customer_at, staff_id')
     .eq('id', appointmentId)
     .eq('customer_id', customer.id)
     .maybeSingle();
@@ -305,6 +329,15 @@ export async function confirmarPresenca(appointmentId: string) {
 
   if (error) return { ok: false, error: error.message };
 
+  // Confirmacao so serve se o barbeiro souber: e ela que tira ele do escuro
+  if (agendamento.staff_id) {
+    await avisarQueClienteConfirmou({
+      staffId: agendamento.staff_id as string,
+      nomeCliente: customer.full_name,
+      quandoISO: agendamento.start_at as string,
+    });
+  }
+
   revalidatePath('/cliente');
   revalidatePath('/cliente/agendamentos');
   revalidatePath('/admin/agenda');
@@ -328,6 +361,48 @@ export async function markAllNotificationsRead() {
     .update({ read_at: new Date().toISOString() })
     .eq('customer_id', customer.id)
     .is('read_at', null);
+
+  revalidatePath('/cliente');
+  revalidatePath('/cliente/notificacoes');
+  return { ok: true };
+}
+
+/**
+ * Apaga um aviso da caixa do cliente.
+ *
+ * O `eq('customer_id')` junto do id nao e enfeite: sem ele, quem descobrisse o
+ * identificador de um aviso apagaria o aviso de outra pessoa.
+ */
+export async function apagarNotificacao(id: string) {
+  const customer = await getSessionCustomer();
+  if (!customer) return { ok: false, error: 'Faça login de novo.' };
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('notifications')
+    .delete()
+    .eq('id', id)
+    .eq('customer_id', customer.id);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath('/cliente');
+  revalidatePath('/cliente/notificacoes');
+  return { ok: true };
+}
+
+/** Limpa a caixa inteira. */
+export async function limparNotificacoes() {
+  const customer = await getSessionCustomer();
+  if (!customer) return { ok: false, error: 'Faça login de novo.' };
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('notifications')
+    .delete()
+    .eq('customer_id', customer.id);
+
+  if (error) return { ok: false, error: error.message };
 
   revalidatePath('/cliente');
   revalidatePath('/cliente/notificacoes');
