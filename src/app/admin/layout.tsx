@@ -4,6 +4,7 @@ import { AdminSidebar } from './_components/sidebar';
 import { ChatFloat } from '@/components/chat-float';
 import { AdminTopbar } from './_components/topbar';
 import { portasDoUsuario } from '@/lib/portas-de-entrada';
+import { lojaAtual, lojasDoUsuario } from '@/lib/loja';
 
 export const viewport: Viewport = {
   themeColor: '#D4A04F',
@@ -36,6 +37,14 @@ export default async function AdminLayout({
     (porta) => porta.id !== 'admin'
   );
 
+  // Unidades onde ele trabalha. Com uma só, o menu não mostra nada disso.
+  const daVez = await lojaAtual();
+  const unidades = (await lojasDoUsuario(staff.userId)).map((l) => ({
+    id: l.id,
+    nome: l.nome,
+    atual: l.id === daVez,
+  }));
+
   return (
     <>
     <div className="min-h-screen bg-bg flex">
@@ -44,6 +53,7 @@ export default async function AdminLayout({
       <div className="flex-1 flex flex-col min-w-0">
         <AdminTopbar
           outrosLados={outrosLados}
+          unidades={unidades}
           userEmail={staff.email ?? ''}
           userName={staff.fullName ?? staff.displayName}
         />

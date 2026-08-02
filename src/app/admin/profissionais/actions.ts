@@ -76,12 +76,34 @@ export async function createStaff(data: StaffFormData) {
     }
   }
 
+  // A mesma pessoa pode trabalhar em mais de uma unidade, e nesse caso ela tem
+  // um cadastro em cada, com o mesmo login. O que nao pode e dois cadastros na
+  // MESMA unidade: o banco recusa, e o recado dele nao explica nada para quem
+  // esta na tela.
+  const loja = await lojaAtual();
+  const { data: jaEstaAqui } = await admin
+    .from('staff')
+    .select('id, active, display_name')
+    .eq('profile_id', profileId)
+    .eq('barbershop_id', loja)
+    .maybeSingle();
+
+  if (jaEstaAqui) {
+    return {
+      ok: false,
+      error:
+        jaEstaAqui.active === false
+          ? `${jaEstaAqui.display_name} já teve cadastro nesta unidade. Reative o cadastro dele em vez de criar outro.`
+          : `${jaEstaAqui.display_name} já está cadastrado nesta unidade.`,
+    };
+  }
+
   // 4. Cria staff vinculado, já com o acesso sugerido para o papel.
   // É sugestão: o gestor ajusta no bloco de acesso logo depois.
   const preset = PRESETS_POR_PAPEL[data.role] ?? { canManage: false, modulos: [] };
 
   const { error: staffError } = await admin.from('staff').insert({
-    barbershop_id: (await lojaAtual()),
+    barbershop_id: loja,
     profile_id: profileId,
     display_name: data.display_name,
     role: data.role,

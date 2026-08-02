@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import {
-  HelpCircle, LayoutDashboard, Calendar, Users, Scissors,
+  HelpCircle, LayoutDashboard, Calendar, Users, Scissors, Store,
   Package, CircleDollarSign, Target, Crown, UserCog,
   Settings, Trophy, FileText, Receipt, UserMinus,
   Clock, ClipboardList, Menu, X,
@@ -38,6 +38,7 @@ const menuItems: MenuItem[] = [
   { label: 'Clientes sumidos',icon: UserMinus,       href: '/admin/clientes-sumidos',    section: 'Marketing' },
   // WhatsApp fora do menu enquanto não for usado. A tela continua existindo
   // em /admin/whatsapp, então é só devolver esta linha quando for a hora.
+  { label: 'Unidades',        icon: Store,           href: '/admin/lojas',               section: 'Sistema' },
   { label: 'Configurações',   icon: Settings,        href: '/admin/configuracoes',       section: 'Sistema' },
   { label: 'Central de Ajuda',icon: HelpCircle,      href: '/admin/ajuda',              section: 'Sistema' },
 ];

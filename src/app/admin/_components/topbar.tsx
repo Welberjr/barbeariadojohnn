@@ -22,12 +22,15 @@ import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import { cn, formatCurrency, formatPhone, SHOP_TIME_ZONE } from '@/lib/utils';
 import type { Porta } from '@/lib/portas-de-entrada';
+import { TrocarUnidade, type UnidadeDoMenu } from './trocar-unidade';
 
 interface AdminTopbarProps {
   userEmail: string;
   userName?: string;
   /** Outros lados da casa que este mesmo login abre */
   outrosLados?: Porta[];
+  /** Unidades onde esta pessoa trabalha. Com uma só, nada aparece. */
+  unidades?: UnidadeDoMenu[];
 }
 
 interface SearchResults {
@@ -399,7 +402,12 @@ function NotificationsBell() {
 // TOPBAR
 // ============================================================================
 
-export function AdminTopbar({ userEmail, userName, outrosLados = [] }: AdminTopbarProps) {
+export function AdminTopbar({
+  userEmail,
+  userName,
+  outrosLados = [],
+  unidades = [],
+}: AdminTopbarProps) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -500,6 +508,11 @@ export function AdminTopbar({ userEmail, userName, outrosLados = [] }: AdminTopb
                   <User className="w-4 h-4" />
                   <span>Meu perfil</span>
                 </button>
+
+                <TrocarUnidade
+                  unidades={unidades}
+                  aoTrocar={() => setMenuOpen(false)}
+                />
 
                 {/* Trocar de lado sem sair da conta. So aparece para quem e
                     mais de uma coisa na casa: o dono que tambem corta cabelo,
