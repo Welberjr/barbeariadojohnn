@@ -1,57 +1,74 @@
 # Segunda loja (franquia)
 
-Levantado em 01/08/2026, a pedido do Welber. Não é para fazer agora: fica
-escrito para não se perder quando o Johnn abrir a segunda unidade.
+Levantado em 01/08/2026 e construído em 02/08/2026, a pedido do Welber.
 
-## Onde a gente está
+## Onde a gente está agora
 
-O banco já está pronto para mais de uma loja. Toda tabela que guarda movimento
-carrega `barbershop_id`: conferi 12 delas (clientes, agendamentos, comandas,
-serviços, equipe, produtos, assinaturas, contas, crédito, fidelidade, folgas e
-transações) e nenhuma ficou de fora. Isso foi decidido no começo e é a parte
-difícil de mudar depois.
+**Funciona.** O Johnn abre a segunda unidade em Sistema → Unidades. Testado com
+duas lojas de verdade: os dados não se misturam.
 
-O que falta é o sistema **perguntar de qual loja se trata**. Hoje o identificador
-da Barbearia do Johnn está escrito fixo no código:
+O que foi feito:
 
-```
-const BARBERSHOP_ID = '11111111-1111-1111-1111-111111111111';
-```
+- **A loja vem da sessão**, não do código. O identificador estava escrito fixo em
+  62 lugares, em 59 arquivos. Agora a pergunta é feita em `src/lib/loja.ts`, e a
+  ordem é: escolha da pessoa (cookie, só vale se ela trabalhar lá) → cadastro de
+  equipe → ficha de cliente → única loja ativa, para quem não está logado.
+- **Tela de unidades** (`/admin/lojas`): abrir, fechar, reabrir, ver equipe,
+  clientes e faturamento do mês de cada uma. A unidade nova nasce com o horário,
+  as taxas e as regras da unidade de onde foi criada, e quem abre já entra como
+  gestor dela.
+- **Troca de unidade** pelo menu da conta, sem sair do sistema. Com uma loja só,
+  o bloco não aparece.
+- **Acesso por unidade**: a mesma pessoa tem um cadastro em cada loja, com o
+  mesmo login. A trava do banco passou a ser `(barbershop_id, profile_id)`.
+- **Visão da rede** (`/admin/rede`): soma e compara as unidades. Só aparece no
+  menu para quem administra mais de uma.
 
-São 62 ocorrências, em 59 arquivos. Toda tela, toda ação e todo relatório assume
-que existe uma loja só. Por isso não existe onde criar a segunda: a pergunta
-nunca é feita.
+## Armadilhas que já custaram caro
 
-## O que precisa ser feito
+Ficam escritas porque não são óbvias e voltam a morder:
 
-**1. Tela de lojas no admin.** Cadastrar unidade com nome, endereço, telefone,
-horário e taxas próprias. Hoje `barbershops` tem uma linha só e ninguém pode
-criar a segunda pela interface.
+**A trava de um cadastro por pessoa.** Existia `staff_one_active_per_profile`,
+que permitia um cadastro ativo por pessoa na REDE inteira. Estava certa quando
+havia uma loja e impedia exatamente a franquia. Corrigida em
+`migrations/franquia-uma-pessoa-varias-lojas.sql`.
 
-**2. O identificador sai do código e vem de quem está logado.** Cada pessoa da
-equipe passa a pertencer a uma unidade (ou a mais de uma), e o sistema lê a loja
-da sessão em vez da constante. É a mudança que encosta em quase todo arquivo.
+**Busca de cadastro sem filtro de loja.** `staff-auth` e a portaria buscavam por
+`profile_id` com `maybeSingle`. Com dois cadastros a consulta acha duas linhas, o
+`maybeSingle` devolve erro e a pessoa perde o acesso inteiro. Os dois filtram por
+unidade agora.
 
-**3. Acesso por unidade.** Hoje `staff.can_manage` quer dizer "manda no
-sistema". Precisa virar "manda na loja B". Um gerente da unidade nova não pode
-ver o caixa da unidade antiga, e o dono precisa ver as duas.
+**Consulta que lê a rede inteira.** Com uma loja ninguém percebe. A lista de
+Profissionais mostrava a equipe das duas unidades; a de barbeiros e serviços na
+agenda, nas comandas, na ficha do cliente e no agendamento também. Para achar,
+use a varredura: procurar `.from('tabela_de_loja')` sem `barbershop_id` na mesma
+consulta. `insert` é falso positivo, porque o payload leva a loja.
 
-**4. Painel do dono.** Uma tela que soma as unidades e deixa comparar: faturamento,
-ticket, ocupação de agenda, equipe. Sem ela, ter duas lojas vira abrir dois
-sistemas.
+**Contagem que precisa ser por unidade.** A guarda de "último gestor" contava a
+rede inteira: deixaria desligar o único gestor da loja B porque a loja A tem
+outro, e a loja B ficaria trancada.
 
-## Cuidados que já conhecemos
+## O que ainda falta
 
-- A sincronização do EcoBarber (`scripts/migrar-ecobarber.mjs`) também escreve o
-  identificador fixo. Ela precisa saber para qual unidade está importando.
-- O crédito do cliente, a assinatura e a fidelidade valem em qual unidade? É
-  decisão do dono, não do código, e precisa ser perguntada antes de programar.
-- Os testes de acesso (`scripts/auditar-acesso.mjs`) hoje conferem se cliente
-  enxerga dado de cliente. Vão precisar conferir também se loja enxerga dado de
-  loja.
+**A sincronização do EcoBarber** (`scripts/migrar-ecobarber.mjs`) escreve na loja
+principal. Quando houver duas, ela precisa saber para qual unidade importa.
 
-## Tamanho
+**A tarefa da madrugada e o webhook do pagamento** usam `lojaPadrao()`, que com
+uma unidade ativa é a resposta certa. Com duas, cada um precisa dizer de qual
+loja está falando. Estão marcados no código.
 
-Trabalho de dias, não de horas. Não atrasa nada do que está no ar hoje, e quando
-for feito não exige refazer o banco: é acrescentar a pergunta, não reconstruir a
-fundação.
+**A auditoria de acesso** (`scripts/auditar-acesso.mjs`) confere se cliente
+enxerga dado de cliente. Precisa conferir também se loja enxerga dado de loja.
+
+**O site público e o link de agendamento** apontam para a loja padrão. Com duas
+unidades, o cliente precisa escolher em qual quer marcar, provavelmente por slug
+na URL (`barbershops.slug` já existe).
+
+## Uma decisão que é do cliente, não do código
+
+Crédito da casa, assinatura e fidelidade valem em qual unidade? O cliente que
+assina na loja A pode usar na loja B? O ponto acumulado numa vale na outra?
+
+Hoje cada um desses vive numa loja só, porque é o que o banco já dizia. Se o
+Johnn quiser que valham na rede inteira, é mudança de regra de negócio e precisa
+ser perguntada antes de programar, não decidida por quem escreve o código.

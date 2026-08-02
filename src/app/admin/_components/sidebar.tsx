@@ -7,7 +7,7 @@ import {
   HelpCircle, LayoutDashboard, Calendar, Users, Scissors, Store,
   Package, CircleDollarSign, Target, Crown, UserCog,
   Settings, Trophy, FileText, Receipt, UserMinus,
-  Clock, ClipboardList, Menu, X,
+  Clock, ClipboardList, Menu, X, Network,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/brand/logo';
@@ -43,16 +43,40 @@ const menuItems: MenuItem[] = [
   { label: 'Central de Ajuda',icon: HelpCircle,      href: '/admin/ajuda',              section: 'Sistema' },
 ];
 
-const groupedMenu = menuItems.reduce<Record<string, MenuItem[]>>((acc, item) => {
-  const section = item.section || 'Outros';
-  if (!acc[section]) acc[section] = [];
-  acc[section].push(item);
-  return acc;
-}, {});
+/**
+ * O menu depende de quantas unidades a pessoa administra.
+ *
+ * "Visão da rede" só existe para quem tem mais de uma: com uma loja só, ela
+ * seria uma cópia pior do painel de sempre, e menu com item inútil ensina a
+ * pessoa a não ler o menu.
+ */
+function montarMenu(temRede: boolean): Record<string, MenuItem[]> {
+  const itens = temRede
+    ? [
+        ...menuItems.slice(0, 1),
+        { label: 'Visão da rede', icon: Network, href: '/admin/rede', section: 'Gestão' },
+        ...menuItems.slice(1),
+      ]
+    : menuItems;
+
+  return itens.reduce<Record<string, MenuItem[]>>((acc, item) => {
+    const section = item.section || 'Outros';
+    if (!acc[section]) acc[section] = [];
+    acc[section].push(item);
+    return acc;
+  }, {});
+}
 
 // ── Conteúdo interno (reutilizado no desktop e mobile) ───────────────────────
-function SidebarContent({ onClose }: { onClose?: () => void }) {
+function SidebarContent({
+  onClose,
+  temRede,
+}: {
+  onClose?: () => void;
+  temRede: boolean;
+}) {
   const pathname = usePathname();
+  const groupedMenu = montarMenu(temRede);
 
   return (
     <div className="flex flex-col h-full">
@@ -119,7 +143,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
 }
 
 // ── Export principal ─────────────────────────────────────────────────────────
-export function AdminSidebar() {
+export function AdminSidebar({ temRede = false }: { temRede?: boolean }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
 
@@ -150,7 +174,7 @@ export function AdminSidebar() {
         style={{ background: 'linear-gradient(180deg, #121212 0%, #0A0A0A 100%)', borderRight: '1px solid rgba(255,255,255,0.08)' }}
       >
         <div className="absolute top-0 right-0 bottom-0 w-px bg-gradient-to-b from-transparent via-gold/20 to-transparent" />
-        <SidebarContent />
+        <SidebarContent temRede={temRede} />
       </aside>
 
       {/* ── DRAWER MOBILE (< md) ──────────────────────────────────────── */}
@@ -170,7 +194,7 @@ export function AdminSidebar() {
               animation: 'slideInRight 0.22s ease-out',
             }}
           >
-            <SidebarContent onClose={() => setMobileOpen(false)} />
+            <SidebarContent temRede={temRede} onClose={() => setMobileOpen(false)} />
           </aside>
         </div>
       )}

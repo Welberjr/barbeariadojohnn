@@ -48,7 +48,7 @@ export default async function AdminLayout({
   return (
     <>
     <div className="min-h-screen bg-bg flex">
-      <AdminSidebar />
+      <AdminSidebar temRede={unidades.length > 1} />
 
       <div className="flex-1 flex flex-col min-w-0">
         <AdminTopbar
