@@ -4,6 +4,7 @@ import { createManagerClient } from '@/lib/supabase/manager';
 import { revalidatePath } from 'next/cache';
 
 import { lojaAtual } from '@/lib/loja';
+import { requireScopedMutation } from '@/lib/tenant-ownership';
 export interface BillFormData {
   description: string;
   amount: number;
@@ -47,10 +48,14 @@ export async function createBill(data: BillFormData) {
   return { ok: true };
 }
 
-export async function updateBill(billId: string, data: BillFormData) {
+export async function updateBill(
+  billId: string,
+  data: BillFormData
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
-  const { error } = await admin
+  const { data: updated, error } = await admin
     .from('bills')
     .update({
       description: data.description,
@@ -64,9 +69,12 @@ export async function updateBill(billId: string, data: BillFormData) {
       recurrence_day: data.is_recurring ? data.recurrence_day ?? null : null,
       status: data.status ?? 'pending',
     })
-    .eq('id', billId);
+    .eq('id', billId)
+    .eq('barbershop_id', barbershopId)
+    .select('id');
 
-  if (error) return { ok: false, error: error.message };
+  const result = requireScopedMutation(updated, error, 'Conta');
+  if (!result.ok) return result;
 
   revalidatePath('/admin/contas-pagar');
   revalidatePath(`/admin/contas-pagar/${billId}`);
@@ -74,11 +82,20 @@ export async function updateBill(billId: string, data: BillFormData) {
   return { ok: true };
 }
 
-export async function deleteBill(billId: string) {
+export async function deleteBill(
+  billId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
-  const { error } = await admin.from('bills').delete().eq('id', billId);
-  if (error) return { ok: false, error: error.message };
+  const { data: deleted, error } = await admin
+    .from('bills')
+    .delete()
+    .eq('id', billId)
+    .eq('barbershop_id', barbershopId)
+    .select('id');
+  const result = requireScopedMutation(deleted, error, 'Conta');
+  if (!result.ok) return result;
 
   revalidatePath('/admin/contas-pagar');
   revalidatePath('/admin/dre');
@@ -92,21 +109,26 @@ export async function markBillAsPaid(
   billId: string,
   paymentMethod: string,
   paidAmount?: number
-) {
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   // Buscar amount original se paidAmount não foi informado
   let finalPaidAmount = paidAmount;
+  const { data: bill } = await admin
+    .from('bills')
+    .select('amount')
+    .eq('id', billId)
+    .eq('barbershop_id', barbershopId)
+    .maybeSingle();
+
+  if (!bill) return { ok: false, error: 'Conta não pertence a esta unidade.' };
+
   if (finalPaidAmount === undefined || finalPaidAmount === null) {
-    const { data: bill } = await admin
-      .from('bills')
-      .select('amount')
-      .eq('id', billId)
-      .maybeSingle();
     finalPaidAmount = Number(bill?.amount ?? 0);
   }
 
-  const { error } = await admin
+  const { data: updated, error } = await admin
     .from('bills')
     .update({
       status: 'paid',
@@ -114,9 +136,12 @@ export async function markBillAsPaid(
       paid_amount: finalPaidAmount,
       payment_method: paymentMethod,
     })
-    .eq('id', billId);
+    .eq('id', billId)
+    .eq('barbershop_id', barbershopId)
+    .select('id');
 
-  if (error) return { ok: false, error: error.message };
+  const result = requireScopedMutation(updated, error, 'Conta');
+  if (!result.ok) return result;
 
   revalidatePath('/admin/contas-pagar');
   revalidatePath('/admin/dre');
@@ -126,10 +151,13 @@ export async function markBillAsPaid(
 /**
  * Reabre uma conta paga (volta para pending).
  */
-export async function reopenBill(billId: string) {
+export async function reopenBill(
+  billId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
-  const { error } = await admin
+  const { data: updated, error } = await admin
     .from('bills')
     .update({
       status: 'pending',
@@ -137,9 +165,12 @@ export async function reopenBill(billId: string) {
       paid_amount: null,
       payment_method: null,
     })
-    .eq('id', billId);
+    .eq('id', billId)
+    .eq('barbershop_id', barbershopId)
+    .select('id');
 
-  if (error) return { ok: false, error: error.message };
+  const result = requireScopedMutation(updated, error, 'Conta');
+  if (!result.ok) return result;
 
   revalidatePath('/admin/contas-pagar');
   revalidatePath('/admin/dre');
@@ -151,14 +182,20 @@ export async function reopenBill(billId: string) {
  */
 export async function generateNextRecurrence(billId: string) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   const { data: bill } = await admin
     .from('bills')
     .select('*')
     .eq('id', billId)
+    .eq('barbershop_id', barbershopId)
     .maybeSingle();
 
-  if (!bill || !bill.is_recurring) {
+  if (!bill) {
+    return { ok: false, error: 'Conta não pertence a esta unidade.' };
+  }
+
+  if (!bill.is_recurring) {
     return { ok: false, error: 'Conta não é recorrente' };
   }
 
@@ -178,7 +215,7 @@ export async function generateNextRecurrence(billId: string) {
   const { data: existing } = await admin
     .from('bills')
     .select('id')
-    .eq('barbershop_id', (await lojaAtual()))
+    .eq('barbershop_id', barbershopId)
     .eq('description', bill.description)
     .eq('due_date', nextDueDate)
     .maybeSingle();
@@ -188,7 +225,7 @@ export async function generateNextRecurrence(billId: string) {
   }
 
   const { error } = await admin.from('bills').insert({
-    barbershop_id: (await lojaAtual()),
+    barbershop_id: barbershopId,
     description: bill.description,
     amount: bill.amount,
     due_date: nextDueDate,
