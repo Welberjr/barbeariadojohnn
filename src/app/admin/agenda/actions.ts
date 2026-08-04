@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { notifyCustomer } from '@/lib/notifications';
 import { avisoDeHorarioMarcado, avisoDeHorarioDesmarcado } from '@/lib/avisos';
 import { lojaAtual } from '@/lib/loja';
+import { requireScopedMutation } from '@/lib/tenant-ownership';
 import {
   avisarClienteQueMarcamos,
   avisarClienteQueDesmarcamos,
@@ -337,13 +338,15 @@ export async function updateAppointment(id: string, data: any) {
   // Remove service_id do payload se vier (deve ser tratado via appointment_services)
   const { service_id: _ignoredServiceId, ...rest } = data;
 
-  const { error } = await admin
+  const { data: updated, error } = await admin
     .from('appointments')
     .update(rest)
     .eq('id', id)
-    .eq('barbershop_id', barbershopId);
+    .eq('barbershop_id', barbershopId)
+    .select('id');
 
-  if (error) return { ok: false, error: error.message };
+  const result = requireScopedMutation(updated, error, 'Agendamento');
+  if (!result.ok) return result;
 
   revalidatePath('/admin/agenda');
   return { ok: true };
