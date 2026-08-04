@@ -45,3 +45,6 @@ dev-server.log
 
 # Backups do banco (dados de cliente, nunca vao para o repositorio)
 backups/
+
+# Worktrees locais usados para desenvolvimento isolado
+.worktrees/
