@@ -15,11 +15,13 @@ interface EditServicePageProps {
 export default async function EditServicePage({ params }: EditServicePageProps) {
   const { id } = await params;
   const supabase = createAdminClient();
+  const barbershopId = await lojaAtual();
 
   const { data: service } = await supabase
     .from('services')
     .select('*')
     .eq('id', id)
+    .eq('barbershop_id', barbershopId)
     .maybeSingle();
 
   if (!service) {
@@ -49,7 +51,7 @@ export default async function EditServicePage({ params }: EditServicePageProps) 
   const { data: allStaff } = await supabase
     .from('staff')
     .select('id, display_name, role')
-    .eq('barbershop_id', await lojaAtual())
+    .eq('barbershop_id', barbershopId)
     .eq('active', true)
     .in('role', ['barber', 'owner', 'manager'])
     .eq('atende_clientes', true)

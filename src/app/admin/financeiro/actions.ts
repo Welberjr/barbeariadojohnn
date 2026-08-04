@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { getSessionStaff } from '@/lib/staff-auth';
 
 import { lojaAtual } from '@/lib/loja';
+import { requireScopedMutation } from '@/lib/tenant-ownership';
 // ============================================================
 // RECEITAS / DESPESAS MANUAIS
 // ============================================================
@@ -30,7 +31,7 @@ export async function addIncome(data: {
   });
   if (error) return { ok: false, error: error.message };
   revalidatePath('/admin/financeiro');
-  return { ok: true };
+  return { ok: true as const };
 }
 
 export async function addExpense(data: {
@@ -52,7 +53,7 @@ export async function addExpense(data: {
   });
   if (error) return { ok: false, error: error.message };
   revalidatePath('/admin/financeiro');
-  return { ok: true };
+  return { ok: true as const };
 }
 
 // ============================================================
@@ -76,51 +77,66 @@ export async function createAllowance(data: {
   });
   if (error) return { ok: false, error: error.message };
   revalidatePath('/admin/financeiro');
-  return { ok: true };
+  return { ok: true as const };
 }
 
 export async function approveAllowance(id: string) {
   const supabase = await createManagerClient();
   const gestor = await getSessionStaff();
+  const barbershopId = await lojaAtual();
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('allowances')
     .update({
       status: 'approved',
       reviewed_at: new Date().toISOString(),
       reviewed_by: gestor?.profileId ?? null,
     })
-    .eq('id', id);
-  if (error) return { ok: false, error: error.message };
+    .eq('id', id)
+    .eq('barbershop_id', barbershopId)
+    .select('id');
+  const mutation = requireScopedMutation(data, error, 'Vale');
+  if (!mutation.ok) return mutation;
   revalidatePath('/admin/financeiro');
   revalidatePath('/painel/vales');
-  return { ok: true };
+  return { ok: true as const };
 }
 
 export async function rejectAllowance(id: string) {
   const supabase = await createManagerClient();
   const gestor = await getSessionStaff();
+  const barbershopId = await lojaAtual();
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('allowances')
     .update({
       status: 'rejected',
       reviewed_at: new Date().toISOString(),
       reviewed_by: gestor?.profileId ?? null,
     })
-    .eq('id', id);
-  if (error) return { ok: false, error: error.message };
+    .eq('id', id)
+    .eq('barbershop_id', barbershopId)
+    .select('id');
+  const mutation = requireScopedMutation(data, error, 'Vale');
+  if (!mutation.ok) return mutation;
   revalidatePath('/admin/financeiro');
   revalidatePath('/painel/vales');
-  return { ok: true };
+  return { ok: true as const };
 }
 
 export async function deleteAllowance(id: string) {
   const supabase = await createManagerClient();
-  const { error } = await supabase.from('allowances').delete().eq('id', id);
-  if (error) return { ok: false, error: error.message };
+  const barbershopId = await lojaAtual();
+  const { data, error } = await supabase
+    .from('allowances')
+    .delete()
+    .eq('id', id)
+    .eq('barbershop_id', barbershopId)
+    .select('id');
+  const mutation = requireScopedMutation(data, error, 'Vale');
+  if (!mutation.ok) return mutation;
   revalidatePath('/admin/financeiro');
-  return { ok: true };
+  return { ok: true as const };
 }
 
 // ============================================================

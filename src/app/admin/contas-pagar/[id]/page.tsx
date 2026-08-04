@@ -14,11 +14,13 @@ interface EditBillPageProps {
 export default async function EditBillPage({ params }: EditBillPageProps) {
   const { id } = await params;
   const supabase = createAdminClient();
+  const barbershopId = await lojaAtual();
 
   const { data: bill } = await supabase
     .from('bills')
     .select('*')
     .eq('id', id)
+    .eq('barbershop_id', barbershopId)
     .maybeSingle();
 
   if (!bill) notFound();
@@ -26,7 +28,7 @@ export default async function EditBillPage({ params }: EditBillPageProps) {
   const { data: categories } = await supabase
     .from('expense_categories')
     .select('id, name')
-    .eq('barbershop_id', (await lojaAtual()))
+    .eq('barbershop_id', barbershopId)
     .eq('active', true)
     .order('display_order')
     .order('name');

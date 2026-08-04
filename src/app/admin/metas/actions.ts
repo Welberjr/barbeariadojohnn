@@ -4,6 +4,7 @@ import { createManagerClient } from '@/lib/supabase/manager';
 import { revalidatePath } from 'next/cache';
 
 import { lojaAtual } from '@/lib/loja';
+import { requireScopedMutation } from '@/lib/tenant-ownership';
 export interface GoalFormData {
   staff_id?: string | null;
   period_type: 'monthly' | 'weekly';
@@ -17,11 +18,12 @@ export interface GoalFormData {
 
 export async function upsertGoal(data: GoalFormData) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   // Cria payload sem campos não usados pelo period_type
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const payload: any = {
-    barbershop_id: (await lojaAtual()),
+    barbershop_id: barbershopId,
     staff_id: data.staff_id || null,
     period_type: data.period_type,
     year: data.year,
@@ -41,7 +43,7 @@ export async function upsertGoal(data: GoalFormData) {
   let query: any = admin
     .from('goals')
     .select('id')
-    .eq('barbershop_id', (await lojaAtual()))
+    .eq('barbershop_id', barbershopId)
     .eq('period_type', data.period_type)
     .eq('year', data.year);
 
@@ -55,28 +57,37 @@ export async function upsertGoal(data: GoalFormData) {
   const { data: existing } = await query.maybeSingle();
 
   if (existing?.id) {
-    const { error } = await admin
+    const { data: updated, error } = await admin
       .from('goals')
       .update({
         revenue_target: data.revenue_target,
         appointments_target: data.appointments_target ?? null,
         avg_ticket_target: data.avg_ticket_target ?? null,
       })
-      .eq('id', existing.id);
-    if (error) return { ok: false, error: error.message };
+      .eq('id', existing.id)
+      .eq('barbershop_id', barbershopId)
+      .select('id');
+    const mutation = requireScopedMutation(updated, error, 'Meta');
+    if (!mutation.ok) return mutation;
   } else {
     const { error } = await admin.from('goals').insert(payload);
     if (error) return { ok: false, error: error.message };
   }
 
   revalidatePath('/admin/metas');
-  return { ok: true };
+  return { ok: true as const };
 }
 
 export async function deleteGoal(goalId: string) {
   const admin = await createManagerClient();
-  const { error } = await admin.from('goals').delete().eq('id', goalId);
-  if (error) return { ok: false, error: error.message };
+  const { data, error } = await admin
+    .from('goals')
+    .delete()
+    .eq('id', goalId)
+    .eq('barbershop_id', await lojaAtual())
+    .select('id');
+  const mutation = requireScopedMutation(data, error, 'Meta');
+  if (!mutation.ok) return mutation;
   revalidatePath('/admin/metas');
-  return { ok: true };
+  return { ok: true as const };
 }

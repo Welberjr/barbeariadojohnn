@@ -4,6 +4,7 @@ import { createManagerClient } from '@/lib/supabase/manager';
 import { revalidatePath } from 'next/cache';
 
 import { lojaAtual } from '@/lib/loja';
+import { requireScopedMutation } from '@/lib/tenant-ownership';
 // =============================================================================
 // CONFIG DE FIDELIDADE
 // =============================================================================
@@ -26,7 +27,7 @@ export async function updateLoyaltyConfig(data: {
 
   revalidatePath('/admin/fidelidade');
   revalidatePath('/admin/configuracoes');
-  return { ok: true };
+  return { ok: true as const };
 }
 
 // =============================================================================
@@ -70,13 +71,14 @@ export async function createReward(data: RewardFormData) {
   if (error) return { ok: false, error: error.message };
 
   revalidatePath('/admin/fidelidade');
-  return { ok: true };
+  return { ok: true as const };
 }
 
 export async function updateReward(rewardId: string, data: RewardFormData) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
-  const { error } = await admin
+  const { data: updated, error } = await admin
     .from('loyalty_rewards')
     .update({
       name: data.name,
@@ -89,27 +91,34 @@ export async function updateReward(rewardId: string, data: RewardFormData) {
       active: data.active ?? true,
       display_order: data.display_order ?? 0,
     })
-    .eq('id', rewardId);
+    .eq('id', rewardId)
+    .eq('barbershop_id', barbershopId)
+    .select('id');
 
-  if (error) return { ok: false, error: error.message };
+  const mutation = requireScopedMutation(updated, error, 'Prêmio');
+  if (!mutation.ok) return mutation;
 
   revalidatePath('/admin/fidelidade');
-  return { ok: true };
+  return { ok: true as const };
 }
 
 export async function deleteReward(rewardId: string) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   // Soft delete: desativa
-  const { error } = await admin
+  const { data, error } = await admin
     .from('loyalty_rewards')
     .update({ active: false })
-    .eq('id', rewardId);
+    .eq('id', rewardId)
+    .eq('barbershop_id', barbershopId)
+    .select('id');
 
-  if (error) return { ok: false, error: error.message };
+  const mutation = requireScopedMutation(data, error, 'Prêmio');
+  if (!mutation.ok) return mutation;
 
   revalidatePath('/admin/fidelidade');
-  return { ok: true };
+  return { ok: true as const };
 }
 
 // =============================================================================
