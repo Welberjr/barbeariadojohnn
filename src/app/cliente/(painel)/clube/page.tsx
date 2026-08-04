@@ -1,4 +1,4 @@
-﻿import { Crown, CheckCircle2, Scissors, Star, ChevronLeft, Zap } from 'lucide-react';
+import { Crown, CheckCircle2, Scissors, ChevronLeft, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { requireCustomer } from '@/lib/customer-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -117,18 +117,6 @@ export default async function ClubeVipPage() {
         </Link>
       </div>
 
-      {/* Depoimento ficticio / social proof */}
-      <div className="card p-4 border-border/40">
-        <div className="flex items-center gap-1 mb-2">
-          {[...Array(5)].map((_, i) => (
-            <Star key={i} className="w-3 h-3 text-gold fill-current" />
-          ))}
-        </div>
-        <p className="text-sm text-fg-muted italic leading-relaxed">
-          &quot;Assino o clube há 4 meses. Economizo no corte e sei que tenho horário garantido toda semana.&quot;
-        </p>
-        <p className="text-[11px] text-fg-dim mt-1.5">— Cliente desde 2024</p>
-      </div>
     </div>
   );
 }

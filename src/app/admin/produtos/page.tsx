@@ -137,7 +137,7 @@ export default async function ProdutosPage({ searchParams }: ProdutosPageProps) 
 
       {/* PERIODO */}
       <div className="flex items-center gap-2">
-        <p className="text-xs text-fg-muted uppercase tracking-wider">Periodo:</p>
+        <p className="text-xs text-fg-muted uppercase tracking-wider">Período:</p>
         <PeriodSelector value={monthStr} year={year} month={month} />
       </div>
 

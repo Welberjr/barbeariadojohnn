@@ -3,7 +3,7 @@ import { getUnreadCount } from '@/lib/notifications';
 import { precisaTrocarSenha } from '@/app/cliente/login/actions';
 import { TrocarSenhaPrimeiroAcesso } from './_components/trocar-senha-primeiro-acesso';
 import { ClientTopbar, ClientBottomNav } from './_components/client-nav';
-import { ChatFloat } from '@/components/chat-float';
+import { ChatFloatLazy } from '@/components/chat-float-lazy';
 
 import type { Viewport } from 'next';
 import { marcaAtual } from '@/lib/marca';
@@ -64,7 +64,7 @@ export default async function ClientePainelLayout({
       )}
 
       <ClientBottomNav />
-      <ChatFloat
+      <ChatFloatLazy
         endpoint="/api/chat/cliente"
         title="Lara"
         avatarSrc="/lara.webp"

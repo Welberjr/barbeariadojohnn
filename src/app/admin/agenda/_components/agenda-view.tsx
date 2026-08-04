@@ -348,7 +348,7 @@ export function AgendaView({
           <p className="text-2xl font-bold text-success" style={{ fontFamily: "var(--font-playfair), serif" }}>{stats.confirmed}</p>
         </div>
         <div className="card p-3 text-center">
-          <p className="text-[9px] uppercase tracking-wider text-fg-dim mb-1">Concluidos</p>
+          <p className="text-[9px] uppercase tracking-wider text-fg-dim mb-1">Concluídos</p>
           <p className="text-2xl font-bold text-gold" style={{ fontFamily: "var(--font-playfair), serif" }}>{stats.completed}</p>
         </div>
       </div>

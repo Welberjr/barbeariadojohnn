@@ -70,7 +70,7 @@ export function QuickSellButton({ products }: { products: Product[] }) {
             </div>
 
             {sellable.length === 0 ? (
-              <p className="text-sm text-fg-subtle">Nenhum produto disponivel para venda.</p>
+              <p className="text-sm text-fg-subtle">Nenhum produto disponível para venda.</p>
             ) : (
               <>
                 <div>
