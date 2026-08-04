@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { requireStaff } from '@/lib/staff-auth';
 import { modulosLiberados } from '@/lib/staff-permissions';
 import { PainelTopbar, PainelBottomNav } from './_components/painel-nav';
+import { marcaAtual } from '@/lib/marca';
 
 export const viewport: Viewport = {
   themeColor: '#D4A04F',
@@ -10,18 +11,21 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
-export const metadata: Metadata = {
-  title: {
-    default: 'Meu Painel | Barbearia do Johnn',
-    template: '%s | Meu Painel',
-  },
-  manifest: '/manifest-painel.json',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'black-translucent',
-    title: 'Meu Painel',
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const marca = await marcaAtual();
+  return {
+    title: {
+      default: `Meu Painel | ${marca.nome}`,
+      template: '%s | Meu Painel',
+    },
+    manifest: '/manifest-painel.json',
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: 'black-translucent',
+      title: 'Meu Painel',
+    },
+  };
+}
 
 export default async function PainelLayout({
   children,

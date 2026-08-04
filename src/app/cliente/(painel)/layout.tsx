@@ -6,6 +6,7 @@ import { ClientTopbar, ClientBottomNav } from './_components/client-nav';
 import { ChatFloat } from '@/components/chat-float';
 
 import type { Viewport } from 'next';
+import { marcaAtual } from '@/lib/marca';
 
 export const viewport: Viewport = {
   themeColor: '#D4A04F',
@@ -13,12 +14,15 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
 };
-export const metadata = {
-  title: {
-    default: 'Área do Cliente | Barbearia do Johnn',
-    template: '%s | Barbearia do Johnn',
-  },
-};
+export async function generateMetadata() {
+  const marca = await marcaAtual();
+  return {
+    title: {
+      default: `Área do Cliente | ${marca.nome}`,
+      template: `%s | ${marca.nome}`,
+    },
+  };
+}
 
 export default async function ClientePainelLayout({
   children,
@@ -26,6 +30,7 @@ export default async function ClientePainelLayout({
   children: React.ReactNode;
 }) {
   const { customer } = await requireCustomer();
+  const marca = await marcaAtual();
   const [unreadCount, senhaAindaEDaBarbearia] = await Promise.all([
     getUnreadCount(customer.id),
     precisaTrocarSenha(),
@@ -63,7 +68,7 @@ export default async function ClientePainelLayout({
         endpoint="/api/chat/cliente"
         title="Lara"
         avatarSrc="/lara.webp"
-        welcomeMessage="Olá! Sou o assistente da Barbearia do Johnn. Posso agendar, verificar horários, mostrar serviços e muito mais. Como posso te ajudar? 😊"
+        welcomeMessage={`Olá! Sou o assistente da ${marca.nome}. Posso agendar, verificar horários, mostrar serviços e muito mais. Como posso te ajudar? 😊`}
         placeholder="Ex: Quero agendar um corte para amanhã..."
       />
     </div>

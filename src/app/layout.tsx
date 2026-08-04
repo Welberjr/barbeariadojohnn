@@ -1,5 +1,6 @@
 import { ConfirmProvider } from '@/components/confirm-dialog';
 import type { Metadata } from 'next';
+import { marcaPadrao } from '@/lib/marca';
 import { Inter, Playfair_Display, JetBrains_Mono } from 'next/font/google';
 import { Toaster } from 'sonner';
 import './globals.css';
@@ -23,22 +24,36 @@ const jetbrains = JetBrains_Mono({
   display: 'swap',
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: 'Barbearia do Johnn',
-    template: '%s | Barbearia do Johnn',
-  },
-  description: 'Cabelo, barba e visagismo com padrão premium em Brasília.',
-  icons: {
-    icon: '/favicon.ico',
-  },
-  openGraph: {
-    title: 'Barbearia do Johnn',
-    description: 'Cabelo, barba e visagismo com padrão premium em Brasília.',
-    type: 'website',
-    locale: 'pt_BR',
-  },
-};
+/**
+ * O nome na aba do navegador vem do cadastro da barbearia.
+ *
+ * Estava escrito aqui, o que obrigava a mexer no codigo para vender o sistema
+ * para outra barbearia. Agora o mesmo programa serve qualquer uma: quem troca o
+ * nome e o dono, na tela de configuracoes.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const marca = await marcaPadrao();
+  const descricao = marca.cidade
+    ? `Cabelo, barba e visagismo em ${marca.cidade}.`
+    : 'Cabelo, barba e visagismo.';
+
+  return {
+    title: {
+      default: marca.nome,
+      template: `%s | ${marca.nome}`,
+    },
+    description: descricao,
+    icons: {
+      icon: '/favicon.ico',
+    },
+    openGraph: {
+      title: marca.nome,
+      description: descricao,
+      type: 'website',
+      locale: 'pt_BR',
+    },
+  };
+}
 
 export default function RootLayout({
   children,

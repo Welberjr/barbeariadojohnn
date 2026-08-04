@@ -1,9 +1,14 @@
 import { cn } from '@/lib/utils';
+import { nomeEmDuasLinhas } from '@/lib/marca-nome';
 
 interface LogoProps {
   className?: string;
   variant?: 'full' | 'compact' | 'icon' | 'mono';
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl';
+  /** Nome da barbearia. Vem do cadastro dela, não do código. */
+  nome?: string;
+  /** Logo própria do cliente. Existindo, ela manda no lugar do emblema. */
+  logoUrl?: string | null;
 }
 
 const sizeMap = {
@@ -16,22 +21,51 @@ const sizeMap = {
 };
 
 /**
- * Logo da Barbearia do Johnn — SVG nativo.
+ * A marca da barbearia na tela.
  *
- * Elementos da logo original do cliente:
- * - BIGODE em dourado (gold mustache) no topo
- * - "BARBEARIA D[o]" em serifa (Playfair) branca
- * - "JOHNN" em destaque (italic, gigante, branco)
- * - TESOURA dourada decorativa na lateral
+ * O EMBLEMA (bigode e tesoura, em dourado) é desenhado aqui e continua sendo o
+ * padrão do sistema: ele é de barbearia, não de um cliente. O NOME vem do
+ * cadastro da loja, então o mesmo sistema serve qualquer barbearia sem trocar
+ * uma linha de código.
+ *
+ * Quem sobe a própria logo passa a ver a dela no lugar do emblema.
  *
  * Variantes:
  * - full: completa (default) — login, hero, autenticação
- * - compact: bigode + texto horizontal — sidebars largas, headers
- * - icon: só o bigode + tesoura, sem texto — favicons, sidebars colapsadas
+ * - compact: emblema + texto horizontal — sidebars largas, headers
+ * - icon: só o emblema, sem texto — favicons, sidebars colapsadas
  * - mono: tudo em uma cor (currentColor) — uso especial em badges/print
  */
-export function Logo({ className, variant = 'full', size = 'md' }: LogoProps) {
+export function Logo({
+  className,
+  variant = 'full',
+  size = 'md',
+  nome = 'Barbearia',
+  logoUrl = null,
+}: LogoProps) {
   const heightClass = sizeMap[size];
+  const { cima, baixo } = nomeEmDuasLinhas(nome);
+
+  /**
+   * O nome grande precisa caber nos 400 do desenho.
+   *
+   * "JOHNN" tem cinco letras e nasceu com 118. Um nome mais longo, no mesmo
+   * tamanho, sairia pela borda do SVG e apareceria cortado. A conta encolhe a
+   * letra só quando precisa, então a marca de quem já tinha continua idêntica.
+   */
+  const tamanhoDoNome = Math.min(118, Math.round(590 / Math.max(1, baixo.length)));
+
+  // Logo própria do cliente manda em qualquer variante
+  if (logoUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={logoUrl}
+        alt={nome}
+        className={cn(heightClass, 'w-auto object-contain', className)}
+      />
+    );
+  }
 
   // ============ ICON ONLY (bigode + tesoura) ============
   if (variant === 'icon') {
@@ -40,7 +74,7 @@ export function Logo({ className, variant = 'full', size = 'md' }: LogoProps) {
         viewBox="0 0 100 100"
         xmlns="http://www.w3.org/2000/svg"
         className={cn(heightClass, 'w-auto', className)}
-        aria-label="Barbearia do Johnn"
+        aria-label={nome}
       >
         {/* Bigode dourado estilizado */}
         <g transform="translate(50, 40)">
@@ -120,27 +154,29 @@ export function Logo({ className, variant = 'full', size = 'md' }: LogoProps) {
           </g>
         </svg>
         <div className="flex flex-col leading-none">
+          {cima && (
+            <span
+              className={cn(
+                'text-fg-muted font-medium tracking-widest uppercase',
+                size === 'sm' && 'text-[8px]',
+                size === 'md' && 'text-[10px]',
+                size === 'lg' && 'text-xs'
+              )}
+              style={{ fontFamily: 'var(--font-playfair), serif' }}
+            >
+              {cima}
+            </span>
+          )}
           <span
             className={cn(
-              'text-fg-muted font-medium tracking-widest uppercase',
-              size === 'sm' && 'text-[8px]',
-              size === 'md' && 'text-[10px]',
-              size === 'lg' && 'text-xs'
-            )}
-            style={{ fontFamily: 'var(--font-playfair), serif' }}
-          >
-            Barbearia do
-          </span>
-          <span
-            className={cn(
-              'text-fg font-extrabold italic tracking-tight',
+              'text-fg font-extrabold italic tracking-tight uppercase',
               size === 'sm' && 'text-base',
               size === 'md' && 'text-xl',
               size === 'lg' && 'text-2xl'
             )}
             style={{ fontFamily: 'var(--font-playfair), serif' }}
           >
-            JOHNN
+            {baixo}
           </span>
         </div>
       </div>
@@ -154,7 +190,7 @@ export function Logo({ className, variant = 'full', size = 'md' }: LogoProps) {
         viewBox="0 0 400 400"
         xmlns="http://www.w3.org/2000/svg"
         className={cn(heightClass, 'w-auto', className)}
-        aria-label="Barbearia do Johnn"
+        aria-label={nome}
         fill="currentColor"
       >
         <g transform="translate(200, 90)">
@@ -174,26 +210,28 @@ export function Logo({ className, variant = 'full', size = 'md' }: LogoProps) {
                C -68 -10, -80 -10, -90 -5 Z"
           />
         </g>
-        <g transform="translate(200, 160)">
-          <text
-            textAnchor="middle"
-            fontFamily="Playfair Display, Georgia, serif"
-            fontSize="34"
-            fontWeight="500"
-            letterSpacing="3"
-          >
-            BARBEARIA DO
-          </text>
-        </g>
+        {cima && (
+          <g transform="translate(200, 160)">
+            <text
+              textAnchor="middle"
+              fontFamily="Playfair Display, Georgia, serif"
+              fontSize="34"
+              fontWeight="500"
+              letterSpacing="3"
+            >
+              {cima.toUpperCase()}
+            </text>
+          </g>
+        )}
         <g transform="translate(200, 270)">
           <text
             textAnchor="middle"
             fontFamily="Playfair Display, Georgia, serif"
-            fontSize="115"
+            fontSize={tamanhoDoNome}
             fontWeight="800"
             fontStyle="italic"
           >
-            JOHNN
+            {baixo.toUpperCase()}
           </text>
         </g>
       </svg>
@@ -206,7 +244,7 @@ export function Logo({ className, variant = 'full', size = 'md' }: LogoProps) {
       viewBox="0 0 400 400"
       xmlns="http://www.w3.org/2000/svg"
       className={cn(heightClass, 'w-auto', className)}
-      aria-label="Barbearia do Johnn"
+      aria-label={nome}
     >
       <defs>
         {/* Gradiente dourado pro bigode */}
@@ -275,32 +313,34 @@ export function Logo({ className, variant = 'full', size = 'md' }: LogoProps) {
         />
       </g>
 
-      {/* ========== BARBEARIA DO ========== */}
-      <g transform="translate(200, 165)">
-        <text
-          textAnchor="middle"
-          fontFamily="Playfair Display, Georgia, serif"
-          fontSize="32"
-          fontWeight="500"
-          fill="#FAFAFA"
-          letterSpacing="4"
-        >
-          BARBEARIA DO
-        </text>
-      </g>
+      {/* ========== PRIMEIRA LINHA DO NOME ========== */}
+      {cima && (
+        <g transform="translate(200, 165)">
+          <text
+            textAnchor="middle"
+            fontFamily="Playfair Display, Georgia, serif"
+            fontSize="32"
+            fontWeight="500"
+            fill="#FAFAFA"
+            letterSpacing="4"
+          >
+            {cima.toUpperCase()}
+          </text>
+        </g>
+      )}
 
-      {/* ========== JOHNN (DESTAQUE) ========== */}
+      {/* ========== NOME EM DESTAQUE ========== */}
       <g transform="translate(200, 275)">
         <text
           textAnchor="middle"
           fontFamily="Playfair Display, Georgia, serif"
-          fontSize="118"
+          fontSize={tamanhoDoNome}
           fontWeight="800"
           fontStyle="italic"
           fill="#FAFAFA"
           letterSpacing="-1"
         >
-          JOHNN
+          {baixo.toUpperCase()}
         </text>
       </g>
 

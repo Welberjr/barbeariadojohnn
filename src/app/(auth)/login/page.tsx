@@ -1,12 +1,23 @@
 import { Logo } from '@/components/brand/logo';
+import { marcaPadrao } from '@/lib/marca';
 import { LoginForm } from './_components/login-form';
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  // Quem chega aqui não está logado, então a marca é a da barbearia dona da
+  // instalação, e não a de alguma sessão.
+  const marca = await marcaPadrao();
+
   return (
     <div className="space-y-8 animate-fade-in">
       {/* ========== LOGO HERO ========== */}
       <div className="flex justify-center">
-        <Logo variant="full" size="2xl" className="drop-shadow-[0_0_30px_rgba(212,160,79,0.15)]" />
+        <Logo
+          variant="full"
+          size="2xl"
+          nome={marca.nome}
+          logoUrl={marca.logoUrl}
+          className="drop-shadow-[0_0_30px_rgba(212,160,79,0.15)]"
+        />
       </div>
 
       {/* ========== CARD DE LOGIN PREMIUM ========== */}

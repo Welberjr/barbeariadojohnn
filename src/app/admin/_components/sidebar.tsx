@@ -12,6 +12,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/brand/logo';
 import { LinkNavegando } from '@/components/link-navegando';
+import type { Marca } from '@/lib/marca-nome';
 
 interface MenuItem {
   label: string;
@@ -71,9 +72,11 @@ function montarMenu(temRede: boolean): Record<string, MenuItem[]> {
 function SidebarContent({
   onClose,
   temRede,
+  marca,
 }: {
   onClose?: () => void;
   temRede: boolean;
+  marca: Marca;
 }) {
   const pathname = usePathname();
   const groupedMenu = montarMenu(temRede);
@@ -82,7 +85,7 @@ function SidebarContent({
     <div className="flex flex-col h-full">
       {/* Logo */}
       <div className="p-6 border-b border-border/60 relative flex items-center justify-between">
-        <Logo variant="compact" size="md" />
+        <Logo variant="compact" size="md" nome={marca.nome} logoUrl={marca.logoUrl} />
         {onClose && (
           <button type="button" onClick={onClose} className="text-fg-subtle hover:text-fg md:hidden">
             <X className="w-5 h-5" />
@@ -143,7 +146,13 @@ function SidebarContent({
 }
 
 // ── Export principal ─────────────────────────────────────────────────────────
-export function AdminSidebar({ temRede = false }: { temRede?: boolean }) {
+export function AdminSidebar({
+  temRede = false,
+  marca,
+}: {
+  temRede?: boolean;
+  marca: Marca;
+}) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
 
@@ -174,7 +183,7 @@ export function AdminSidebar({ temRede = false }: { temRede?: boolean }) {
         style={{ background: 'linear-gradient(180deg, #121212 0%, #0A0A0A 100%)', borderRight: '1px solid rgba(255,255,255,0.08)' }}
       >
         <div className="absolute top-0 right-0 bottom-0 w-px bg-gradient-to-b from-transparent via-gold/20 to-transparent" />
-        <SidebarContent temRede={temRede} />
+        <SidebarContent temRede={temRede} marca={marca} />
       </aside>
 
       {/* ── DRAWER MOBILE (< md) ──────────────────────────────────────── */}
@@ -194,7 +203,7 @@ export function AdminSidebar({ temRede = false }: { temRede?: boolean }) {
               animation: 'slideInRight 0.22s ease-out',
             }}
           >
-            <SidebarContent temRede={temRede} onClose={() => setMobileOpen(false)} />
+            <SidebarContent temRede={temRede} marca={marca} onClose={() => setMobileOpen(false)} />
           </aside>
         </div>
       )}

@@ -5,6 +5,7 @@ import { ChatFloat } from '@/components/chat-float';
 import { AdminTopbar } from './_components/topbar';
 import { portasDoUsuario } from '@/lib/portas-de-entrada';
 import { lojaAtual, lojasDoUsuario } from '@/lib/loja';
+import { marcaAtual } from '@/lib/marca';
 
 export const viewport: Viewport = {
   themeColor: '#D4A04F',
@@ -13,15 +14,21 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
-export const metadata: Metadata = {
-  title: 'Barbearia do Johnn — Gestão',
-  manifest: '/manifest-admin.json',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'black-translucent',
-    title: 'Johnn Admin',
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const marca = await marcaAtual();
+  return {
+    title: `${marca.nome} — Gestão`,
+    manifest: '/manifest-admin.json',
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: 'black-translucent',
+      // O nome que aparece embaixo do ícone quando o app vai para a tela de
+      // início do celular. Cabe pouca coisa, então vai só a primeira palavra
+      // que identifica a casa.
+      title: `${marca.nome.split(' ').pop()} Admin`,
+    },
+  };
+}
 export default async function AdminLayout({
   children,
 }: {
@@ -37,6 +44,8 @@ export default async function AdminLayout({
     (porta) => porta.id !== 'admin'
   );
 
+  const marca = await marcaAtual();
+
   // Unidades onde ele trabalha. Com uma só, o menu não mostra nada disso.
   const daVez = await lojaAtual();
   const unidades = (await lojasDoUsuario(staff.userId)).map((l) => ({
@@ -48,7 +57,7 @@ export default async function AdminLayout({
   return (
     <>
     <div className="min-h-screen bg-bg flex">
-      <AdminSidebar temRede={unidades.length > 1} />
+      <AdminSidebar temRede={unidades.length > 1} marca={marca} />
 
       <div className="flex-1 flex flex-col min-w-0">
         <AdminTopbar
