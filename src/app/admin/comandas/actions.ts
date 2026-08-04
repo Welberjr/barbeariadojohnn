@@ -608,12 +608,15 @@ export async function closeComanda(
 
   const { data: comanda } = await admin
     .from('comandas')
-    .select('subtotal, appointment_id, customer_id, total')
+    .select('subtotal, appointment_id, customer_id, total, status')
     .eq('id', comandaId)
     .eq('barbershop_id', barbershopId)
     .maybeSingle();
 
   if (!comanda) return { ok: false, error: 'Comanda não encontrada' };
+  if (comanda.status !== 'open') {
+    return { ok: false, error: 'Esta comanda já foi fechada ou cancelada.' };
+  }
 
   const subtotal = Number(comanda.subtotal);
   const safeDiscount = Math.max(0, Number(discount) || 0);
@@ -669,7 +672,8 @@ export async function closeComanda(
     const { data: itens } = await admin
       .from('comanda_items')
       .select('item_type, total_price')
-      .eq('comanda_id', comandaId);
+      .eq('comanda_id', comandaId)
+      .eq('barbershop_id', barbershopId);
 
     const valorServicos = (itens ?? [])
       .filter((i) => i.item_type === 'service')
@@ -796,7 +800,9 @@ export async function closeComanda(
         status: 'completed',
         completed_at: new Date().toISOString(),
         comanda_id: comandaId,
-      }).eq('id', comanda.appointment_id)
+      })
+        .eq('id', comanda.appointment_id)
+        .eq('barbershop_id', barbershopId)
     );
   }
 
@@ -811,6 +817,7 @@ export async function closeComanda(
       .from('customers')
       .select('total_appointments, total_spent')
       .eq('id', comanda.customer_id)
+      .eq('barbershop_id', barbershopId)
       .maybeSingle();
 
     // Visita conta sempre; valor gasto so o que saiu do bolso do cliente. O que
@@ -823,7 +830,9 @@ export async function closeComanda(
         ? admin.from('customers').update({
             total_appointments: Number(customer.total_appointments ?? 0) + 1,
             total_spent: Number(customer.total_spent ?? 0) + saiuDoBolso,
-          }).eq('id', comanda.customer_id)
+          })
+            .eq('id', comanda.customer_id)
+            .eq('barbershop_id', barbershopId)
         : Promise.resolve(),
       awardPointsForComanda({
         comandaId,
@@ -857,7 +866,8 @@ export async function cancelComanda(comandaId: string) {
   const { data: items } = await admin
     .from('comanda_items')
     .select('item_type, product_id, quantity, subscription_usage_id')
-    .eq('comanda_id', comandaId);
+    .eq('comanda_id', comandaId)
+    .eq('barbershop_id', barbershopId);
 
   // Coletar IDs de produto e usages para processar em paralelo
   const productItems = (items ?? []).filter(
@@ -874,7 +884,8 @@ export async function cancelComanda(comandaId: string) {
     const { data: prods } = await admin
       .from('products')
       .select('id, stock_current')
-      .in('id', pids);
+      .in('id', pids)
+      .eq('barbershop_id', barbershopId);
     const stockMap = new Map((prods ?? []).map((p) => [p.id, Number(p.stock_current ?? 0)]));
     for (const item of productItems) {
       const current = stockMap.get(item.product_id as string) ?? 0;
@@ -882,7 +893,8 @@ export async function cancelComanda(comandaId: string) {
       productOps.push(
         admin.from('products')
           .update({ stock_current: current + Number(item.quantity ?? 0) })
-          .eq('id', item.product_id as string) as any
+          .eq('id', item.product_id as string)
+          .eq('barbershop_id', barbershopId) as any
       );
     }
   }
@@ -895,6 +907,7 @@ export async function cancelComanda(comandaId: string) {
       admin.from('subscription_usages')
         .delete()
         .in('id', usageIds)
+        .eq('barbershop_id', barbershopId)
         .is('settled_payout_id', null) as any
     );
   }

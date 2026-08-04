@@ -17,17 +17,20 @@ import { lojaAtual } from '@/lib/loja';
  */
 export async function creditosDoCliente(customerId: string): Promise<Credito[]> {
   const admin = createAdminClient();
+  const barbershopId = await lojaAtual();
 
   const [{ data: concedidos }, { data: usos }] = await Promise.all([
     admin
       .from('customer_credits')
       .select('id, amount, reason, starts_at, expires_at, cancelled_at, created_at')
       .eq('customer_id', customerId)
+      .eq('barbershop_id', barbershopId)
       .order('created_at', { ascending: false }),
     admin
       .from('customer_credit_uses')
       .select('credit_id, amount')
-      .eq('customer_id', customerId),
+      .eq('customer_id', customerId)
+      .eq('barbershop_id', barbershopId),
   ]);
 
   const gastoPorCredito = new Map<string, number>();
@@ -60,15 +63,18 @@ export async function saldosDeCredito(
   if (customerIds.length === 0) return saldos;
 
   const admin = createAdminClient();
+  const barbershopId = await lojaAtual();
   const [{ data: concedidos }, { data: usos }] = await Promise.all([
     admin
       .from('customer_credits')
       .select('id, customer_id, amount, starts_at, expires_at, cancelled_at')
-      .in('customer_id', customerIds),
+      .in('customer_id', customerIds)
+      .eq('barbershop_id', barbershopId),
     admin
       .from('customer_credit_uses')
       .select('credit_id, customer_id, amount')
-      .in('customer_id', customerIds),
+      .in('customer_id', customerIds)
+      .eq('barbershop_id', barbershopId),
   ]);
 
   const gastoPorCredito = new Map<string, number>();
@@ -154,10 +160,12 @@ export async function creditoPorComanda(
   if (comandaIds.length === 0) return porComanda;
 
   const admin = createAdminClient();
+  const barbershopId = await lojaAtual();
   const { data } = await admin
     .from('customer_credit_uses')
     .select('comanda_id, amount')
-    .in('comanda_id', comandaIds);
+    .in('comanda_id', comandaIds)
+    .eq('barbershop_id', barbershopId);
 
   for (const uso of data ?? []) {
     const id = uso.comanda_id as string;
