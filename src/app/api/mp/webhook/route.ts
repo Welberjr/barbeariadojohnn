@@ -18,6 +18,7 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchMPPayment } from '@/lib/mercadopago';
+import { isValidMercadoPagoWebhookSignature } from '@/lib/webhook-signature';
 
 import { lojaPadrao } from '@/lib/loja';
 export async function POST(req: NextRequest) {
@@ -30,6 +31,17 @@ export async function POST(req: NextRequest) {
     const eventType = body.type ?? searchParams.get('type');
     const paymentId =
       body.data?.id ?? searchParams.get('data.id') ?? body.id;
+
+    if (
+      !isValidMercadoPagoWebhookSignature({
+        dataId: searchParams.get('data.id') ?? String(paymentId ?? ''),
+        requestId: req.headers.get('x-request-id'),
+        signature: req.headers.get('x-signature'),
+        secret: process.env.MP_WEBHOOK_SECRET,
+      })
+    ) {
+      return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401 });
+    }
 
     if (process.env.NODE_ENV !== 'production') {
       // eslint-disable-next-line no-console

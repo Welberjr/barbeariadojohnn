@@ -7,7 +7,7 @@
  * que parece: criar unidade e criar um lugar onde vai entrar dinheiro, e quem
  * cria ja entra dentro como gestor.
  */
-import { createManagerClient } from '@/lib/supabase/manager';
+import { canManageStore, createManagerClient } from '@/lib/supabase/manager';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getSessionStaff } from '@/lib/staff-auth';
 import { lojaAtual, COOKIE_DA_LOJA } from '@/lib/loja';
@@ -142,6 +142,7 @@ export async function abrirUnidade(dados: DadosDaUnidade) {
 /** Muda o nome e o endereco de uma unidade. */
 export async function salvarUnidade(id: string, dados: DadosDaUnidade) {
   const admin = await createManagerClient();
+  if (!(await canManageStore(id))) return { ok: false, error: 'Você não pode alterar esta unidade.' };
 
   const nome = dados.nome?.trim();
   if (!nome || nome.length < 3) return { ok: false, error: 'Escreva o nome da unidade.' };
@@ -174,6 +175,7 @@ export async function salvarUnidade(id: string, dados: DadosDaUnidade) {
  */
 export async function fecharUnidade(id: string) {
   const admin = await createManagerClient();
+  if (!(await canManageStore(id))) return { ok: false, error: 'Você não pode fechar esta unidade.' };
 
   const { data: ativas } = await admin
     .from('barbershops')
@@ -208,6 +210,7 @@ export async function fecharUnidade(id: string) {
 /** Reabre uma unidade fechada. */
 export async function reabrirUnidade(id: string) {
   const admin = await createManagerClient();
+  if (!(await canManageStore(id))) return { ok: false, error: 'Você não pode reabrir esta unidade.' };
   const { error } = await admin.from('barbershops').update({ active: true }).eq('id', id);
   if (error) return { ok: false, error: error.message };
   revalidatePath('/admin/lojas');

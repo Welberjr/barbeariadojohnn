@@ -74,6 +74,9 @@ export function montarCsp(_nonce?: string): string {
 }
 
 export const OUTROS_HEADERS: Array<[string, string]> = [
+  // Vercel atende o domínio em HTTPS; instrui o navegador a nunca degradar
+  // uma próxima navegação para HTTP.
+  ['Strict-Transport-Security', 'max-age=31536000; includeSubDomains'],
   ['X-Content-Type-Options', 'nosniff'],
   ['X-Frame-Options', 'DENY'],
   ['Referrer-Policy', 'strict-origin-when-cross-origin'],

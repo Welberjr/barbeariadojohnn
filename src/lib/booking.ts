@@ -74,6 +74,7 @@ export async function getAvailableSlots(opts: {
 }): Promise<SlotsResponse> {
   const admin = createAdminClient();
   const { staffId, serviceId, dateStr } = opts;
+  const barbershopId = await lojaAtual();
 
   // 1. Duracao do servico (custom do staff > base)
   const [{ data: service }, { data: staffService }, { data: staff }, { data: shop }] =
@@ -82,22 +83,25 @@ export async function getAvailableSlots(opts: {
         .from('services')
         .select('base_duration_minutes, active')
         .eq('id', serviceId)
+        .eq('barbershop_id', barbershopId)
         .maybeSingle(),
       admin
         .from('staff_services')
         .select('custom_duration_minutes, active')
         .eq('staff_id', staffId)
         .eq('service_id', serviceId)
+        .eq('barbershop_id', barbershopId)
         .maybeSingle(),
       admin
         .from('staff')
         .select('use_barbershop_hours, custom_hours, active, lunch_start, lunch_end, atende_clientes')
         .eq('id', staffId)
+        .eq('barbershop_id', barbershopId)
         .maybeSingle(),
       admin
         .from('barbershops')
         .select('business_hours')
-        .eq('id', (await lojaAtual()))
+        .eq('id', barbershopId)
         .maybeSingle(),
     ]);
 
@@ -147,7 +151,7 @@ export async function getAvailableSlots(opts: {
   const { data: daysOff } = await admin
     .from('days_off')
     .select('staff_id, start_date, end_date, full_day, start_time, end_time')
-    .eq('barbershop_id', (await lojaAtual()))
+    .eq('barbershop_id', barbershopId)
     .lte('start_date', dateStr)
     .gte('end_date', dateStr);
 
@@ -182,7 +186,7 @@ export async function getAvailableSlots(opts: {
   const { data: appts } = await admin
     .from('appointments')
     .select('start_at, end_at, status')
-    .eq('barbershop_id', (await lojaAtual()))
+    .eq('barbershop_id', barbershopId)
     .eq('staff_id', staffId)
     .in('status', ['scheduled', 'in_progress'])
     .gte('start_at', dayStart)
@@ -239,10 +243,11 @@ export async function isSlotStillFree(opts: {
   endISO: string;
 }): Promise<boolean> {
   const admin = createAdminClient();
+  const barbershopId = await lojaAtual();
   const { data: conflicts } = await admin
     .from('appointments')
     .select('id')
-    .eq('barbershop_id', (await lojaAtual()))
+    .eq('barbershop_id', barbershopId)
     .eq('staff_id', opts.staffId)
     .in('status', ['scheduled', 'in_progress'])
     .lt('start_at', opts.endISO)

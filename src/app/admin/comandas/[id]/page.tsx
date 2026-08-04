@@ -14,6 +14,7 @@ interface ComandaPageProps {
 export default async function ComandaPage({ params }: ComandaPageProps) {
   const { id } = await params;
   const supabase = createAdminClient();
+  const barbershopId = await lojaAtual();
 
   // Tudo aqui filtra pelo id da comanda ou é catálogo fixo: uma ida só ao
   // banco, e a comanda abre no tempo da consulta mais lenta.
@@ -36,6 +37,7 @@ export default async function ComandaPage({ params }: ComandaPageProps) {
     `
       )
       .eq('id', id)
+      .eq('barbershop_id', barbershopId)
       .maybeSingle(),
     // 2. Itens da comanda (tabela unificada comanda_items)
     supabase
@@ -57,32 +59,34 @@ export default async function ComandaPage({ params }: ComandaPageProps) {
     `
       )
       .eq('comanda_id', id)
+      .eq('barbershop_id', barbershopId)
       .order('created_at'),
     // 4. Pagamento (se existir, comanda fechada)
     supabase
       .from('comanda_payments')
       .select('method')
       .eq('comanda_id', id)
+      .eq('barbershop_id', barbershopId)
       .order('created_at', { ascending: false })
       .limit(1),
     // 6. Catálogos auxiliares
     supabase
       .from('services')
       .select('id, name, base_price, base_duration_minutes, category')
-      .eq('barbershop_id', (await lojaAtual()))
+      .eq('barbershop_id', barbershopId)
       .eq('active', true)
       .order('display_order'),
     supabase
       .from('products')
       .select('id, name, sale_price, product_categories ( name )')
-      .eq('barbershop_id', (await lojaAtual()))
+      .eq('barbershop_id', barbershopId)
       .eq('active', true)
       .eq('is_sellable', true)
       .order('name'),
     supabase
       .from('staff')
       .select('id, display_name')
-      .eq('barbershop_id', await lojaAtual())
+      .eq('barbershop_id', barbershopId)
       .eq('active', true)
       .in('role', ['barber', 'owner', 'manager'])
     .eq('atende_clientes', true)

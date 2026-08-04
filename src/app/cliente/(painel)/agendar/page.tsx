@@ -71,27 +71,29 @@ function buildDays(): DayOption[] {
 export default async function AgendarPage() {
   const { customer } = await requireCustomer();
   const admin = createAdminClient();
+  const barbershopId = await lojaAtual();
 
   const [{ data: services }, { data: staff }, { data: staffServices }, sub] =
     await Promise.all([
       admin
         .from('services')
         .select('id, name, description, category, base_price, base_duration_minutes')
-        .eq('barbershop_id', await lojaAtual())
+        .eq('barbershop_id', barbershopId)
         .eq('active', true)
         .order('category', { ascending: true })
         .order('display_order', { ascending: true }),
       admin
         .from('staff')
         .select('id, display_name')
-        .eq('barbershop_id', await lojaAtual())
+        .eq('barbershop_id', barbershopId)
         .eq('active', true)
         .in('role', ['barber', 'owner', 'manager'])
     .eq('atende_clientes', true)
         .order('display_name'),
       admin
         .from('staff_services')
-        .select('staff_id, service_id, custom_price, custom_duration_minutes, active'),
+        .select('staff_id, service_id, custom_price, custom_duration_minutes, active')
+        .eq('barbershop_id', barbershopId),
       getActiveSubscription(admin, customer.id),
     ]);
 

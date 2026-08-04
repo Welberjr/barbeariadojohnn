@@ -266,13 +266,18 @@ export async function updateAppointmentStatus(
     | 'no_show'
 ) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
-  const { error } = await admin
+  const { data: updated, error } = await admin
     .from('appointments')
     .update({ status })
-    .eq('id', id);
+    .eq('id', id)
+    .eq('barbershop_id', barbershopId)
+    .select('id')
+    .maybeSingle();
 
   if (error) return { ok: false, error: error.message };
+  if (!updated) return { ok: false, error: 'Agendamento não pertence a esta unidade.' };
 
   if (status === 'cancelled') await avisarClienteDoCancelamento(id);
 
@@ -327,6 +332,7 @@ async function avisarClienteDoCancelamento(appointmentId: string) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function updateAppointment(id: string, data: any) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   // Remove service_id do payload se vier (deve ser tratado via appointment_services)
   const { service_id: _ignoredServiceId, ...rest } = data;
@@ -334,7 +340,8 @@ export async function updateAppointment(id: string, data: any) {
   const { error } = await admin
     .from('appointments')
     .update(rest)
-    .eq('id', id);
+    .eq('id', id)
+    .eq('barbershop_id', barbershopId);
 
   if (error) return { ok: false, error: error.message };
 
@@ -347,14 +354,23 @@ export async function updateAppointment(id: string, data: any) {
  */
 export async function deleteAppointment(id: string) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
+
+  const { data: appointment } = await admin
+    .from('appointments')
+    .select('id')
+    .eq('id', id)
+    .eq('barbershop_id', barbershopId)
+    .maybeSingle();
+  if (!appointment) return { ok: false, error: 'Agendamento não pertence a esta unidade.' };
 
   // Avisa antes de apagar: depois nao ha mais de onde tirar a data nem o cliente
   await avisarClienteDoCancelamento(id);
 
   // Tenta deletar appointment_services manualmente caso não tenha cascade
-  await admin.from('appointment_services').delete().eq('appointment_id', id);
+  await admin.from('appointment_services').delete().eq('appointment_id', id).eq('barbershop_id', barbershopId);
 
-  const { error } = await admin.from('appointments').delete().eq('id', id);
+  const { error } = await admin.from('appointments').delete().eq('id', id).eq('barbershop_id', barbershopId);
 
   if (error) return { ok: false, error: error.message };
 

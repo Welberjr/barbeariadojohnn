@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { weeklyBonusReason } from '@/lib/weekly-bonus';
 import { Raspadinha } from './_components/raspadinha';
 import { UpcomingAppointments } from './_components/upcoming-appointments';
+import { lojaAtual } from '@/lib/loja';
 
 export const metadata = { title: 'Início' };
 export const dynamic = 'force-dynamic';
@@ -12,12 +13,14 @@ export const dynamic = 'force-dynamic';
 export default async function ClienteHomePage() {
   const { customer } = await requireCustomer();
   const admin = createAdminClient();
+  const barbershopId = await lojaAtual();
 
   const [{ data: nextAppointments }, { data: weeklyBonus }] = await Promise.all([
     admin
       .from('appointments')
       .select(`id, start_at, status, staff:staff (display_name),
                appointment_services ( services:services (name) )`)
+      .eq('barbershop_id', barbershopId)
       .eq('customer_id', customer.id)
       .eq('status', 'scheduled')
       .gte('start_at', new Date().toISOString())
@@ -26,6 +29,7 @@ export default async function ClienteHomePage() {
     admin
       .from('loyalty_transactions')
       .select('points')
+      .eq('barbershop_id', barbershopId)
       .eq('customer_id', customer.id)
       .eq('reason', weeklyBonusReason())
       .maybeSingle(),

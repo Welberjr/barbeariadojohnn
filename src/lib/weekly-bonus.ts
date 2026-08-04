@@ -10,3 +10,20 @@ export function getISOWeek(date: Date): string {
 export function weeklyBonusReason(date = new Date()): string {
   return `raspadinha_semanal:${getISOWeek(date)}`;
 }
+
+/** Valores que podem ser concedidos pela raspadinha semanal. */
+export const WEEKLY_BONUS_PRIZES = [5, 10, 15, 20, 30, 50] as const;
+
+/**
+ * Sorteia no servidor. O navegador nunca escolhe quantos pontos receberá.
+ *
+ * `random` é injetável apenas para teste; em produção usa a fonte padrão do
+ * runtime. A validação de sessão e a gravação continuam na rota da API.
+ */
+export function drawWeeklyBonus(random = Math.random): number {
+  const index = Math.min(
+    WEEKLY_BONUS_PRIZES.length - 1,
+    Math.floor(random() * WEEKLY_BONUS_PRIZES.length)
+  );
+  return WEEKLY_BONUS_PRIZES[Math.max(0, index)];
+}

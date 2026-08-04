@@ -1,11 +1,7 @@
-﻿﻿﻿'use client';
+'use client';
 
 import { useRef, useState } from 'react';
 import { Sparkles, Gift } from 'lucide-react';
-import { cn } from '@/lib/utils';
-
-
-const PRIZES = [5, 10, 15, 20, 30, 50];
 
 export function Raspadinha({
   initialBonus,
@@ -16,15 +12,17 @@ export function Raspadinha({
     initialBonus.used ? 'used' : 'idle'
   );
   const [prize, setPrize] = useState<number>(initialBonus.points ?? 0);
-  const [scratched, setScratched] = useState(0); // % raspado
+  const [scratched, setScratched] = useState(0);
+  const [creditError, setCreditError] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawing = useRef(false);
   const totalPixels = useRef(0);
 
   function startScratching() {
     if (state !== 'idle') return;
-    const p = PRIZES[Math.floor(Math.random() * PRIZES.length)];
-    setPrize(p);
+    // O servidor define o valor ao revelar. Isso impede que alguém altere a
+    // requisição no celular para escolher quantos pontos recebe.
+    setPrize(0);
     setState('scratching');
     setTimeout(() => initCanvas(), 50);
   }
@@ -39,7 +37,6 @@ export function Raspadinha({
     totalPixels.current = canvas.width * canvas.height;
     ctx.fillStyle = '#1a1a1a';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    // Textura
     ctx.fillStyle = 'rgba(212,160,79,0.15)';
     for (let i = 0; i < 60; i++) {
       ctx.fillRect(
@@ -62,40 +59,34 @@ export function Raspadinha({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
     ctx.globalCompositeOperation = 'destination-out';
     ctx.beginPath();
-    ctx.arc(x, y, 22, 0, Math.PI * 2);
+    ctx.arc(e.clientX - rect.left, e.clientY - rect.top, 22, 0, Math.PI * 2);
     ctx.fill();
 
     const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
     let transparent = 0;
-    for (let i = 3; i < data.length; i += 4) {
-      if (data[i] === 0) transparent++;
-    }
+    for (let i = 3; i < data.length; i += 4) if (data[i] === 0) transparent++;
     const pct = Math.round((transparent / totalPixels.current) * 100);
     setScratched(pct);
-    if (pct >= 55 && state === 'scratching') {
-      reveal();
-    }
+    if (pct >= 55 && state === 'scratching') void reveal();
   }
 
   async function reveal() {
     setState('revealed');
-    // Creditar no servidor (idempotente por semana)
+    setCreditError(false);
     try {
-      const res = await fetch('/api/bonus-points', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ points: prize }),
-      });
-      // Se já tinha usado (409), apenas mantém revelado sem creditar de novo
-      if (res.status === 409) {
-        // outra aba/dispositivo já creditou - tudo certo
+      const response = await fetch('/api/bonus-points', { method: 'POST' });
+      const payload = (await response.json().catch(() => null)) as
+        | { points?: number }
+        | null;
+      if (typeof payload?.points === 'number') {
+        setPrize(payload.points);
+      } else {
+        setCreditError(true);
       }
     } catch {
-      // falha de rede - pontos não creditados, mas não trava a UI
+      setCreditError(true);
     }
   }
 
@@ -123,13 +114,8 @@ export function Raspadinha({
 
       {state === 'idle' && (
         <div className="px-5 pb-5">
-          <button
-            type="button"
-            onClick={startScratching}
-            className="btn-gold-shimmer w-full flex items-center justify-center gap-2 py-3"
-          >
-            <Sparkles className="w-4 h-4" />
-            Revelar meu prêmio
+          <button type="button" onClick={startScratching} className="btn-gold-shimmer w-full flex items-center justify-center gap-2 py-3">
+            <Sparkles className="w-4 h-4" /> Revelar meu prêmio
           </button>
         </div>
       )}
@@ -137,31 +123,14 @@ export function Raspadinha({
       {state === 'scratching' && (
         <div className="px-5 pb-5 space-y-2">
           <div className="relative rounded-xl overflow-hidden" style={{ height: 96 }}>
-            {/* Prize (revealed underneath) */}
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-bg-elevated">
-              <p className="text-3xl font-bold text-gold" style={{ fontFamily: 'var(--font-playfair), serif' }}>
-                +{prize}
-              </p>
+              <p className="text-3xl font-bold text-gold" style={{ fontFamily: 'var(--font-playfair), serif' }}>+?</p>
               <p className="text-[11px] text-fg-muted">pontos bônus</p>
             </div>
-            {/* Scratch overlay */}
-            <canvas
-              ref={canvasRef}
-              className="absolute inset-0 w-full h-full cursor-crosshair touch-none"
-              onPointerDown={(e) => { isDrawing.current = true; e.currentTarget.setPointerCapture(e.pointerId); scratch(e); }}
-              onPointerMove={scratch}
-              onPointerUp={() => { isDrawing.current = false; }}
-            />
+            <canvas ref={canvasRef} className="absolute inset-0 w-full h-full cursor-crosshair touch-none" onPointerDown={(e) => { isDrawing.current = true; e.currentTarget.setPointerCapture(e.pointerId); scratch(e); }} onPointerMove={scratch} onPointerUp={() => { isDrawing.current = false; }} />
           </div>
-          <div className="h-1 bg-bg-elevated rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gold/60 rounded-full transition-all"
-              style={{ width: `${scratched}%` }}
-            />
-          </div>
-          <p className="text-[10px] text-fg-subtle text-center">
-            {scratched < 55 ? 'Continue raspando...' : 'Quase lá!'}
-          </p>
+          <div className="h-1 bg-bg-elevated rounded-full overflow-hidden"><div className="h-full bg-gold/60 rounded-full transition-all" style={{ width: `${scratched}%` }} /></div>
+          <p className="text-[10px] text-fg-subtle text-center">{scratched < 55 ? 'Continue raspando...' : 'Quase lá!'}</p>
         </div>
       )}
 
@@ -169,14 +138,16 @@ export function Raspadinha({
         <div className="px-5 pb-5 space-y-3">
           <div className="rounded-xl bg-gold/10 border border-gold/30 p-5 text-center animate-fade-in">
             <Sparkles className="w-6 h-6 text-gold mx-auto mb-2" />
-            <p className="text-3xl font-bold text-gold" style={{ fontFamily: 'var(--font-playfair), serif' }}>
-              +{prize} pts
-            </p>
-            <p className="text-sm text-fg-muted mt-1">creditados na sua conta!</p>
+            {creditError ? (
+              <p className="text-sm text-fg-muted">Não foi possível confirmar seus pontos. Atualize a página e tente novamente.</p>
+            ) : (
+              <>
+                <p className="text-3xl font-bold text-gold" style={{ fontFamily: 'var(--font-playfair), serif' }}>+{prize} pts</p>
+                <p className="text-sm text-fg-muted mt-1">creditados na sua conta!</p>
+              </>
+            )}
           </div>
-          <p className="text-[10px] text-fg-subtle text-center">
-            Próxima raspadinha disponível na semana que vem.
-          </p>
+          <p className="text-[10px] text-fg-subtle text-center">Próxima raspadinha disponível na semana que vem.</p>
         </div>
       )}
     </div>

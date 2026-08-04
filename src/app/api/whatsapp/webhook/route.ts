@@ -22,6 +22,7 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { lojaPadrao } from '@/lib/loja';
+import { isValidWhatsAppWebhookSignature } from '@/lib/webhook-signature';
 import {
   sendWhatsAppMessage,
   normalizePhoneE164,
@@ -81,8 +82,18 @@ export async function GET(req: NextRequest) {
 // ============================================================================
 export async function POST(req: NextRequest) {
   try {
+    const rawBody = await req.text();
+    if (
+      !isValidWhatsAppWebhookSignature(
+        rawBody,
+        req.headers.get('x-hub-signature-256'),
+        process.env.META_APP_SECRET
+      )
+    ) {
+      return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401 });
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const body: any = await req.json();
+    const body: any = JSON.parse(rawBody);
 
     if (body?.object !== 'whatsapp_business_account') {
       return NextResponse.json({ ok: true, skipped: 'not_whatsapp_event' });

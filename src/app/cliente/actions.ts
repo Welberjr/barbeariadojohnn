@@ -63,6 +63,7 @@ export async function bookAppointment(input: BookInput) {
   if (!customer) return { ok: false, error: 'Sessão expirada. Entre novamente.' };
 
   const admin = createAdminClient();
+  const barbershopId = await lojaAtual();
 
   const [{ data: service }, { data: staffService }, { data: staff }] =
     await Promise.all([
@@ -70,17 +71,20 @@ export async function bookAppointment(input: BookInput) {
         .from('services')
         .select('name, base_price, base_duration_minutes, active')
         .eq('id', input.service_id)
+        .eq('barbershop_id', barbershopId)
         .maybeSingle(),
       admin
         .from('staff_services')
         .select('custom_price, custom_duration_minutes')
         .eq('staff_id', input.staff_id)
         .eq('service_id', input.service_id)
+        .eq('barbershop_id', barbershopId)
         .maybeSingle(),
       admin
         .from('staff')
         .select('display_name, default_commission_percent, active')
         .eq('id', input.staff_id)
+        .eq('barbershop_id', barbershopId)
         .maybeSingle(),
     ]);
 
@@ -149,7 +153,7 @@ export async function bookAppointment(input: BookInput) {
   const { data: created, error } = await admin
     .from('appointments')
     .insert({
-      barbershop_id: (await lojaAtual()),
+      barbershop_id: barbershopId,
       customer_id: customer.id,
       staff_id: input.staff_id,
       start_at: start.toISOString(),
@@ -166,7 +170,7 @@ export async function bookAppointment(input: BookInput) {
   }
 
   await admin.from('appointment_services').insert({
-    barbershop_id: (await lojaAtual()),
+    barbershop_id: barbershopId,
     appointment_id: created.id,
     service_id: input.service_id,
     price,
@@ -365,7 +369,6 @@ export async function markAllNotificationsRead() {
   revalidatePath('/cliente/notificacoes');
   return { ok: true };
 }
-
 /**
  * Apaga um aviso da caixa do cliente.
  *
@@ -389,7 +392,6 @@ export async function apagarNotificacao(id: string) {
   revalidatePath('/cliente/notificacoes');
   return { ok: true };
 }
-
 /** Limpa a caixa inteira. */
 export async function limparNotificacoes() {
   const customer = await getSessionCustomer();
@@ -406,53 +408,4 @@ export async function limparNotificacoes() {
   revalidatePath('/cliente');
   revalidatePath('/cliente/notificacoes');
   return { ok: true };
-}
-
-// ============================================================
-// BONUS POINTS (raspadinha, etc.)
-// ============================================================
-export async function awardBonusPoints(
-  customerId: string,
-  points: number,
-  reason: string
-) {
-  'use server';
-  const { createAdminClient } = await import('@/lib/supabase/admin');
-  const admin = createAdminClient();
-
-  try {
-    const { data: current } = await admin
-      .from('loyalty_points')
-      .select('id, balance, lifetime_earned')
-      .eq('customer_id', customerId)
-      .eq('barbershop_id', (await lojaAtual()))
-      .maybeSingle();
-
-    if (!current) {
-      await admin.from('loyalty_points').insert({
-        barbershop_id: (await lojaAtual()),
-        customer_id: customerId,
-        balance: points,
-        lifetime_earned: points,
-        lifetime_redeemed: 0,
-      });
-    } else {
-      await admin.from('loyalty_points').update({
-        balance: Number(current.balance ?? 0) + points,
-        lifetime_earned: Number(current.lifetime_earned ?? 0) + points,
-      }).eq('id', current.id);
-    }
-
-    await admin.from('loyalty_points_events').insert({
-      barbershop_id: (await lojaAtual()),
-      customer_id: customerId,
-      event_type: 'earned_bonus',
-      points_delta: points,
-      description: reason,
-    });
-
-    return { ok: true };
-  } catch {
-    return { ok: false };
-  }
 }

@@ -1,22 +1,47 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getSessionCustomer } from '@/lib/customer-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getISOWeek, weeklyBonusReason } from '@/lib/weekly-bonus';
+import {
+  drawWeeklyBonus,
+  getISOWeek,
+  weeklyBonusReason,
+} from '@/lib/weekly-bonus';
 
-import { lojaPadrao } from '@/lib/loja';
+async function getCustomerStore() {
+  const customer = await getSessionCustomer();
+  if (!customer) return null;
+
+  // Nunca usa a loja padrão: a sessão do cliente fica limitada à unidade da
+  // própria ficha, mesmo que a rede tenha várias lojas.
+  const admin = createAdminClient();
+  const { data: scopedCustomer } = await admin
+    .from('customers')
+    .select('barbershop_id')
+    .eq('id', customer.id)
+    .maybeSingle();
+
+  if (!scopedCustomer?.barbershop_id) return null;
+  return {
+    admin,
+    customer,
+    barbershopId: scopedCustomer.barbershop_id as string,
+  };
+}
+
 // GET: verifica se o cliente já raspou esta semana
 export async function GET() {
-  const customer = await getSessionCustomer();
-  if (!customer) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
+  const scope = await getCustomerStore();
+  if (!scope) {
+    return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
+  }
 
-  const admin = createAdminClient();
   const weekKey = getISOWeek(new Date());
   const reason = weeklyBonusReason();
-
-  const { data } = await admin
+  const { data } = await scope.admin
     .from('loyalty_transactions')
     .select('id, points')
-    .eq('customer_id', customer.id)
+    .eq('barbershop_id', scope.barbershopId)
+    .eq('customer_id', scope.customer.id)
     .eq('reason', reason)
     .maybeSingle();
 
@@ -24,65 +49,100 @@ export async function GET() {
 }
 
 // POST: credita os pontos da raspadinha (idempotente por semana)
-export async function POST(req: NextRequest) {
-  const customer = await getSessionCustomer();
-  if (!customer) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
-
-  const { points } = await req.json() as { points: number };
-  if (!points || points < 0 || points > 1000) {
-    return NextResponse.json({ error: 'Pontos inválidos' }, { status: 400 });
+export async function POST() {
+  const scope = await getCustomerStore();
+  if (!scope) {
+    return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
   }
 
-  const admin = createAdminClient();
   const weekKey = getISOWeek(new Date());
   const reason = weeklyBonusReason();
-
-  // Já raspou esta semana? Bloquear duplicação
-  const { data: existing } = await admin
+  const { data: existing } = await scope.admin
     .from('loyalty_transactions')
-    .select('id')
-    .eq('customer_id', customer.id)
+    .select('id, points')
+    .eq('barbershop_id', scope.barbershopId)
+    .eq('customer_id', scope.customer.id)
     .eq('reason', reason)
     .maybeSingle();
 
   if (existing) {
-    return NextResponse.json({ error: 'Raspadinha já usada esta semana', alreadyUsed: true }, { status: 409 });
+    return NextResponse.json(
+      {
+        error: 'Raspadinha já usada esta semana',
+        alreadyUsed: true,
+        points: existing.points,
+      },
+      { status: 409 }
+    );
   }
 
-  // Registrar transação
-  await admin.from('loyalty_transactions').insert({
-    barbershop_id: (await lojaPadrao()),
-    customer_id: customer.id,
-    type: 'bonus',
-    points,
-    reason,
-  });
+  // Valor sorteado no servidor: o cliente não consegue escolher os pontos ao
+  // editar a requisição no navegador.
+  const points = drawWeeklyBonus();
+  const { error: transactionError } = await scope.admin
+    .from('loyalty_transactions')
+    .insert({
+      barbershop_id: scope.barbershopId,
+      customer_id: scope.customer.id,
+      type: 'bonus',
+      points,
+      reason,
+    });
 
-  // Atualizar saldo
-  const { data: lp } = await admin
+  // O índice único da migração protege a corrida entre duas abas.
+  if (transactionError) {
+    if (transactionError.code === '23505') {
+      return NextResponse.json(
+        { error: 'Raspadinha já usada esta semana', alreadyUsed: true },
+        { status: 409 }
+      );
+    }
+    return NextResponse.json(
+      { error: 'Não foi possível creditar os pontos.' },
+      { status: 500 }
+    );
+  }
+
+  const { data: loyaltyPoints } = await scope.admin
     .from('loyalty_points')
     .select('balance, lifetime_earned')
-    .eq('customer_id', customer.id)
+    .eq('barbershop_id', scope.barbershopId)
+    .eq('customer_id', scope.customer.id)
     .maybeSingle();
 
-  if (lp) {
-    await admin
+  if (loyaltyPoints) {
+    const { error } = await scope.admin
       .from('loyalty_points')
       .update({
-        balance: (lp.balance ?? 0) + points,
-        lifetime_earned: (lp.lifetime_earned ?? 0) + points,
+        balance: Number(loyaltyPoints.balance ?? 0) + points,
+        lifetime_earned: Number(loyaltyPoints.lifetime_earned ?? 0) + points,
         updated_at: new Date().toISOString(),
       })
-      .eq('customer_id', customer.id);
+      .eq('barbershop_id', scope.barbershopId)
+      .eq('customer_id', scope.customer.id);
+    if (error) {
+      return NextResponse.json(
+        { error: 'Pontos registrados, mas o saldo precisa ser conciliado.' },
+        { status: 500 }
+      );
+    }
   } else {
-    await admin.from('loyalty_points').insert({
-      barbershop_id: (await lojaPadrao()),
-      customer_id: customer.id,
+    const { error } = await scope.admin.from('loyalty_points').insert({
+      barbershop_id: scope.barbershopId,
+      customer_id: scope.customer.id,
       balance: points,
       lifetime_earned: points,
       lifetime_redeemed: 0,
     });
+    if (error) {
+      return NextResponse.json(
+        { error: 'Pontos registrados, mas o saldo precisa ser conciliado.' },
+        { status: 500 }
+      );
+    }
   }
 
   return NextResponse.json({ ok: true, points, weekKey });
 }
+
+export const dynamic = 'force-dynamic';

@@ -21,11 +21,13 @@ export default async function EditCustomerPage({
 }: EditCustomerPageProps) {
   const { id } = await params;
   const supabase = createAdminClient();
+  const barbershopId = await lojaAtual();
 
   const { data: customer } = await supabase
     .from('customers')
     .select('*')
     .eq('id', id)
+    .eq('barbershop_id', barbershopId)
     .maybeSingle();
 
   if (!customer) {
@@ -36,7 +38,7 @@ export default async function EditCustomerPage({
   const { data: barbers } = await supabase
     .from('staff')
     .select('id, display_name')
-    .eq('barbershop_id', await lojaAtual())
+    .eq('barbershop_id', barbershopId)
     .eq('active', true)
     .in('role', ['barber', 'owner', 'manager'])
     .eq('atende_clientes', true)

@@ -29,13 +29,12 @@ export interface StaffFormData {
  * 3. Cria staff vinculado ao profile
  */
 export async function createStaff(data: StaffFormData) {
-  const supabase = await createManagerClient();
   const admin = await createManagerClient();
 
   let profileId: string;
 
   // 1. Verifica se já existe profile com esse email
-  const { data: existingProfile } = await supabase
+  const { data: existingProfile } = await admin
     .from('profiles')
     .select('id')
     .eq('email', data.email)
@@ -129,11 +128,13 @@ export async function createStaff(data: StaffFormData) {
  */
 export async function updateStaff(staffId: string, data: StaffFormData) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   const { data: staff, error: staffFetchError } = await admin
     .from('staff')
     .select('profile_id')
     .eq('id', staffId)
+    .eq('barbershop_id', barbershopId)
     .single();
 
   if (staffFetchError || !staff) {
@@ -166,7 +167,8 @@ export async function updateStaff(staffId: string, data: StaffFormData) {
       active: data.active,
     atende_clientes: data.atende_clientes ?? true,
     })
-    .eq('id', staffId);
+    .eq('id', staffId)
+    .eq('barbershop_id', barbershopId);
 
   if (staffError) {
     return { ok: false, error: staffError.message };
@@ -187,6 +189,7 @@ export async function updateStaff(staffId: string, data: StaffFormData) {
  */
 export async function pendenciasDoProfissional(staffId: string) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
   const agora = new Date().toISOString();
 
   const [
@@ -200,27 +203,32 @@ export async function pendenciasDoProfissional(staffId: string) {
       .from('appointments')
       .select('id', { count: 'exact', head: true })
       .eq('staff_id', staffId)
+      .eq('barbershop_id', barbershopId)
       .in('status', ['scheduled', 'confirmed', 'in_progress'])
       .gte('start_at', agora),
     admin
       .from('comandas')
       .select('id', { count: 'exact', head: true })
       .eq('staff_id', staffId)
+      .eq('barbershop_id', barbershopId)
       .eq('status', 'open'),
     admin
       .from('allowances')
       .select('id', { count: 'exact', head: true })
       .eq('staff_id', staffId)
+      .eq('barbershop_id', barbershopId)
       .eq('status', 'pending'),
     admin
       .from('comandas')
       .select('id', { count: 'exact', head: true })
       .eq('staff_id', staffId)
+      .eq('barbershop_id', barbershopId)
       .eq('status', 'closed'),
     admin
       .from('comanda_items')
       .select('commission_value')
       .eq('staff_id', staffId)
+      .eq('barbershop_id', barbershopId)
       .limit(3000),
   ]);
 
@@ -255,11 +263,13 @@ export async function pendenciasDoProfissional(staffId: string) {
  */
 export async function deactivateStaff(staffId: string, motivo?: string) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   const { data: staff } = await admin
     .from('staff')
     .select('id, display_name, can_manage, barbershop_id')
     .eq('id', staffId)
+    .eq('barbershop_id', barbershopId)
     .maybeSingle();
 
   if (!staff) return { ok: false, error: 'Profissional não encontrado.' };
@@ -290,7 +300,8 @@ export async function deactivateStaff(staffId: string, motivo?: string) {
   const { error } = await admin
     .from('staff')
     .update({ active: false, fired_at: new Date().toISOString() })
-    .eq('id', staffId);
+    .eq('id', staffId)
+    .eq('barbershop_id', barbershopId);
 
   if (error) return { ok: false, error: error.message };
 
@@ -307,6 +318,7 @@ export async function deactivateStaff(staffId: string, motivo?: string) {
       { count: 'exact' }
     )
     .eq('staff_id', staffId)
+    .eq('barbershop_id', barbershopId)
     .in('status', ['scheduled', 'confirmed'])
     .gte('start_at', new Date().toISOString());
 
@@ -325,6 +337,7 @@ export async function deactivateStaff(staffId: string, motivo?: string) {
  */
 export async function excluirProfissional(staffId: string) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   const pendencias = await pendenciasDoProfissional(staffId);
   if (!pendencias.podeApagarDeVez) {
@@ -339,6 +352,7 @@ export async function excluirProfissional(staffId: string) {
     .from('staff')
     .select('id, profile_id, can_manage')
     .eq('id', staffId)
+    .eq('barbershop_id', barbershopId)
     .maybeSingle();
 
   if (!staff) return { ok: false, error: 'Profissional não encontrado.' };
@@ -351,19 +365,20 @@ export async function excluirProfissional(staffId: string) {
   const { data: agendamentosDele } = await admin
     .from('appointments')
     .select('id')
-    .eq('staff_id', staffId);
+    .eq('staff_id', staffId)
+    .eq('barbershop_id', barbershopId);
 
   const ids = (agendamentosDele ?? []).map((a) => a.id as string);
   if (ids.length) {
-    await admin.from('appointment_services').delete().in('appointment_id', ids);
+    await admin.from('appointment_services').delete().eq('barbershop_id', barbershopId).in('appointment_id', ids);
   }
 
-  await admin.from('appointments').delete().eq('staff_id', staffId);
-  await admin.from('allowances').delete().eq('staff_id', staffId);
-  await admin.from('days_off').delete().eq('staff_id', staffId);
-  await admin.from('staff_services').delete().eq('staff_id', staffId);
+  await admin.from('appointments').delete().eq('staff_id', staffId).eq('barbershop_id', barbershopId);
+  await admin.from('allowances').delete().eq('staff_id', staffId).eq('barbershop_id', barbershopId);
+  await admin.from('days_off').delete().eq('staff_id', staffId).eq('barbershop_id', barbershopId);
+  await admin.from('staff_services').delete().eq('staff_id', staffId).eq('barbershop_id', barbershopId);
 
-  const { error } = await admin.from('staff').delete().eq('id', staffId);
+  const { error } = await admin.from('staff').delete().eq('id', staffId).eq('barbershop_id', barbershopId);
   if (error) return { ok: false, error: error.message };
 
   // A conta de acesso morre junto: ficha apagada com login vivo e porta aberta
@@ -393,6 +408,14 @@ export async function salvarAcessoStaff(
 ) {
   const admin = await createManagerClient();
   const ator = await getSessionStaff();
+  const barbershopId = await lojaAtual();
+  const { data: alvo } = await admin
+    .from('staff')
+    .select('id')
+    .eq('id', staffId)
+    .eq('barbershop_id', barbershopId)
+    .maybeSingle();
+  if (!alvo) return { ok: false, error: 'Profissional não pertence a esta unidade.' };
 
   const permissions = buildStaffPermissions(modulos);
 
@@ -420,11 +443,13 @@ export async function salvarAcessoStaff(
 export async function definirSenhaAcesso(staffId: string) {
   const admin = await createManagerClient();
   const ator = await getSessionStaff();
+  const barbershopId = await lojaAtual();
 
   const { data: staff } = await admin
     .from('staff')
     .select('profile_id, display_name, active, fired_at')
     .eq('id', staffId)
+    .eq('barbershop_id', barbershopId)
     .maybeSingle();
 
   if (!staff?.profile_id) {
@@ -448,7 +473,8 @@ export async function definirSenhaAcesso(staffId: string) {
   const { error: flagError } = await admin
     .from('staff')
     .update({ must_change_password: true })
-    .eq('id', staffId);
+    .eq('id', staffId)
+    .eq('barbershop_id', barbershopId);
 
   if (flagError) {
     return { ok: false, error: flagError.message };
@@ -470,11 +496,13 @@ export async function definirSenhaAcesso(staffId: string) {
  */
 export async function reactivateStaff(staffId: string) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   const { error } = await admin
     .from('staff')
     .update({ active: true, fired_at: null })
-    .eq('id', staffId);
+    .eq('id', staffId)
+    .eq('barbershop_id', barbershopId);
 
   if (error) {
     return { ok: false, error: error.message };

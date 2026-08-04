@@ -32,7 +32,16 @@ export default async function LojasPage() {
     .eq('active', true)
     .is('fired_at', null);
 
-  const minhas = new Set((meusCadastros ?? []).map((c) => c.barbershop_id as string));
+  const minhas = new Set(
+    (meusCadastros ?? [])
+      .filter((cadastro) => cadastro.can_manage === true)
+      .map((cadastro) => cadastro.barbershop_id as string)
+  );
+  // Gestor de uma unidade não recebe dados, clientes ou faturamento das
+  // demais. O proprietário continua vendo todas em que possui gestão.
+  const unidadesVisiveis = (unidades ?? []).filter((unidade) =>
+    minhas.has(unidade.id as string)
+  );
 
   // Um retrato de cada unidade, para a lista dizer algo alem do nome
   const resumo = new Map<string, { equipe: number; clientes: number; mes: number }>();
@@ -40,7 +49,7 @@ export default async function LojasPage() {
   inicioDoMes.setDate(1);
   inicioDoMes.setHours(0, 0, 0, 0);
 
-  for (const u of unidades ?? []) {
+  await Promise.all(unidadesVisiveis.map(async (u) => {
     const [{ count: equipe }, { count: clientes }, { data: comandas }] = await Promise.all([
       admin
         .from('staff')
@@ -65,9 +74,9 @@ export default async function LojasPage() {
       clientes: clientes ?? 0,
       mes: (comandas ?? []).reduce((s, c) => s + Number(c.total ?? 0), 0),
     });
-  }
+  }));
 
-  const lista = (unidades ?? []).map((u) => {
+  const lista = unidadesVisiveis.map((u) => {
     const r = resumo.get(u.id as string)!;
     return {
       id: u.id as string,

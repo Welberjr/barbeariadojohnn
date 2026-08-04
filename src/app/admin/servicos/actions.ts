@@ -42,6 +42,7 @@ export async function createService(data: ServiceFormData) {
 
 export async function updateService(serviceId: string, data: ServiceFormData) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   const { error } = await admin
     .from('services')
@@ -56,7 +57,8 @@ export async function updateService(serviceId: string, data: ServiceFormData) {
       display_order: data.display_order,
       active: data.active,
     })
-    .eq('id', serviceId);
+    .eq('id', serviceId)
+    .eq('barbershop_id', barbershopId);
 
   if (error) {
     return { ok: false, error: error.message };
@@ -69,12 +71,14 @@ export async function updateService(serviceId: string, data: ServiceFormData) {
 
 export async function deleteService(serviceId: string) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   // Soft delete: apenas desativa
   const { error } = await admin
     .from('services')
     .update({ active: false })
-    .eq('id', serviceId);
+    .eq('id', serviceId)
+    .eq('barbershop_id', barbershopId);
 
   if (error) {
     return { ok: false, error: error.message };

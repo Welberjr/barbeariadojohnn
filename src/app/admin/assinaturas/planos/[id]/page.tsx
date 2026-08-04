@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { PlanForm } from '../../_components/plan-form';
+import { lojaAtual } from '@/lib/loja';
 
 export const metadata = {
   title: 'Editar plano',
@@ -13,11 +14,13 @@ interface EditPlanPageProps {
 export default async function EditPlanPage({ params }: EditPlanPageProps) {
   const { id } = await params;
   const admin = createAdminClient();
+  const barbershopId = await lojaAtual();
 
   const { data: plan } = await admin
     .from('subscription_plans')
     .select('*')
     .eq('id', id)
+    .eq('barbershop_id', barbershopId)
     .maybeSingle();
 
   if (!plan) notFound();

@@ -382,17 +382,20 @@ export async function addProductToComanda(
   quantity = 1
 ) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   const { data: product } = await admin
     .from('products')
     .select('name, stock_current, default_commission_percent')
     .eq('id', productId)
+    .eq('barbershop_id', barbershopId)
     .maybeSingle();
 
   const { data: comanda } = await admin
     .from('comandas')
     .select('staff_id')
     .eq('id', comandaId)
+    .eq('barbershop_id', barbershopId)
     .maybeSingle();
 
   const staffId = comanda?.staff_id as string | null;
@@ -402,7 +405,7 @@ export async function addProductToComanda(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const payload: any = {
-    barbershop_id: (await lojaAtual()),
+    barbershop_id: barbershopId,
     comanda_id: comandaId,
     item_type: 'product',
     product_id: productId,
@@ -422,7 +425,8 @@ export async function addProductToComanda(
   await admin
     .from('products')
     .update({ stock_current: newStock })
-    .eq('id', productId);
+    .eq('id', productId)
+    .eq('barbershop_id', barbershopId);
 
   await recalculateTotalDelta(comandaId);
 
@@ -544,12 +548,14 @@ export async function closeComanda(
   metodoDoResto?: string
 ) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
   const method = normalizePaymentMethod(paymentMethod);
 
   const { data: comanda } = await admin
     .from('comandas')
     .select('subtotal, appointment_id, customer_id, total')
     .eq('id', comandaId)
+    .eq('barbershop_id', barbershopId)
     .maybeSingle();
 
   if (!comanda) return { ok: false, error: 'Comanda não encontrada' };
@@ -580,7 +586,7 @@ export async function closeComanda(
   const { data: feeCfg } = await admin
     .from('barbershops')
     .select('credit_fee_percent, debit_fee_percent')
-    .eq('id', (await lojaAtual()))
+    .eq('id', barbershopId)
     .maybeSingle();
 
   function taxaDoMetodo(m: string) {
@@ -672,7 +678,8 @@ export async function closeComanda(
       net_total: netTotal,
       closed_at: new Date().toISOString(),
     })
-    .eq('id', comandaId);
+    .eq('id', comandaId)
+    .eq('barbershop_id', barbershopId);
 
   if (errUpdate) return { ok: false, error: errUpdate.message };
 
@@ -685,7 +692,7 @@ export async function closeComanda(
     creditoUsado > 0
       ? [
           {
-            barbershop_id: (await lojaAtual()),
+            barbershop_id: barbershopId,
             comanda_id: comandaId,
             method: 'store_credit',
             amount: creditoUsado,
@@ -697,7 +704,7 @@ export async function closeComanda(
           ...(restante > 0
             ? [
                 {
-                  barbershop_id: (await lojaAtual()),
+                  barbershop_id: barbershopId,
                   comanda_id: comandaId,
                   method: metodoDoRestante,
                   amount: restante,
@@ -711,7 +718,7 @@ export async function closeComanda(
         ]
       : [
           {
-            barbershop_id: (await lojaAtual()),
+            barbershop_id: barbershopId,
             comanda_id: comandaId,
             method,
             amount: total,
@@ -782,6 +789,15 @@ export async function closeComanda(
  */
 export async function cancelComanda(comandaId: string) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
+
+  const { data: comanda } = await admin
+    .from('comandas')
+    .select('id')
+    .eq('id', comandaId)
+    .eq('barbershop_id', barbershopId)
+    .maybeSingle();
+  if (!comanda) return { ok: false, error: 'Comanda não pertence a esta unidade.' };
 
   const { data: items } = await admin
     .from('comanda_items')
@@ -835,7 +851,8 @@ export async function cancelComanda(comandaId: string) {
       status: 'cancelled',
       closed_at: new Date().toISOString(),
     })
-    .eq('id', comandaId);
+    .eq('id', comandaId)
+    .eq('barbershop_id', barbershopId);
 
   if (error) return { ok: false, error: error.message };
 

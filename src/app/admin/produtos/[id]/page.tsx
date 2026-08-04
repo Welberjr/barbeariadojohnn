@@ -16,11 +16,13 @@ export default async function EditProductPage({
 }: EditProductPageProps) {
   const { id } = await params;
   const supabase = createAdminClient();
+  const barbershopId = await lojaAtual();
 
   const { data: product } = await supabase
     .from('products')
     .select('*')
     .eq('id', id)
+    .eq('barbershop_id', barbershopId)
     .maybeSingle();
 
   if (!product) notFound();
@@ -28,7 +30,7 @@ export default async function EditProductPage({
   const { data: categories } = await supabase
     .from('product_categories')
     .select('id, name')
-    .eq('barbershop_id', (await lojaAtual()))
+    .eq('barbershop_id', barbershopId)
     .order('name');
 
   return (

@@ -4,6 +4,7 @@ import { StaffForm } from '../_components/staff-form';
 import { StaffAccessCard } from '../_components/staff-access-card';
 import { DesligarProfissional } from '../_components/desligar-profissional';
 import { parseStaffPermissions } from '@/lib/staff-permissions';
+import { lojaAtual } from '@/lib/loja';
 
 export const metadata = {
   title: 'Editar profissional',
@@ -16,6 +17,7 @@ interface EditStaffPageProps {
 export default async function EditStaffPage({ params }: EditStaffPageProps) {
   const { id } = await params;
   const supabase = createAdminClient();
+  const barbershopId = await lojaAtual();
 
   const { data: staff } = await supabase
     .from('staff')
@@ -41,6 +43,7 @@ export default async function EditStaffPage({ params }: EditStaffPageProps) {
     `
     )
     .eq('id', id)
+    .eq('barbershop_id', barbershopId)
     .maybeSingle();
 
   if (!staff) {

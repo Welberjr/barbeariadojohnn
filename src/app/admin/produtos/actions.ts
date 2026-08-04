@@ -100,6 +100,7 @@ export async function duplicateProductAction(productId: string) {
 
 export async function updateProduct(productId: string, data: ProductFormData) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   const { error } = await admin
     .from('products')
@@ -119,7 +120,8 @@ export async function updateProduct(productId: string, data: ProductFormData) {
       is_sellable: data.is_sellable,
       active: data.active,
     })
-    .eq('id', productId);
+    .eq('id', productId)
+    .eq('barbershop_id', barbershopId);
 
   if (error) return { ok: false, error: error.message };
 
@@ -130,12 +132,14 @@ export async function updateProduct(productId: string, data: ProductFormData) {
 
 export async function deleteProduct(productId: string) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   // Soft delete: desativa
   const { error } = await admin
     .from('products')
     .update({ active: false })
-    .eq('id', productId);
+    .eq('id', productId)
+    .eq('barbershop_id', barbershopId);
 
   if (error) return { ok: false, error: error.message };
 
@@ -148,11 +152,13 @@ export async function deleteProduct(productId: string) {
  */
 export async function registerSale(productId: string, quantity: number) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   const { data: prod } = await admin
     .from('products')
     .select('name, stock_current, sale_price, cost_price, is_sellable')
     .eq('id', productId)
+    .eq('barbershop_id', barbershopId)
     .maybeSingle();
 
   if (!prod) return { ok: false as const, error: 'Produto não encontrado' };
@@ -167,7 +173,7 @@ export async function registerSale(productId: string, quantity: number) {
   // Registra a transacao guardando tambem o custo (cost_amount) para DRE/lucro.
   // Se a coluna cost_amount ainda nao existir no banco, insere sem ela.
   const txPayload = {
-    barbershop_id: (await lojaAtual()),
+    barbershop_id: barbershopId,
     type: 'product',
     amount: totalValue,
     cost_amount: totalCost,
@@ -187,7 +193,8 @@ export async function registerSale(productId: string, quantity: number) {
   const { error: errStock } = await admin
     .from('products')
     .update({ stock_current: newStock })
-    .eq('id', productId);
+    .eq('id', productId)
+    .eq('barbershop_id', barbershopId);
 
   if (errStock) return { ok: false as const, error: errStock.message };
 
@@ -202,10 +209,12 @@ export async function registerSale(productId: string, quantity: number) {
  */
 export async function deactivateProductAction(productId: string) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
   const { error } = await admin
     .from('products')
     .update({ active: false })
-    .eq('id', productId);
+    .eq('id', productId)
+    .eq('barbershop_id', barbershopId);
   if (error) return { ok: false, error: error.message };
   revalidatePath('/admin/produtos');
   return { ok: true };
@@ -221,12 +230,14 @@ export async function adjustStock(
   _reason?: string
 ) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   // Pega estoque atual
   const { data: prod } = await admin
     .from('products')
     .select('stock_current')
     .eq('id', productId)
+    .eq('barbershop_id', barbershopId)
     .maybeSingle();
 
   if (!prod) return { ok: false, error: 'Produto não encontrado' };
@@ -236,7 +247,8 @@ export async function adjustStock(
   const { error } = await admin
     .from('products')
     .update({ stock_current: newStock })
-    .eq('id', productId);
+    .eq('id', productId)
+    .eq('barbershop_id', barbershopId);
 
   if (error) return { ok: false, error: error.message };
 

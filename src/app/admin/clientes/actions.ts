@@ -50,6 +50,7 @@ export async function createCustomer(data: CustomerFormData) {
 
 export async function updateCustomer(id: string, data: CustomerFormData) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   const { error } = await admin
     .from('customers')
@@ -66,7 +67,8 @@ export async function updateCustomer(id: string, data: CustomerFormData) {
       active: data.active,
       photo_url: data.photo_url || null,
     })
-    .eq('id', id);
+    .eq('id', id)
+    .eq('barbershop_id', barbershopId);
 
   if (error) return { ok: false, error: error.message };
 
@@ -77,10 +79,12 @@ export async function updateCustomer(id: string, data: CustomerFormData) {
 
 export async function deactivateCustomer(id: string) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
   const { error } = await admin
     .from('customers')
     .update({ active: false })
-    .eq('id', id);
+    .eq('id', id)
+    .eq('barbershop_id', barbershopId);
 
   if (error) return { ok: false, error: error.message };
 
@@ -118,6 +122,7 @@ export async function uploadCustomerPhoto(formData: FormData) {
   }
 
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
   const path = `${crypto.randomUUID()}.${ext}`;
   const bytes = await file.arrayBuffer();
 
@@ -153,11 +158,13 @@ export async function createCustomerAccess(
   }
 
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   const { data: customer } = await admin
     .from('customers')
     .select('id, auth_user_id, full_name')
     .eq('id', customerId)
+    .eq('barbershop_id', barbershopId)
     .maybeSingle();
   if (!customer) return { ok: false, error: 'Cliente não encontrado' };
   if (customer.auth_user_id) {
@@ -189,7 +196,8 @@ export async function createCustomerAccess(
   const { error: errLink } = await admin
     .from('customers')
     .update({ auth_user_id: created.user.id, email: cleanEmail })
-    .eq('id', customerId);
+    .eq('id', customerId)
+    .eq('barbershop_id', barbershopId);
 
   if (errLink) {
     // rollback para nao deixar usuario orfao
@@ -213,11 +221,13 @@ export async function resetCustomerPassword(
   }
 
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   const { data: customer } = await admin
     .from('customers')
     .select('auth_user_id')
     .eq('id', customerId)
+    .eq('barbershop_id', barbershopId)
     .maybeSingle();
 
   if (!customer?.auth_user_id) {
@@ -247,6 +257,7 @@ export async function concederCredito(dados: {
   vencimento: string | null;
 }) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   const valor = Number(dados.valor);
   if (!(valor > 0)) {
@@ -260,9 +271,16 @@ export async function concederCredito(dados: {
   }
 
   const staff = await getSessionStaff();
+  const { data: customer } = await admin
+    .from('customers')
+    .select('id')
+    .eq('id', dados.customerId)
+    .eq('barbershop_id', barbershopId)
+    .maybeSingle();
+  if (!customer) return { ok: false, error: 'Cliente não pertence a esta unidade.' };
 
   const { error } = await admin.from('customer_credits').insert({
-    barbershop_id: (await lojaAtual()),
+    barbershop_id: barbershopId,
     customer_id: dados.customerId,
     amount: valor,
     reason: dados.motivo.trim(),
@@ -286,11 +304,13 @@ export async function concederCredito(dados: {
  */
 export async function cancelarCredito(creditoId: string, motivo: string) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   const { data: credito } = await admin
     .from('customer_credits')
     .select('customer_id, cancelled_at')
     .eq('id', creditoId)
+    .eq('barbershop_id', barbershopId)
     .maybeSingle();
 
   if (!credito) return { ok: false, error: 'Crédito não encontrado.' };
@@ -302,7 +322,8 @@ export async function cancelarCredito(creditoId: string, motivo: string) {
       cancelled_at: new Date().toISOString(),
       cancellation_reason: motivo?.trim() || null,
     })
-    .eq('id', creditoId);
+    .eq('id', creditoId)
+    .eq('barbershop_id', barbershopId);
 
   if (error) return { ok: false, error: error.message };
 

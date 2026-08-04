@@ -89,6 +89,7 @@ export async function createPlan(data: PlanFormData) {
 
 export async function updatePlan(planId: string, data: PlanFormData) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   const { error } = await admin
     .from('subscription_plans')
@@ -106,7 +107,8 @@ export async function updatePlan(planId: string, data: PlanFormData) {
       display_order: data.display_order ?? 0,
       leftover_destination: lerDestinoSobra(data.leftover_destination),
     })
-    .eq('id', planId);
+    .eq('id', planId)
+    .eq('barbershop_id', barbershopId);
 
   if (error) return { ok: false, error: error.message };
 
@@ -117,11 +119,13 @@ export async function updatePlan(planId: string, data: PlanFormData) {
 
 export async function deletePlan(planId: string) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
   // Soft delete: preserva historico de assinaturas
   const { error } = await admin
     .from('subscription_plans')
     .update({ active: false })
-    .eq('id', planId);
+    .eq('id', planId)
+    .eq('barbershop_id', barbershopId);
 
   if (error) return { ok: false, error: error.message };
 
@@ -144,19 +148,30 @@ export interface CreateSubscriptionInput {
 
 export async function createSubscription(input: CreateSubscriptionInput) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   const { data: plan } = await admin
     .from('subscription_plans')
     .select('*')
     .eq('id', input.plan_id)
+    .eq('barbershop_id', barbershopId)
     .maybeSingle();
   if (!plan) return { ok: false, error: 'Plano não encontrado' };
+
+  const { data: customer } = await admin
+    .from('customers')
+    .select('full_name')
+    .eq('id', input.customer_id)
+    .eq('barbershop_id', barbershopId)
+    .maybeSingle();
+  if (!customer) return { ok: false, error: 'Cliente não pertence a esta unidade' };
 
   // Evita assinatura duplicada ativa
   const { data: existing } = await admin
     .from('subscriptions')
     .select('id')
     .eq('customer_id', input.customer_id)
+    .eq('barbershop_id', barbershopId)
     .in('status', ['active', 'past_due'])
     .limit(1);
   if (existing && existing.length > 0) {
@@ -169,7 +184,7 @@ export async function createSubscription(input: CreateSubscriptionInput) {
   const { data: sub, error } = await admin
     .from('subscriptions')
     .insert({
-      barbershop_id: (await lojaAtual()),
+      barbershop_id: barbershopId,
       customer_id: input.customer_id,
       plan_id: input.plan_id,
       status: 'active',
@@ -185,12 +200,6 @@ export async function createSubscription(input: CreateSubscriptionInput) {
 
   if (error || !sub) return { ok: false, error: error?.message ?? 'Erro ao criar' };
 
-  const { data: customer } = await admin
-    .from('customers')
-    .select('full_name')
-    .eq('id', input.customer_id)
-    .maybeSingle();
-
   // Primeiro pagamento (sem rateio: nao existe ciclo anterior)
   if (input.charge_now !== false) {
     const method = input.payment_method ?? 'pix';
@@ -198,7 +207,7 @@ export async function createSubscription(input: CreateSubscriptionInput) {
     const { data: tx } = await admin
       .from('transactions')
       .insert({
-        barbershop_id: (await lojaAtual()),
+        barbershop_id: barbershopId,
         type: 'subscription',
         amount: Number(plan.price),
         description: `Assinatura ${plan.name} - ${customer?.full_name ?? 'Cliente'}`,
@@ -211,7 +220,7 @@ export async function createSubscription(input: CreateSubscriptionInput) {
       .single();
 
     await admin.from('subscription_payments').insert({
-      barbershop_id: (await lojaAtual()),
+      barbershop_id: barbershopId,
       subscription_id: sub.id,
       amount: Number(plan.price),
       method,
@@ -241,6 +250,7 @@ export async function createSubscription(input: CreateSubscriptionInput) {
 
 export async function cancelSubscription(subscriptionId: string, reason?: string) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   const { error } = await admin
     .from('subscriptions')
@@ -249,7 +259,8 @@ export async function cancelSubscription(subscriptionId: string, reason?: string
       cancelled_at: new Date().toISOString(),
       cancellation_reason: nullIfEmpty(reason) ?? null,
     })
-    .eq('id', subscriptionId);
+    .eq('id', subscriptionId)
+    .eq('barbershop_id', barbershopId);
 
   if (error) return { ok: false, error: error.message };
 
@@ -259,11 +270,13 @@ export async function cancelSubscription(subscriptionId: string, reason?: string
 
 export async function reactivateSubscription(subscriptionId: string) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   const { error } = await admin
     .from('subscriptions')
     .update({ status: 'active', cancelled_at: null, cancellation_reason: null })
-    .eq('id', subscriptionId);
+    .eq('id', subscriptionId)
+    .eq('barbershop_id', barbershopId);
 
   if (error) return { ok: false, error: error.message };
 
