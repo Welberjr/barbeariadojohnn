@@ -22,6 +22,7 @@ export interface CreateComandaData {
  */
 export async function createComanda(data: CreateComandaData) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   // Se houver appointment, verificar se ja existe comanda vinculada
   if (data.appointment_id) {
@@ -29,6 +30,7 @@ export async function createComanda(data: CreateComandaData) {
       .from('comandas')
       .select('id, status')
       .eq('appointment_id', data.appointment_id)
+      .eq('barbershop_id', barbershopId)
       .in('status', ['open', 'closed'])
       .maybeSingle();
 
@@ -40,7 +42,7 @@ export async function createComanda(data: CreateComandaData) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const payload: any = {
-    barbershop_id: (await lojaAtual()),
+    barbershop_id: barbershopId,
     customer_id: data.customer_id,
     staff_id: data.staff_id,
     status: 'open',
@@ -69,6 +71,7 @@ export async function createComanda(data: CreateComandaData) {
       .from('appointments')
       .update({ status: 'in_progress' })
       .eq('id', data.appointment_id)
+      .eq('barbershop_id', barbershopId)
       .in('status', ['scheduled']);
   }
 
@@ -83,11 +86,13 @@ export async function createComanda(data: CreateComandaData) {
  */
 export async function startAppointmentComanda(appointmentId: string) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   const { data: appt } = await admin
     .from('appointments')
     .select('id, customer_id, staff_id, status')
     .eq('id', appointmentId)
+    .eq('barbershop_id', barbershopId)
     .maybeSingle();
 
   if (!appt) return { ok: false as const, error: 'Agendamento não encontrado' };
@@ -97,6 +102,7 @@ export async function startAppointmentComanda(appointmentId: string) {
     .from('comandas')
     .select('id')
     .eq('appointment_id', appointmentId)
+    .eq('barbershop_id', barbershopId)
     .in('status', ['open', 'closed'])
     .maybeSingle();
 
@@ -121,7 +127,8 @@ export async function startAppointmentComanda(appointmentId: string) {
     await admin
       .from('appointments')
       .update({ status: 'in_progress' })
-      .eq('id', appointmentId);
+      .eq('id', appointmentId)
+      .eq('barbershop_id', barbershopId);
   }
 
   revalidatePath('/admin/agenda');
@@ -137,11 +144,13 @@ export async function populateComandaFromAppointment(
   appointmentId: string
 ) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   const { data: apptServices } = await admin
     .from('appointment_services')
     .select('service_id, price, commission_percent')
-    .eq('appointment_id', appointmentId);
+    .eq('appointment_id', appointmentId)
+    .eq('barbershop_id', barbershopId);
 
   if (!apptServices || apptServices.length === 0) {
     return { ok: true, added: 0 };
@@ -151,7 +160,10 @@ export async function populateComandaFromAppointment(
     .from('comandas')
     .select('staff_id')
     .eq('id', comandaId)
+    .eq('barbershop_id', barbershopId)
     .maybeSingle();
+
+  if (!comanda) return { ok: false, error: 'Comanda não pertence a esta unidade.' };
 
   const staffId = comanda?.staff_id as string | null;
 
@@ -159,15 +171,15 @@ export async function populateComandaFromAppointment(
   const { data: services } = await admin
     .from('services')
     .select('id, name')
-    .in('id', serviceIds);
+    .in('id', serviceIds)
+    .eq('barbershop_id', barbershopId);
   const nameMap = new Map(
     (services ?? []).map((s) => [s.id as string, s.name as string])
   );
 
-  const loja = await lojaAtual();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const itemsToInsert = apptServices.map((s: any) => ({
-    barbershop_id: loja,
+    barbershop_id: barbershopId,
     comanda_id: comandaId,
     item_type: 'service',
     service_id: s.service_id,
@@ -208,22 +220,32 @@ export async function addServiceToComanda(
   useSubscription = false
 ) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   const [{ data: service }, { data: staff }, { data: comanda }] = await Promise.all([
-    admin.from('services').select('name').eq('id', serviceId).maybeSingle(),
+    admin
+      .from('services')
+      .select('name')
+      .eq('id', serviceId)
+      .eq('barbershop_id', barbershopId)
+      .maybeSingle(),
     admin
       .from('staff')
       .select('default_commission_percent')
       .eq('id', staffId)
+      .eq('barbershop_id', barbershopId)
       .maybeSingle(),
     admin
       .from('comandas')
       .select('customer_id, appointment_id, status')
       .eq('id', comandaId)
+      .eq('barbershop_id', barbershopId)
       .maybeSingle(),
   ]);
 
   if (!comanda) return { ok: false, error: 'Comanda não encontrada' };
+  if (!service) return { ok: false, error: 'Serviço não pertence a esta unidade' };
+  if (!staff) return { ok: false, error: 'Profissional não pertence a esta unidade' };
   if (comanda.status !== 'open') {
     return { ok: false, error: 'Comanda não está aberta' };
   }
@@ -275,7 +297,7 @@ export async function addServiceToComanda(
     // Item com preco zero (coberto)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const itemPayload: any = {
-      barbershop_id: (await lojaAtual()),
+      barbershop_id: barbershopId,
       comanda_id: comandaId,
       item_type: 'service',
       service_id: serviceId,
@@ -302,7 +324,7 @@ export async function addServiceToComanda(
     const { data: usage, error: errUsage } = await admin
       .from('subscription_usages')
       .insert({
-        barbershop_id: (await lojaAtual()),
+        barbershop_id: barbershopId,
         subscription_id: sub.id,
         appointment_id: comanda.appointment_id ?? null,
         service_id: serviceId,
@@ -319,14 +341,19 @@ export async function addServiceToComanda(
 
     if (errUsage || !usage) {
       // rollback do item para nao deixar cobertura sem uso registrado
-      await admin.from('comanda_items').delete().eq('id', item.id);
+      await admin
+        .from('comanda_items')
+        .delete()
+        .eq('id', item.id)
+        .eq('barbershop_id', barbershopId);
       return { ok: false, error: errUsage?.message ?? 'Erro ao registrar uso' };
     }
 
     await admin
       .from('comanda_items')
       .update({ subscription_usage_id: usage.id })
-      .eq('id', item.id);
+      .eq('id', item.id)
+      .eq('barbershop_id', barbershopId);
 
     await recalculateTotalDelta(comandaId);
 
@@ -350,7 +377,7 @@ export async function addServiceToComanda(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const payload: any = {
-    barbershop_id: (await lojaAtual()),
+    barbershop_id: barbershopId,
     comanda_id: comandaId,
     item_type: 'service',
     service_id: serviceId,
@@ -397,6 +424,9 @@ export async function addProductToComanda(
     .eq('id', comandaId)
     .eq('barbershop_id', barbershopId)
     .maybeSingle();
+
+  if (!product) return { ok: false, error: 'Produto não pertence a esta unidade' };
+  if (!comanda) return { ok: false, error: 'Comanda não pertence a esta unidade' };
 
   const staffId = comanda?.staff_id as string | null;
   const totalPrice = price * quantity;
@@ -447,25 +477,32 @@ export async function removeComandaItem(
   _type: 'service' | 'product'
 ) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   const { data: item } = await admin
     .from('comanda_items')
-    .select('item_type, product_id, quantity, subscription_usage_id')
+    .select('item_type, product_id, quantity, subscription_usage_id, comanda_id')
     .eq('id', itemId)
+    .eq('comanda_id', comandaId)
+    .eq('barbershop_id', barbershopId)
     .maybeSingle();
+
+  if (!item) return { ok: false, error: 'Item não pertence a esta comanda.' };
 
   if (item?.item_type === 'product' && item.product_id) {
     const { data: prod } = await admin
       .from('products')
       .select('stock_current')
       .eq('id', item.product_id)
+      .eq('barbershop_id', barbershopId)
       .maybeSingle();
     const newStock =
       Number(prod?.stock_current ?? 0) + Number(item.quantity ?? 0);
     await admin
       .from('products')
       .update({ stock_current: newStock })
-      .eq('id', item.product_id);
+      .eq('id', item.product_id)
+      .eq('barbershop_id', barbershopId);
   }
 
   // Item coberto por assinatura: estorna o uso (se nao acertado)
@@ -474,10 +511,16 @@ export async function removeComandaItem(
       .from('subscription_usages')
       .delete()
       .eq('id', item.subscription_usage_id)
+      .eq('barbershop_id', barbershopId)
       .is('settled_payout_id', null);
   }
 
-  const { error } = await admin.from('comanda_items').delete().eq('id', itemId);
+  const { error } = await admin
+    .from('comanda_items')
+    .delete()
+    .eq('id', itemId)
+    .eq('comanda_id', comandaId)
+    .eq('barbershop_id', barbershopId);
   if (error) return { ok: false, error: error.message };
 
   await recalculateTotalDelta(comandaId);
@@ -491,9 +534,18 @@ export async function removeComandaItem(
  */
 async function recalculateTotalDelta(comandaId: string) {
   const admin = await createManagerClient();
-  const { data: items } = await admin.from('comanda_items').select('total_price').eq('comanda_id', comandaId);
+  const barbershopId = await lojaAtual();
+  const { data: items } = await admin
+    .from('comanda_items')
+    .select('total_price')
+    .eq('comanda_id', comandaId)
+    .eq('barbershop_id', barbershopId);
   const subtotal = items?.reduce((s, i) => s + Number(i.total_price ?? 0), 0) ?? 0;
-  await admin.from('comandas').update({ subtotal, total: subtotal, net_total: subtotal }).eq('id', comandaId);
+  await admin
+    .from('comandas')
+    .update({ subtotal, total: subtotal, net_total: subtotal })
+    .eq('id', comandaId)
+    .eq('barbershop_id', barbershopId);
 }
 
 /**
@@ -501,11 +553,13 @@ async function recalculateTotalDelta(comandaId: string) {
  */
 async function recalculateComandaTotal(comandaId: string) {
   const admin = await createManagerClient();
+  const barbershopId = await lojaAtual();
 
   const { data: items } = await admin
     .from('comanda_items')
     .select('total_price')
-    .eq('comanda_id', comandaId);
+    .eq('comanda_id', comandaId)
+    .eq('barbershop_id', barbershopId);
 
   const subtotal =
     items?.reduce((sum, i) => sum + Number(i.total_price), 0) ?? 0;
@@ -517,7 +571,8 @@ async function recalculateComandaTotal(comandaId: string) {
       total: subtotal,
       net_total: subtotal,
     })
-    .eq('id', comandaId);
+    .eq('id', comandaId)
+    .eq('barbershop_id', barbershopId);
 }
 
 /** Mapeia valores antigos da UI para o enum payment_method do banco. */
