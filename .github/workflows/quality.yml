@@ -11,6 +11,13 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    env:
+      # Valores inertes: o build apenas precisa validar os módulos que criam
+      # clientes Supabase. Segredos e dados de produção nunca entram no CI.
+      NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
