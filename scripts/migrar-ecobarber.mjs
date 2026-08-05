@@ -246,14 +246,27 @@ async function importar() {
   const mapaStaff = new Map(); // id antigo -> staff_id novo
   let equipe = 0;
 
+  // Todos os logins de uma vez, pagina por pagina. Antes isto era um listUsers
+  // de 200 dentro do laco, so da primeira pagina: quando os clientes ganharam
+  // login e a base passou de 200 usuarios, os profissionais cairam para fora
+  // da pagina, o mapa de equipe veio vazio e toda comanda nova era pulada em
+  // silencio (aconteceu de verdade entre 01 e 04/08/2026).
+  const usuarioPorEmail = new Map();
+  for (let pagina = 1; ; pagina++) {
+    const { data: lote } = await admin.auth.admin.listUsers({ page: pagina, perPage: 1000 });
+    for (const u of lote?.users ?? []) {
+      if (u.email) usuarioPorEmail.set(u.email.toLowerCase(), u);
+    }
+    if (!lote?.users?.length || lote.users.length < 1000) break;
+  }
+
   for (const p of eco.profiles) {
     const emailAntigo = (p.email ?? '').trim().toLowerCase();
     if (!emailAntigo) continue;
     const email = EMAIL_UNIFICADO[emailAntigo] ?? emailAntigo;
 
     // Reaproveita o login se ja existir, senao cria
-    const { data: lista } = await admin.auth.admin.listUsers({ perPage: 200 });
-    let user = lista?.users?.find((u) => u.email === email);
+    let user = usuarioPorEmail.get(email.toLowerCase());
 
     if (!user) {
       const { data: novo } = await admin.auth.admin.createUser({
@@ -263,8 +276,14 @@ async function importar() {
         user_metadata: { full_name: p.nome_completo },
       });
       user = novo?.user;
+      if (user?.email) usuarioPorEmail.set(user.email.toLowerCase(), user);
     }
-    if (!user) continue;
+    if (!user) {
+      // Sem login nao tem como amarrar a equipe, e sem equipe as comandas do
+      // profissional somem da importacao. Isso NUNCA pode passar mudo.
+      console.error(`  ATENCAO: nao consegui login para ${p.nome_completo} (${email}); as comandas deste profissional NAO serao importadas`);
+      continue;
+    }
 
     await admin.from('profiles').upsert({
       id: user.id,

@@ -62,8 +62,14 @@ const PERFIS = [
 ];
 
 async function acharUsuario(email) {
-  const { data } = await admin.auth.admin.listUsers({ perPage: 200 });
-  return data?.users?.find((u) => u.email === email) ?? null;
+  // Pagina por pagina: com os clientes tendo login, a base passa de 200
+  // usuarios e quem procura so na primeira pagina nao acha mais ninguem.
+  for (let pagina = 1; ; pagina++) {
+    const { data } = await admin.auth.admin.listUsers({ page: pagina, perPage: 1000 });
+    const achado = data?.users?.find((u) => u.email === email);
+    if (achado) return achado;
+    if (!data?.users?.length || data.users.length < 1000) return null;
+  }
 }
 
 for (const perfil of PERFIS) {
