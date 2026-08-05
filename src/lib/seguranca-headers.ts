@@ -9,11 +9,13 @@
  * carregando para sempre. Quem navegava clicando nao via o problema, e por isso
  * ele passou tanto tempo em pe.
  *
- * A politica agora nasce aqui, no middleware, com um nonce novo a cada
- * requisicao. O Next reconhece o nonce e assina os proprios scripts com ele.
- * Ficou mais seguro do que antes, e nao mais permissivo: 'unsafe-inline' saiu do
- * script-src, e quem manda script para dentro da pagina agora precisa do nonce
- * do momento, que ninguem de fora tem como adivinhar.
+ * A politica agora nasce aqui, no middleware. A verdade que precisa ficar
+ * registrada: o 'unsafe-inline' CONTINUA no script-src. O app nao usa nonce
+ * porque a tela de login e pre-renderizada e servida do cache, e HTML guardado
+ * nao tem como carregar o nonce da requisicao de agora (a historia completa
+ * esta no comentario de montarCsp, logo abaixo). Esse e o pendente conhecido
+ * da politica: quando o cache deixar de servir pagina pre-renderizada, da para
+ * apertar o script-src de novo.
  */
 
 export function gerarNonce(): string {
@@ -61,6 +63,10 @@ export function montarCsp(_nonce?: string): string {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
+    // Sem estas duas, audio, video e worker herdam o default-src. Deixar
+    // explicito custa nada e evita surpresa quando alguem apertar o default.
+    "media-src 'self'",
+    "worker-src 'self'",
     // ws: e o canal que o Next usa em dev para avisar a tela que o codigo mudou
     emDesenvolvimento
       ? "connect-src 'self' ws: http://localhost:* https://*.supabase.co wss://*.supabase.co"

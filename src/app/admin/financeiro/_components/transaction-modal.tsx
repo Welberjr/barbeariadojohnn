@@ -84,7 +84,7 @@ export function TransactionModal({ type, staff, onClose }: TransactionModalProps
               {isIncome ? 'Adicionar Receita' : 'Adicionar Despesa'}
             </h3>
           </div>
-          <button type="button" onClick={onClose} className="text-fg-subtle hover:text-fg">
+          <button type="button" onClick={onClose} aria-label="Fechar" className="text-fg-subtle hover:text-fg">
             <X className="w-4 h-4" />
           </button>
         </div>

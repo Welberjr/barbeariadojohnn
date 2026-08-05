@@ -203,6 +203,7 @@ export function ServiceStaffManager({
             <button
               type="button"
               onClick={() => setShowAdd(false)}
+              aria-label="Fechar"
               className="text-fg-subtle hover:text-fg"
             >
               <X className="w-4 h-4" />
@@ -230,7 +231,7 @@ export function ServiceStaffManager({
 
             <div>
               <label className="label text-[10px]">
-                Preço (deixe vazio = R$ {basePrice})
+                Preço (deixe vazio = {formatCurrency(basePrice)})
               </label>
               <input
                 type="number"
@@ -445,7 +446,7 @@ export function ServiceStaffManager({
                   <div className="px-3 pb-3 pt-1 border-t border-gold/20 grid grid-cols-1 md:grid-cols-4 gap-2 animate-fade-in">
                     <div>
                       <label className="label text-[9px]">
-                        Preço (R$ {basePrice} padrão)
+                        Preço ({formatCurrency(basePrice)} padrão)
                       </label>
                       <input
                         type="number"

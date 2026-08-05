@@ -77,6 +77,7 @@ export function QuickPayButton({
                 type="button"
                 onClick={() => setOpen(false)}
                 disabled={saving}
+                aria-label="Fechar"
                 className="text-fg-subtle hover:text-fg"
               >
                 <X className="w-4 h-4" />

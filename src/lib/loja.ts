@@ -52,6 +52,27 @@ export interface Loja {
   ativa: boolean;
 }
 
+/**
+ * O usuario da sessao, memoizado por requisicao.
+ *
+ * Toda pagina logada perguntava "quem esta ai?" varias vezes: a guarda da
+ * pagina, o lojaAtual e as libs de dados chamavam auth.getUser cada um por
+ * si, e cada chamada e uma ida ao Supabase. Com o cache() do React, a
+ * primeira responde e as demais reaproveitam a resposta dentro da MESMA
+ * requisicao; a requisicao seguinte confere no banco de novo, como sempre.
+ *
+ * So vale para codigo de servidor do Next (paginas, layouts, actions), que e
+ * quem importa este arquivo. Fora de uma requisicao o cache() nao memoiza,
+ * apenas repassa a chamada.
+ */
+export const usuarioDaSessao = cache(async function usuarioDaSessao() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user;
+});
+
 /** Todas as unidades ativas da rede, na ordem do nome. */
 export const lojasAtivas = cache(async function lojasAtivas(): Promise<Loja[]> {
   const admin = createAdminClient();
@@ -115,10 +136,7 @@ export const lojasDoUsuario = cache(async function lojasDoUsuario(
  */
 export const lojaAtual = cache(async function lojaAtual(): Promise<string> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await usuarioDaSessao();
 
     if (!user) return await lojaPadrao();
 

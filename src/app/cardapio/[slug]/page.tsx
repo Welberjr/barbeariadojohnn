@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { notFound } from 'next/navigation';
 // O cardapio le pelo servidor, com a credencial de servico, e nao com a chave
 // publica. Assim o banco pode ficar fechado para quem chega de fora: a leitura
@@ -21,6 +22,27 @@ interface CardapioPageProps {
   params: Promise<{ slug: string }>;
 }
 
+// Pagina publica, igual para todo mundo: nao le cookie nem sessao. Pode ser
+// servida do cache por 5 minutos em vez de ir ao banco a cada visita; mudanca
+// de preco ou de texto aparece em ate 5 minutos, o que e mais que suficiente
+// para um cardapio.
+export const revalidate = 300;
+
+// A mesma linha de barbershops servia a pagina e o generateMetadata, cada um
+// com o proprio select('*'). Agora a busca acontece uma vez, so com as colunas
+// que a tela usa, e os dois reaproveitam o resultado dentro da mesma renderizacao.
+const buscarBarbearia = cache(async (slug: string) => {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from('barbershops')
+    .select(
+      'id, name, phone, whatsapp_number, address_street, address_number, address_neighborhood, address_city, address_state, site_config'
+    )
+    .eq('slug', slug)
+    .maybeSingle();
+  return data;
+});
+
 interface SiteConfig {
   hero_title?: string | null;
   hero_subtitle?: string | null;
@@ -38,12 +60,7 @@ interface SiteConfig {
 
 export async function generateMetadata({ params }: CardapioPageProps) {
   const { slug } = await params;
-  const supabase = createAdminClient();
-  const { data: barbershop } = await supabase
-    .from('barbershops')
-    .select('name, address_city, site_config')
-    .eq('slug', slug)
-    .maybeSingle();
+  const barbershop = await buscarBarbearia(slug);
 
   if (!barbershop) return { title: 'Cardápio' };
 
@@ -65,11 +82,7 @@ export default async function CardapioPage({ params }: CardapioPageProps) {
   const { slug } = await params;
   const supabase = createAdminClient();
 
-  const { data: barbershop } = await supabase
-    .from('barbershops')
-    .select('*')
-    .eq('slug', slug)
-    .maybeSingle();
+  const barbershop = await buscarBarbearia(slug);
 
   if (!barbershop) {
     notFound();

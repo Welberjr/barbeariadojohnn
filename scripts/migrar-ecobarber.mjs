@@ -268,6 +268,19 @@ async function importar() {
     // Reaproveita o login se ja existir, senao cria
     let user = usuarioPorEmail.get(email.toLowerCase());
 
+    // Profissional desligado no EcoBarber e sem login aqui NAO ganha login
+    // novo: esta sincronizacao roda de hora em hora e ja ressuscitou cadastro
+    // e login que tinham sido apagados de proposito. Se um dia a pessoa
+    // voltar, o login e criado na tela de Profissionais. Quem ja tem login
+    // continua sendo atualizado normalmente logo abaixo.
+    if (!user && p.is_active === false) {
+      console.warn(
+        `  AVISO: ${p.nome_completo} (${email}) esta desligado no EcoBarber e nao tem login aqui; ` +
+        `nenhum login sera criado. Se voltar para a equipe, cadastre pela tela de Profissionais.`
+      );
+      continue;
+    }
+
     if (!user) {
       const { data: novo } = await admin.auth.admin.createUser({
         email,

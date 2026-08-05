@@ -122,7 +122,7 @@ export async function gastarCredito(opts: {
     const disponivel = saldoDisponivel(creditos);
     return {
       ok: false,
-      error: `Crédito insuficiente: o cliente tem R$ ${disponivel.toFixed(2)} e a comanda é de R$ ${opts.valor.toFixed(2)}.`,
+      error: `Crédito insuficiente: o cliente tem R$ ${disponivel.toFixed(2).replace('.', ',')} e a comanda é de R$ ${opts.valor.toFixed(2).replace('.', ',')}.`,
     };
   }
 

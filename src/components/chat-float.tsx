@@ -177,6 +177,7 @@ export function ChatFloat({
               type="button"
               onClick={sendMessage}
               disabled={loading || !input.trim()}
+              aria-label="Enviar mensagem"
               className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all disabled:opacity-40"
               style={{ background: `linear-gradient(135deg, #B8862A, ${accentColor})` }}
             >

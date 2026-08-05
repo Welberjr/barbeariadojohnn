@@ -94,6 +94,8 @@ function getInsights(data: {
 
 export default async function DashboardPage() {
   const admin = createAdminClient();
+  // Resolvida uma vez, antes das consultas: cada .eq abaixo usa o valor pronto
+  const loja = await lojaAtual();
 
   const now = new Date();
   const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(now);
@@ -128,48 +130,48 @@ export default async function DashboardPage() {
     admin
       .from('comandas')
       .select('id, total, staff_id, closed_at')
-      .eq('barbershop_id', (await lojaAtual()))
+      .eq('barbershop_id', loja)
       .eq('status', 'closed')
       .gte('closed_at', `${rangeStart}T00:00:00.000-03:00`),
     admin
       .from('comandas')
       .select('id, total')
-      .eq('barbershop_id', (await lojaAtual()))
+      .eq('barbershop_id', loja)
       .eq('status', 'open'),
     admin
       .from('comandas')
       .select('total')
-      .eq('barbershop_id', (await lojaAtual()))
+      .eq('barbershop_id', loja)
       .eq('status', 'closed')
       .gte('closed_at', `${prevFirst}T00:00:00.000-03:00`)
       .lte('closed_at', `${prevSameDay}T23:59:59.999-03:00`),
     admin
       .from('appointments')
       .select('id, start_at, status, customers:customers(full_name), staff:staff(display_name), appointment_services(service:services(name))')
-      .eq('barbershop_id', (await lojaAtual()))
+      .eq('barbershop_id', loja)
       .gte('start_at', `${todayStr}T00:00:00.000-03:00`)
       .lte('start_at', `${todayStr}T23:59:59.999-03:00`)
       .order('start_at', { ascending: true }),
     admin
       .from('bills')
       .select('id, description, amount, due_date, status')
-      .eq('barbershop_id', (await lojaAtual()))
+      .eq('barbershop_id', loja)
       .in('status', ['pending', 'overdue'])
       .lte('due_date', todayStr),
     admin
       .from('products')
       .select('id, name, stock_current, stock_minimum, active')
-      .eq('barbershop_id', (await lojaAtual()))
+      .eq('barbershop_id', loja)
       .eq('active', true),
     admin
       .from('subscriptions')
       .select('status, current_price, current_period_end, plan:subscription_plans (period)')
-      .eq('barbershop_id', (await lojaAtual()))
+      .eq('barbershop_id', loja)
       .in('status', ['active', 'past_due']),
     admin
       .from('goals')
       .select('revenue_target, appointments_target')
-      .eq('barbershop_id', (await lojaAtual()))
+      .eq('barbershop_id', loja)
       .in('period_type', ['monthly', 'month'])
       .eq('year', year)
       .eq('month', month)
@@ -179,11 +181,11 @@ export default async function DashboardPage() {
       .from('staff')
       .select('id, display_name')
       .eq('active', true)
-      .eq('barbershop_id', (await lojaAtual())),
+      .eq('barbershop_id', loja),
     admin
       .from('appointments')
       .select('start_at, status')
-      .eq('barbershop_id', (await lojaAtual()))
+      .eq('barbershop_id', loja)
       .gte('start_at', `${firstOfMonth}T00:00:00.000-03:00`),
   ]);
   // ---------- Processamento ----------
@@ -195,10 +197,25 @@ export default async function DashboardPage() {
 
   const comandasMonth = range.filter((c) => spDay(c.closed_at) >= firstOfMonth);
   const comandasToday = range.filter((c) => spDay(c.closed_at) === todayStr);
+  const monthIds = comandasMonth.map((c) => c.id as string);
 
-  // Crédito da casa sai do faturamento: o serviço foi entregue, mas o dinheiro
-  // entrou antes, fora do caixa. O painel só mostra o que a barbearia recebeu.
-  const creditoDoPeriodo = await creditoPorComanda(range.map((c) => c.id as string));
+  // Segunda rodada: as duas consultas dependem dos ids das comandas trazidas
+  // acima, mas nao uma da outra, entao vao juntas ao banco.
+  //
+  // Credito da casa sai do faturamento: o servico foi entregue, mas o dinheiro
+  // entrou antes, fora do caixa. O painel so mostra o que a barbearia recebeu.
+  // Os itens de servico alimentam o quadro "Servicos mais vendidos".
+  const [creditoDoPeriodo, itensDoMes] = await Promise.all([
+    creditoPorComanda(range.map((c) => c.id as string)),
+    monthIds.length > 0
+      ? admin
+          .from('comanda_items')
+          .select('item_type, total_price, service:services(name)')
+          .in('comanda_id', monthIds)
+          .eq('item_type', 'service')
+          .then((r) => r.data ?? [])
+      : Promise.resolve([]),
+  ]);
   const semCredito = (c: { id: string; total: number | null }) =>
     Number(c.total ?? 0) - (creditoDoPeriodo.get(c.id) ?? 0);
 
@@ -238,8 +255,8 @@ export default async function DashboardPage() {
 
   // Fonte unica com a tela de Assinaturas: mesmo criterio de assinante,
   // inadimplente e MRR (equivalente mensal, nao preco cru).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const kpisSubs = subscriptionKpis(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ((subsRaw ?? []) as any[]).map((s) => ({
       status: s.status as string,
       current_price: s.current_price as number | null,
@@ -275,18 +292,13 @@ export default async function DashboardPage() {
     .slice(0, 5);
   const topRevenue = ranking[0]?.total ?? 0;
 
-  // Top servicos do mes
-  const monthIds = comandasMonth.map((c) => c.id);
+  // Top servicos do mes: os itens ja vieram na segunda rodada, junto com o
+  // credito, entao aqui e so conta em memoria.
   let topServicos: { name: string; count: number; total: number }[] = [];
-  if (monthIds.length > 0) {
-    const { data: itemsMonth } = await admin
-      .from('comanda_items')
-      .select('item_type, total_price, service:services(name)')
-      .in('comanda_id', monthIds)
-      .eq('item_type', 'service');
+  if (itensDoMes.length > 0) {
     const byService = new Map<string, { count: number; total: number }>();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for (const it of (itemsMonth ?? []) as any[]) {
+    for (const it of itensDoMes as any[]) {
       const name = (Array.isArray(it.service) ? it.service[0]?.name : it.service?.name) ?? 'Outros';
       const cur = byService.get(name) ?? { count: 0, total: 0 };
       cur.count += 1;

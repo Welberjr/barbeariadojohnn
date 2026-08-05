@@ -58,62 +58,97 @@ export async function retratoDaRede(opts: {
   const fim = `${ate}T23:59:59.999-03:00`;
 
   const minhas = (await lojasDoUsuario(opts.userId)).filter((l) => l.podeGerir);
+  const idsDasLojas = minhas.map((l) => l.id);
 
-  const unidades: RetratoDaUnidade[] = [];
+  // Uma conta por loja, preenchida pelas consultas agrupadas logo abaixo.
+  const contas = new Map<
+    string,
+    { total: number; atendimentos: number; clientes: number; equipe: number; credito: number; comissoes: number }
+  >();
+  for (const id of idsDasLojas) {
+    contas.set(id, { total: 0, atendimentos: 0, clientes: 0, equipe: 0, credito: 0, comissoes: 0 });
+  }
 
-  for (const loja of minhas) {
-    const [{ data: comandas }, { count: clientes }, { count: equipe }] = await Promise.all([
+  if (idsDasLojas.length > 0) {
+    // Primeira rodada: uma consulta por pergunta para a rede INTEIRA, em vez
+    // de tres por loja. A separacao por unidade acontece aqui em JS.
+    const [{ data: comandas }, { data: clienteRows }, { data: equipeRows }] = await Promise.all([
       admin
         .from('comandas')
-        .select('id, total')
-        .eq('barbershop_id', loja.id)
+        .select('id, total, barbershop_id')
+        .in('barbershop_id', idsDasLojas)
         .eq('status', 'closed')
         .gte('closed_at', inicio)
         .lte('closed_at', fim),
       admin
         .from('customers')
-        .select('id', { count: 'exact', head: true })
-        .eq('barbershop_id', loja.id)
+        .select('barbershop_id')
+        .in('barbershop_id', idsDasLojas)
         .eq('active', true),
       admin
         .from('staff')
-        .select('id', { count: 'exact', head: true })
-        .eq('barbershop_id', loja.id)
+        .select('barbershop_id')
+        .in('barbershop_id', idsDasLojas)
         .eq('active', true),
     ]);
 
-    const ids = (comandas ?? []).map((c) => c.id as string);
-
-    // Credito da casa nao e faturamento: o dinheiro entrou antes, fora do
-    // caixa. A mesma regra do financeiro de cada loja vale aqui.
-    let credito = 0;
-    let comissoes = 0;
-    if (ids.length > 0) {
-      const [{ data: usos }, { data: itens }] = await Promise.all([
-        admin.from('customer_credit_uses').select('amount').in('comanda_id', ids),
-        admin.from('comanda_items').select('commission_value').in('comanda_id', ids),
-      ]);
-      credito = (usos ?? []).reduce((s, u) => s + Number(u.amount ?? 0), 0);
-      comissoes = (itens ?? []).reduce((s, i) => s + Number(i.commission_value ?? 0), 0);
+    for (const r of clienteRows ?? []) {
+      const conta = contas.get(r.barbershop_id as string);
+      if (conta) conta.clientes += 1;
+    }
+    for (const r of equipeRows ?? []) {
+      const conta = contas.get(r.barbershop_id as string);
+      if (conta) conta.equipe += 1;
     }
 
-    const faturamento =
-      (comandas ?? []).reduce((s, c) => s + Number(c.total ?? 0), 0) - credito;
-    const atendimentos = (comandas ?? []).length;
+    const lojaDaComanda = new Map<string, string>();
+    for (const c of comandas ?? []) {
+      lojaDaComanda.set(c.id as string, c.barbershop_id as string);
+      const conta = contas.get(c.barbershop_id as string);
+      if (conta) {
+        conta.total += Number(c.total ?? 0);
+        conta.atendimentos += 1;
+      }
+    }
 
-    unidades.push({
+    // Segunda rodada: creditos e comissoes dependem dos ids das comandas, mas
+    // tambem vem da rede inteira de uma vez.
+    //
+    // Credito da casa nao e faturamento: o dinheiro entrou antes, fora do
+    // caixa. A mesma regra do financeiro de cada loja vale aqui.
+    const idsComandas = Array.from(lojaDaComanda.keys());
+    if (idsComandas.length > 0) {
+      const [{ data: usos }, { data: itens }] = await Promise.all([
+        admin.from('customer_credit_uses').select('comanda_id, amount').in('comanda_id', idsComandas),
+        admin.from('comanda_items').select('comanda_id, commission_value').in('comanda_id', idsComandas),
+      ]);
+      for (const u of usos ?? []) {
+        const conta = contas.get(lojaDaComanda.get(u.comanda_id as string) ?? '');
+        if (conta) conta.credito += Number(u.amount ?? 0);
+      }
+      for (const i of itens ?? []) {
+        const conta = contas.get(lojaDaComanda.get(i.comanda_id as string) ?? '');
+        if (conta) conta.comissoes += Number(i.commission_value ?? 0);
+      }
+    }
+  }
+
+  const unidades: RetratoDaUnidade[] = minhas.map((loja) => {
+    const conta = contas.get(loja.id)!;
+    const faturamento = conta.total - conta.credito;
+    return {
       id: loja.id,
       nome: loja.nome,
       cidade: loja.cidade,
       faturamento,
-      atendimentos,
-      ticket: atendimentos > 0 ? faturamento / atendimentos : 0,
-      clientes: clientes ?? 0,
-      equipe: equipe ?? 0,
-      comissoes,
+      atendimentos: conta.atendimentos,
+      ticket: conta.atendimentos > 0 ? faturamento / conta.atendimentos : 0,
+      clientes: conta.clientes,
+      equipe: conta.equipe,
+      comissoes: conta.comissoes,
       fatiaDaRede: 0,
-    });
-  }
+    };
+  });
 
   const faturamento = unidades.reduce((s, u) => s + u.faturamento, 0);
   const atendimentos = unidades.reduce((s, u) => s + u.atendimentos, 0);

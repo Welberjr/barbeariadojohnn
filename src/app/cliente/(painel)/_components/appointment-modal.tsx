@@ -4,7 +4,6 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { X, Scissors, Clock, User, CalendarPlus, Trash2, RefreshCw } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { cancelCustomerAppointment } from '@/app/cliente/actions';
 import { useConfirm } from '@/components/confirm-dialog';
 
@@ -92,7 +91,7 @@ export function AppointmentModal({ appointment, onClose }: AppointmentModalProps
           <h3 className="text-base font-bold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>
             Seu agendamento
           </h3>
-          <button type="button" onClick={onClose} className="text-fg-subtle hover:text-fg">
+          <button type="button" onClick={onClose} aria-label="Fechar" className="text-fg-subtle hover:text-fg">
             <X className="w-5 h-5" />
           </button>
         </div>

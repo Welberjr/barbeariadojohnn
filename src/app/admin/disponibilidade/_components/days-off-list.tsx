@@ -111,6 +111,7 @@ export function DaysOffList({ daysOff, availableStaff }: DaysOffListProps) {
             <button
               type="button"
               onClick={() => setShowAdd(false)}
+              aria-label="Fechar"
               className="text-fg-subtle hover:text-fg"
             >
               <X className="w-4 h-4" />

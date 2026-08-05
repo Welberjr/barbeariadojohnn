@@ -47,6 +47,12 @@ const NAO_PODE_VAZAR = {
   commission_payouts: 'os pagamentos de comissao',
   notifications: 'os avisos mandados para cada cliente',
   profiles: 'os cadastros de acesso',
+  barbershops: 'as taxas de cartao e a configuracao de cada loja da rede',
+  loyalty_points: 'o saldo de pontos de cada cliente',
+  loyalty_transactions: 'o extrato de pontos de cada cliente',
+  push_subscriptions: 'os enderecos de notificacao de cada aparelho',
+  whatsapp_messages: 'as conversas de WhatsApp com os clientes',
+  whatsapp_sessions: 'as sessoes de atendimento do WhatsApp',
 };
 
 const email = `auditoria.${Date.now()}@teste.local`;
@@ -93,7 +99,7 @@ for (const [tabela, oQueE] of Object.entries(NAO_PODE_VAZAR)) {
     vazamentos.push({ tabela, quantos, oQueE });
     console.log(`  ${tabela.padEnd(20)} ${String(quantos).padStart(5)} linhas   VAZANDO`);
   } else {
-    console.log(`  ${tabela.padEnd(20)} ${'—'.padStart(5)}          fechado`);
+    console.log(`  ${tabela.padEnd(20)} ${'-'.padStart(5)}          fechado`);
   }
 }
 
@@ -121,17 +127,103 @@ console.log(
   `\n  escrever em cliente alheio: ${alterou > 0 ? `CONSEGUIU em ${alterou} linhas` : 'bloqueado'}`
 );
 
+// Criar registro tambem e dano: quem insere lixo no cadastro polui relatorio,
+// fila e tela. A sonda tenta inserir um cliente fantasma na MESMA tabela do
+// PATCH. Fail-closed: so conta como bloqueado quando NENHUMA linha volta.
+const { data: lojaExistente } = await admin
+  .from('barbershops')
+  .select('id')
+  .limit(1)
+  .maybeSingle();
+
+const insercao = await fetch(`${URL_BASE}/rest/v1/customers`, {
+  method: 'POST',
+  headers: {
+    apikey: CHAVE_PUBLICA,
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+    Prefer: 'return=representation',
+  },
+  body: JSON.stringify({
+    barbershop_id: lojaExistente?.id ?? null,
+    full_name: 'Cliente fantasma da auditoria',
+    active: false,
+  }),
+});
+
+let inseriu = 0;
+let idsInseridos = [];
+try {
+  const corpo = await insercao.json();
+  if (Array.isArray(corpo)) {
+    inseriu = corpo.length;
+    idsInseridos = corpo.map((l) => l.id).filter(Boolean);
+  }
+} catch {
+  inseriu = 0;
+}
+
+// Se a porta estava aberta, o lixo criado pela sonda sai daqui mesmo.
+for (const id of idsInseridos) {
+  await admin.from('customers').delete().eq('id', id);
+}
+
+console.log(
+  `  criar cliente fantasma:     ${inseriu > 0 ? `CONSEGUIU criar ${inseriu} linha(s)` : 'bloqueado'}`
+);
+
+// Apagar e o pior dos tres: some historico e some dinheiro. A sonda cria uma
+// linha sacrificavel com a credencial de servico e tenta apaga-la com a chave
+// publica. Fail-closed igual: bloqueado so quando nenhuma linha volta.
+const { data: sacrificio } = await admin
+  .from('customers')
+  .insert({
+    barbershop_id: lojaExistente?.id ?? null,
+    full_name: 'Cliente sacrificavel da auditoria',
+    active: false,
+  })
+  .select('id')
+  .maybeSingle();
+
+let apagou = 0;
+if (sacrificio?.id) {
+  const remocao = await fetch(`${URL_BASE}/rest/v1/customers?id=eq.${sacrificio.id}`, {
+    method: 'DELETE',
+    headers: {
+      apikey: CHAVE_PUBLICA,
+      Authorization: `Bearer ${token}`,
+      Prefer: 'return=representation',
+    },
+  });
+
+  try {
+    const corpo = await remocao.json();
+    apagou = Array.isArray(corpo) ? corpo.length : 0;
+  } catch {
+    apagou = 0;
+  }
+
+  // A linha sacrificavel sai sempre, tenha a sonda conseguido ou nao.
+  await admin.from('customers').delete().eq('id', sacrificio.id);
+}
+
+console.log(
+  `  apagar cliente alheio:      ${apagou > 0 ? `CONSEGUIU apagar ${apagou} linha(s)` : 'bloqueado'}`
+);
+
 await admin.auth.admin.deleteUser(criado.user.id);
 console.log('\nUsuário de teste apagado.');
 
-if (vazamentos.length || alterou > 0) {
+if (vazamentos.length || alterou > 0 || inseriu > 0 || apagou > 0) {
   console.log('\n==================== VAZAMENTO ====================');
   for (const v of vazamentos) {
-    console.log(`  ${v.tabela}: ${v.quantos} linhas expostas — ${v.oQueE}`);
+    console.log(`  ${v.tabela}: ${v.quantos} linhas expostas (${v.oQueE})`);
   }
   if (alterou > 0) console.log(`  escrita liberada em customers: ${alterou} linhas alteradas`);
+  if (inseriu > 0) console.log(`  criacao liberada em customers: ${inseriu} linha(s) inserida(s)`);
+  if (apagou > 0) console.log(`  remocao liberada em customers: ${apagou} linha(s) apagada(s)`);
   console.log('\n  Rode migrations/fechar-banco-para-fora.sql no SQL Editor.');
   process.exit(1);
 }
 
-console.log('\nTudo fechado: quem vem de fora não lê nem escreve nada.');
+console.log('\nTudo fechado: quem vem de fora não lê, não altera, não cria nem apaga nada.');

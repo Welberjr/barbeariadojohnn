@@ -182,6 +182,7 @@ export function AppointmentDrawer({
           <button
             type="button"
             onClick={onClose}
+            aria-label="Fechar"
             className="p-2 rounded-md hover:bg-bg-elevated text-fg-muted hover:text-fg transition-colors"
           >
             <X className="w-5 h-5" />

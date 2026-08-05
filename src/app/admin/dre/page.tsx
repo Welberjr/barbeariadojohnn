@@ -27,6 +27,8 @@ interface DREPageProps {
 export default async function DREPage({ searchParams }: DREPageProps) {
   const { from: fromParam, to: toParam } = await searchParams;
   const supabase = createAdminClient();
+  // Resolvida uma vez, antes das consultas: cada .eq abaixo usa o valor pronto
+  const loja = await lojaAtual();
 
   // Período default: mês corrente
   const now = new Date();
@@ -49,7 +51,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
       supabase
         .from('comandas')
         .select('id, total, net_total, card_fee_total')
-        .eq('barbershop_id', (await lojaAtual()))
+        .eq('barbershop_id', loja)
         .eq('status', 'closed')
         .gte('closed_at', periodStart)
         .lte('closed_at', periodEnd),
@@ -57,7 +59,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
       supabase
         .from('bills')
         .select('amount, paid_amount, paid_at, category_id, description')
-        .eq('barbershop_id', (await lojaAtual()))
+        .eq('barbershop_id', loja)
         .eq('status', 'paid')
         .gte('paid_at', periodStart)
         .lte('paid_at', periodEnd),
@@ -66,7 +68,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
       supabase
         .from('transactions')
         .select('type, amount, cost_amount, category')
-        .eq('barbershop_id', (await lojaAtual()))
+        .eq('barbershop_id', loja)
         .in('type', ['product', 'expense', 'other'])
         .gte('occurred_at', periodStart)
         .lte('occurred_at', periodEnd),
@@ -74,7 +76,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
       supabase
         .from('expense_categories')
         .select('id, name, color')
-        .eq('barbershop_id', (await lojaAtual())),
+        .eq('barbershop_id', loja),
     ]);
 
   const comandas = comandasRaw ?? [];
@@ -94,24 +96,29 @@ export default async function DREPage({ searchParams }: DREPageProps) {
     0
   );
 
-  // 2. ITENS: comissões e custos de produtos
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let items: any[] = [];
-  if (comandaIds.length > 0) {
-    const { data: itemsRaw } = await supabase
-      .from('comanda_items')
-      .select(
-        'comanda_id, item_type, total_price, commission_value, product_id, quantity'
-      )
-      .in('comanda_id', comandaIds);
-    items = itemsRaw ?? [];
-  }
-
+  // 2. ITENS e CRÉDITO: os dois dependem dos ids das comandas, mas não um do
+  // outro, então vão juntos ao banco numa segunda rodada só.
+  //
   // Crédito da casa não é faturamento: o serviço foi entregue, mas o pagamento
   // aconteceu antes, fora do caixa (permuta, cortesia, vale). Sai da receita do
   // período para o DRE mostrar só dinheiro que a barbearia recebeu de verdade.
   // A comissão do barbeiro continua na conta: ele trabalhou igual.
-  const creditoUsado = await creditoUsadoNasComandas(comandaIds);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let items: any[] = [];
+  let creditoUsado = 0;
+  if (comandaIds.length > 0) {
+    const [{ data: itemsRaw }, credito] = await Promise.all([
+      supabase
+        .from('comanda_items')
+        .select(
+          'comanda_id, item_type, total_price, commission_value, product_id, quantity'
+        )
+        .in('comanda_id', comandaIds),
+      creditoUsadoNasComandas(comandaIds),
+    ]);
+    items = itemsRaw ?? [];
+    creditoUsado = credito;
+  }
 
   const totalServicos =
     items
@@ -165,7 +172,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
     const fallback = await supabase
       .from('transactions')
       .select('type, amount, category')
-      .eq('barbershop_id', (await lojaAtual()))
+      .eq('barbershop_id', loja)
       .in('type', ['product', 'expense', 'other'])
       .gte('occurred_at', periodStart)
       .lte('occurred_at', periodEnd);

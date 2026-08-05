@@ -264,7 +264,7 @@ async function handleMenuChoice(
     const list = services
       .map(
         (s, i) =>
-          `*${i + 1}* - ${s.name} (R$ ${Number(s.base_price ?? 0).toFixed(2)} · ${s.base_duration_minutes ?? 30}min)`
+          `*${i + 1}* - ${s.name} (R$ ${Number(s.base_price ?? 0).toFixed(2).replace('.', ',')} · ${s.base_duration_minutes ?? 30}min)`
       )
       .join('\n');
 
@@ -542,7 +542,7 @@ async function handleTimeChoice(
 
   await sendAndLog(
     phone,
-    `Confirma o agendamento? 🪒\n\n💈 *${service.name}*\n💰 R$ ${service.price.toFixed(2)}\n📅 ${dateStr}\n🕐 ${timeStr}\n\n*1* - Sim, confirmar\n*2* - Não, cancelar`,
+    `Confirma o agendamento? 🪒\n\n💈 *${service.name}*\n💰 R$ ${service.price.toFixed(2).replace('.', ',')}\n📅 ${dateStr}\n🕐 ${timeStr}\n\n*1* - Sim, confirmar\n*2* - Não, cancelar`,
     session.id
   );
 }

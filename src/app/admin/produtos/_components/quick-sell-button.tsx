@@ -64,7 +64,7 @@ export function QuickSellButton({ products }: { products: Product[] }) {
               >
                 Registrar Venda Avulsa
               </h3>
-              <button type="button" onClick={() => setOpen(false)} className="text-fg-subtle hover:text-fg">
+              <button type="button" onClick={() => setOpen(false)} aria-label="Fechar" className="text-fg-subtle hover:text-fg">
                 <X className="w-4 h-4" />
               </button>
             </div>

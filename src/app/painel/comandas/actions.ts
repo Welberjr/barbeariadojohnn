@@ -534,7 +534,7 @@ export async function fecharMinhaComanda(dados: {
       if (!dados.metodoDoResto || dados.metodoDoResto === 'store_credit') {
         return {
           ok: false,
-          error: `O crédito cobre R$ ${creditoUsado.toFixed(2)}. Escolha como o cliente paga o restante.`,
+          error: `O crédito cobre R$ ${creditoUsado.toFixed(2).replace('.', ',')}. Escolha como o cliente paga o restante.`,
         };
       }
       metodoDoResto = normalizarMetodo(dados.metodoDoResto);

@@ -582,12 +582,14 @@ export function FidelidadeView({
                       <button
                         type="button"
                         onClick={() => openRewardForm(r)}
+                        aria-label="Editar recompensa"
                         className="p-1.5 rounded hover:bg-gold/10 text-fg-muted hover:text-gold"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                       </button>
                       <button
                         type="button"
+                        aria-label="Excluir recompensa"
                         onClick={() => handleDeleteReward(r.id)}
                         disabled={deletingRwId === r.id}
                         className="p-1.5 rounded hover:bg-danger/10 text-fg-muted hover:text-danger"

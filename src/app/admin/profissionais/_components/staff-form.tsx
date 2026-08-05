@@ -297,6 +297,7 @@ export function StaffForm({ staffId, defaultValues, onClose }: StaffFormProps) {
                     <button
                       type="button"
                       onClick={() => removeSpecialty(s)}
+                      aria-label={`Remover ${s}`}
                       className="hover:text-danger transition-colors"
                     >
                       <X className="w-3 h-3" />

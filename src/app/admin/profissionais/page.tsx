@@ -15,12 +15,16 @@ export const dynamic = 'force-dynamic';
 
 export default async function ProfissionaisPage() {
   const supabase = createAdminClient();
+  const loja = await lojaAtual();
 
-  // Buscar staff com profile vinculado
-  const { data: staff, error } = await supabase
-    .from('staff')
-    .select(
-      `
+  // A lista da equipe e a preferencia de visualizacao nao dependem uma da
+  // outra: vao juntas ao banco.
+  const [{ data: staff, error }, { data: shopCfg }] = await Promise.all([
+    // Buscar staff com profile vinculado
+    supabase
+      .from('staff')
+      .select(
+        `
       id,
       display_name,
       role,
@@ -39,19 +43,19 @@ export default async function ProfissionaisPage() {
         phone
       )
     `
-    )
-    // Sem este filtro a lista mostrava a equipe da rede inteira. Com uma loja
-    // so ninguem percebia; com duas, o gerente de uma unidade veria e editaria
-    // o pessoal da outra.
-    .eq('barbershop_id', await lojaAtual())
-    .order('created_at', { ascending: false });
-
-  // Preferencia de visualizacao padrao (cards | lista), definida em Configuracoes
-  const { data: shopCfg } = await supabase
-    .from('barbershops')
-    .select('staff_default_view')
-    .eq('id', (await lojaAtual()))
-    .maybeSingle();
+      )
+      // Sem este filtro a lista mostrava a equipe da rede inteira. Com uma loja
+      // so ninguem percebia; com duas, o gerente de uma unidade veria e editaria
+      // o pessoal da outra.
+      .eq('barbershop_id', loja)
+      .order('created_at', { ascending: false }),
+    // Preferencia de visualizacao padrao (cards | lista), definida em Configuracoes
+    supabase
+      .from('barbershops')
+      .select('staff_default_view')
+      .eq('id', loja)
+      .maybeSingle(),
+  ]);
   const defaultView: 'cards' | 'lista' =
     shopCfg?.staff_default_view === 'lista' ? 'lista' : 'cards';
 

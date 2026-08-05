@@ -38,6 +38,14 @@ export default async function ClientesSumidosPage({ searchParams }: PageProps) {
 
   // Historico de visitas para descobrir o ritmo de cada um.
   // Vem em blocos porque uma consulta simples traz no maximo mil linhas.
+  //
+  // A janela para em 18 meses de proposito: cliente parado ha mais de 18
+  // meses ja apareceu nesta lista por meses seguidos, e visita mais antiga
+  // que isso nao muda o ritmo de quem continua vindo. Varrer a historia
+  // inteira so somava blocos de mil linhas sem mudar a resposta.
+  const inicioDaJanela = new Date(hoje);
+  inicioDaJanela.setMonth(inicioDaJanela.getMonth() - 18);
+
   const visitas: Array<{ customer_id: string; closed_at: string }> = [];
   for (let de = 0; ; de += 1000) {
     const { data } = await admin
@@ -46,6 +54,7 @@ export default async function ClientesSumidosPage({ searchParams }: PageProps) {
       .eq('barbershop_id', (await lojaAtual()))
       .eq('status', 'closed')
       .not('customer_id', 'is', null)
+      .gte('closed_at', inicioDaJanela.toISOString())
       .order('closed_at')
       .range(de, de + 999);
 

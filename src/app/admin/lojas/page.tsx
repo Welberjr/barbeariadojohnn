@@ -14,23 +14,26 @@ export const metadata = { title: 'Unidades' };
 export const dynamic = 'force-dynamic';
 
 export default async function LojasPage() {
-  const staff = await requireCanManage();
+  // A guarda e a loja da vez compartilham a mesma sessao memoizada, entao
+  // resolver as duas juntas nao repete nenhuma ida ao banco.
+  const [staff, daVez] = await Promise.all([requireCanManage(), lojaAtual()]);
   const admin = createAdminClient();
-  const daVez = await lojaAtual();
 
-  const { data: unidades } = await admin
-    .from('barbershops')
-    .select('id, name, slug, phone, address_city, address_state, address_neighborhood, address_street, address_number, active, created_at')
-    .order('created_at');
-
-  // Onde esta pessoa tem acesso: a lista mostra as outras, mas so deixa entrar
-  // nas dela
-  const { data: meusCadastros } = await admin
-    .from('staff')
-    .select('barbershop_id, can_manage')
-    .eq('profile_id', staff.profileId)
-    .eq('active', true)
-    .is('fired_at', null);
+  // As duas listas nao dependem uma da outra: vao juntas ao banco.
+  // A segunda e onde esta pessoa tem acesso: a lista mostra as outras, mas so
+  // deixa entrar nas dela.
+  const [{ data: unidades }, { data: meusCadastros }] = await Promise.all([
+    admin
+      .from('barbershops')
+      .select('id, name, slug, phone, address_city, address_state, address_neighborhood, address_street, address_number, active, created_at')
+      .order('created_at'),
+    admin
+      .from('staff')
+      .select('barbershop_id, can_manage')
+      .eq('profile_id', staff.profileId)
+      .eq('active', true)
+      .is('fired_at', null),
+  ]);
 
   const minhas = new Set(
     (meusCadastros ?? [])
@@ -43,38 +46,51 @@ export default async function LojasPage() {
     minhas.has(unidade.id as string)
   );
 
-  // Um retrato de cada unidade, para a lista dizer algo alem do nome
+  // Um retrato de cada unidade, para a lista dizer algo alem do nome.
+  // Tres consultas para a rede inteira em vez de tres por unidade: o banco
+  // responde uma vez cada pergunta e a separacao por loja acontece aqui.
   const resumo = new Map<string, { equipe: number; clientes: number; mes: number }>();
   const inicioDoMes = new Date();
   inicioDoMes.setDate(1);
   inicioDoMes.setHours(0, 0, 0, 0);
 
-  await Promise.all(unidadesVisiveis.map(async (u) => {
-    const [{ count: equipe }, { count: clientes }, { data: comandas }] = await Promise.all([
-      admin
-        .from('staff')
-        .select('id', { count: 'exact', head: true })
-        .eq('barbershop_id', u.id)
-        .eq('active', true),
-      admin
-        .from('customers')
-        .select('id', { count: 'exact', head: true })
-        .eq('barbershop_id', u.id)
-        .eq('active', true),
-      admin
-        .from('comandas')
-        .select('total')
-        .eq('barbershop_id', u.id)
-        .eq('status', 'closed')
-        .gte('closed_at', inicioDoMes.toISOString()),
-    ]);
+  const idsVisiveis = unidadesVisiveis.map((u) => u.id as string);
+  for (const id of idsVisiveis) resumo.set(id, { equipe: 0, clientes: 0, mes: 0 });
 
-    resumo.set(u.id as string, {
-      equipe: equipe ?? 0,
-      clientes: clientes ?? 0,
-      mes: (comandas ?? []).reduce((s, c) => s + Number(c.total ?? 0), 0),
-    });
-  }));
+  if (idsVisiveis.length > 0) {
+    const [{ data: equipeRows }, { data: clienteRows }, { data: comandasRows }] =
+      await Promise.all([
+        admin
+          .from('staff')
+          .select('barbershop_id')
+          .in('barbershop_id', idsVisiveis)
+          .eq('active', true),
+        admin
+          .from('customers')
+          .select('barbershop_id')
+          .in('barbershop_id', idsVisiveis)
+          .eq('active', true),
+        admin
+          .from('comandas')
+          .select('barbershop_id, total')
+          .in('barbershop_id', idsVisiveis)
+          .eq('status', 'closed')
+          .gte('closed_at', inicioDoMes.toISOString()),
+      ]);
+
+    for (const r of equipeRows ?? []) {
+      const dela = resumo.get(r.barbershop_id as string);
+      if (dela) dela.equipe += 1;
+    }
+    for (const r of clienteRows ?? []) {
+      const dela = resumo.get(r.barbershop_id as string);
+      if (dela) dela.clientes += 1;
+    }
+    for (const r of comandasRows ?? []) {
+      const dela = resumo.get(r.barbershop_id as string);
+      if (dela) dela.mes += Number(r.total ?? 0);
+    }
+  }
 
   const lista = unidadesVisiveis.map((u) => {
     const r = resumo.get(u.id as string)!;

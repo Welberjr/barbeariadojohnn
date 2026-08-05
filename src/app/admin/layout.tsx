@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { requireCanManage } from '@/lib/staff-auth';
 import { AdminSidebar } from './_components/sidebar';
 import { ChatFloatLazy } from '@/components/chat-float-lazy';
+import { ASSISTENTE_LIGADO } from '@/lib/assistente';
 import { AdminTopbar } from './_components/topbar';
 import { portasDoUsuario } from '@/lib/portas-de-entrada';
 import { lojaAtual, lojasDoUsuario } from '@/lib/loja';
@@ -73,7 +74,9 @@ export default async function AdminLayout({
         <main className="flex-1 p-6 lg:p-8 overflow-x-auto">{children}</main>
       </div>
     </div>
-    <ChatFloatLazy endpoint="/api/chat/admin" title="Lara" avatarSrc="/lara.webp" welcomeMessage={`Opa, ${primeiroNome}, tudo bem? 👋 Tô aqui pra te ajudar com a barbearia. Quer ver o quê: faturamento, movimento, barbeiros ou produtos? E de qual período, hoje, semana ou mês?`} placeholder="Como foi o faturamento essa semana?" accentColor="#ce0056" />
+    {ASSISTENTE_LIGADO && (
+      <ChatFloatLazy endpoint="/api/chat/admin" title="Lara" avatarSrc="/lara.webp" welcomeMessage={`Opa, ${primeiroNome}, tudo bem? 👋 Tô aqui pra te ajudar com a barbearia. Quer ver o quê: faturamento, movimento, barbeiros ou produtos? E de qual período, hoje, semana ou mês?`} placeholder="Como foi o faturamento essa semana?" accentColor="#ce0056" />
+    )}
     </>
   );
 }

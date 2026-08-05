@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { useConfirm } from '@/components/confirm-dialog';
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -212,14 +212,17 @@ export function ProductsTable({ products, categories }: ProductsTableProps) {
                     </span>
                     <button type="button" disabled={!p.active || !p.is_sellable || esgotado}
                       onClick={() => { setSaleModal(p); setSaleQty(1); }}
+                      aria-label="Registrar venda"
                       className="p-2 rounded-md text-fg-subtle hover:text-success hover:bg-success/10 transition-colors disabled:opacity-30">
                       <Percent className="w-4 h-4" />
                     </button>
                     <Link href={`/admin/produtos/${p.id}`}
+                      aria-label="Editar produto"
                       className="p-2 rounded-md text-fg-subtle hover:text-gold hover:bg-gold/10 transition-colors">
                       <Pencil className="w-4 h-4" />
                     </Link>
                     <button type="button" onClick={() => handleDelete(p.id, p.name)}
+                      aria-label="Excluir produto"
                       className="p-2 rounded-md text-fg-subtle hover:text-danger hover:bg-danger/10 transition-colors">
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -306,7 +309,7 @@ export function ProductsTable({ products, categories }: ProductsTableProps) {
               >
                 Registrar Venda
               </h3>
-              <button type="button" onClick={() => setSaleModal(null)} className="text-fg-subtle hover:text-fg">
+              <button type="button" onClick={() => setSaleModal(null)} aria-label="Fechar" className="text-fg-subtle hover:text-fg">
                 <X className="w-4 h-4" />
               </button>
             </div>

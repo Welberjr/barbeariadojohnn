@@ -4,6 +4,7 @@ import { precisaTrocarSenha } from '@/app/cliente/login/actions';
 import { TrocarSenhaPrimeiroAcesso } from './_components/trocar-senha-primeiro-acesso';
 import { ClientTopbar, ClientBottomNav } from './_components/client-nav';
 import { ChatFloatLazy } from '@/components/chat-float-lazy';
+import { ASSISTENTE_LIGADO } from '@/lib/assistente';
 
 import type { Viewport } from 'next';
 import { marcaAtual } from '@/lib/marca';
@@ -30,8 +31,9 @@ export default async function ClientePainelLayout({
   children: React.ReactNode;
 }) {
   const { customer } = await requireCustomer();
-  const marca = await marcaAtual();
-  const [unreadCount, senhaAindaEDaBarbearia] = await Promise.all([
+  // A marca nao depende do cliente resolvido acima: vai junto das outras duas
+  const [marca, unreadCount, senhaAindaEDaBarbearia] = await Promise.all([
+    marcaAtual(),
     getUnreadCount(customer.id),
     precisaTrocarSenha(),
   ]);
@@ -64,13 +66,15 @@ export default async function ClientePainelLayout({
       )}
 
       <ClientBottomNav />
-      <ChatFloatLazy
-        endpoint="/api/chat/cliente"
-        title="Lara"
-        avatarSrc="/lara.webp"
-        welcomeMessage={`Olá! Sou o assistente da ${marca.nome}. Posso agendar, verificar horários, mostrar serviços e muito mais. Como posso te ajudar? 😊`}
-        placeholder="Ex: Quero agendar um corte para amanhã..."
-      />
+      {ASSISTENTE_LIGADO && (
+        <ChatFloatLazy
+          endpoint="/api/chat/cliente"
+          title="Lara"
+          avatarSrc="/lara.webp"
+          welcomeMessage={`Olá! Sou o assistente da ${marca.nome}. Posso agendar, verificar horários, mostrar serviços e muito mais. Como posso te ajudar? 😊`}
+          placeholder="Ex: Quero agendar um corte para amanhã..."
+        />
+      )}
     </div>
   );
 }

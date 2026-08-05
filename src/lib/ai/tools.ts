@@ -25,10 +25,25 @@ export const ADMIN_TOOLS = [
   { name: 'dias_mais_movimentados', description: 'Quais dias da semana e horários têm mais movimento (últimos 60 dias).', input_schema: { type: 'object' as const, properties: {}, required: [] } },
   { name: 'clientes_inativos', description: 'Clientes que não vêm há mais de X dias.', input_schema: { type: 'object' as const, properties: { dias: { type: 'number' } }, required: [] } },
   { name: 'desempenho_barbeiros', description: 'Faturamento e atendimentos por barbeiro em um período.', input_schema: { type: 'object' as const, properties: { inicio: { type: 'string' }, fim: { type: 'string' } }, required: ['inicio', 'fim'] } },
+  // Ferramentas de ação que o prompt do chat admin sempre prometeu. As
+  // implementações moravam por engano na função do CLIENTE e o admin não as
+  // enxergava: a Lara prometia agendar e não tinha como cumprir. A rota do chat
+  // admin exige acesso de gestão antes de chegar aqui, então executar com a
+  // credencial de serviço é aceitável.
+  { name: 'listar_servicos_admin', description: 'Lista os serviços ativos com nome, preço e duração.', input_schema: { type: 'object' as const, properties: {}, required: [] } },
+  { name: 'listar_barbeiros_admin', description: 'Lista os barbeiros ativos.', input_schema: { type: 'object' as const, properties: {}, required: [] } },
+  { name: 'buscar_cliente', description: 'Busca cliente por nome ou telefone. Retorna até 5 resultados.', input_schema: { type: 'object' as const, properties: { q: { type: 'string', description: 'Nome ou telefone do cliente' } }, required: ['q'] } },
+  { name: 'consultar_agendamentos', description: 'Consulta agendamentos por data, barbeiro, cliente ou status.', input_schema: { type: 'object' as const, properties: { data: { type: 'string', description: 'YYYY-MM-DD' }, staff_id: { type: 'string' }, customer_id: { type: 'string' }, status: { type: 'string' } }, required: [] } },
+  { name: 'verificar_disponibilidade_admin', description: 'Retorna horários livres de um barbeiro em uma data para um serviço.', input_schema: { type: 'object' as const, properties: { staff_id: { type: 'string' }, service_id: { type: 'string' }, date: { type: 'string', description: 'YYYY-MM-DD' } }, required: ['staff_id', 'service_id', 'date'] } },
+  { name: 'criar_agendamento_admin', description: 'Cria agendamento para um cliente. Só chamar após confirmação explícita do gestor.', input_schema: { type: 'object' as const, properties: { customer_id: { type: 'string' }, staff_id: { type: 'string' }, service_id: { type: 'string' }, start_iso: { type: 'string' } }, required: ['customer_id', 'staff_id', 'service_id', 'start_iso'] } },
+  { name: 'cancelar_agendamento_admin', description: 'Cancela um agendamento. Só chamar após confirmação explícita.', input_schema: { type: 'object' as const, properties: { appointment_id: { type: 'string' } }, required: ['appointment_id'] } },
+  { name: 'remarcar_agendamento', description: 'Muda o horário de um agendamento. Só chamar após confirmação explícita.', input_schema: { type: 'object' as const, properties: { appointment_id: { type: 'string' }, new_start_iso: { type: 'string' } }, required: ['appointment_id', 'new_start_iso'] } },
+  { name: 'abrir_comanda_admin', description: 'Abre uma comanda para um cliente, ou reaproveita a que já estiver aberta.', input_schema: { type: 'object' as const, properties: { customer_id: { type: 'string' }, staff_id: { type: 'string' } }, required: ['customer_id'] } },
+  { name: 'lancar_produto_comanda', description: 'Lança um produto em uma comanda aberta. Só chamar após confirmação explícita.', input_schema: { type: 'object' as const, properties: { comanda_id: { type: 'string' }, product_id: { type: 'string' }, quantity: { type: 'number' } }, required: ['comanda_id', 'product_id'] } },
+  { name: 'fechar_comanda', description: 'Fecha a comanda informando a forma de pagamento. Só chamar após confirmação explícita.', input_schema: { type: 'object' as const, properties: { comanda_id: { type: 'string' }, payment_method: { type: 'string' } }, required: ['comanda_id', 'payment_method'] } },
 ] as const;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function executeClientTool(name: string, input: any, customerId: string): Promise<unknown> {
-  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
   switch (name) {
     case 'listar_servicos': {
       const { data } = await admin.from('services').select('id, name, description, base_price, base_duration_minutes, category').eq('barbershop_id', (await lojaAtual())).eq('active', true).order('category').order('name');
@@ -78,7 +93,14 @@ export async function executeClientTool(name: string, input: any, customerId: st
       const sorted = Object.entries(byDay).sort((a, b) => a[1] - b[1]);
       return { mais_tranquilos: sorted.slice(0, 3), mais_movimentados: sorted.slice(-2) };
     }
+    default: return { error: `Tool "${name}" não reconhecida` };
+  }
+}
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function executeAdminTool(name: string, input: any): Promise<unknown> {
+  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+  switch (name) {
     case 'listar_servicos_admin': {
       const { data } = await admin.from('services').select('id, name, base_price, base_duration_minutes, category').eq('barbershop_id', (await lojaAtual())).eq('active', true).order('name');
       return data ?? [];
@@ -88,7 +110,13 @@ export async function executeClientTool(name: string, input: any, customerId: st
       return data ?? [];
     }
     case 'buscar_cliente': {
-      const q = String(input.q ?? '').trim();
+      // O termo vem do modelo e entrava cru na expressão do .or() do PostgREST.
+      // Vírgula, parênteses e porcentagem fazem parte da sintaxe do filtro, e
+      // um texto malicioso repassado pelo modelo mudaria a consulta inteira.
+      // Aqui esses caracteres caem fora antes de o filtro ser montado, e o
+      // termo é limitado a 60 caracteres.
+      const q = String(input.q ?? '').replace(/[,()%]/g, '').trim().slice(0, 60);
+      if (!q) return [];
       const { data } = await admin.from('customers').select('id, full_name, phone, total_spent, total_appointments').eq('barbershop_id', (await lojaAtual())).eq('active', true).or(`full_name.ilike.%${q}%,phone.ilike.%${q}%`).order('full_name').limit(5);
       return data ?? [];
     }
@@ -153,14 +181,6 @@ export async function executeClientTool(name: string, input: any, customerId: st
       const { error } = await admin.from('comandas').update({ status: 'closed', total, net_total: total, subtotal: total, payment_method: input.payment_method, closed_at: new Date().toISOString() }).eq('id', input.comanda_id).eq('barbershop_id', (await lojaAtual()));
       return { ok: !error, total, error: error?.message };
     }
-    default: return { error: `Tool "${name}" não reconhecida` };
-  }
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function executeAdminTool(name: string, input: any): Promise<unknown> {
-  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
-  switch (name) {
     case 'metricas_hoje': {
       const { data } = await admin.from('comandas').select('total').eq('barbershop_id', (await lojaAtual())).eq('status', 'closed').gte('closed_at', `${todayStr}T00:00:00-03:00`);
       const total = (data ?? []).reduce((s, c) => s + Number(c.total), 0);

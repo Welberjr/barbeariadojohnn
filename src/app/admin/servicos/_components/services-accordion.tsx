@@ -8,7 +8,7 @@ import {
   Pencil,
   Search,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 
 interface StaffServiceRow {
   staff_id: string;
@@ -54,7 +54,6 @@ export function ServicesAccordion({
   servicesByCategory,
   totalServices,
   totalAtivos,
-  totalCategorias,
   totalUnicos,
 }: ServicesAccordionProps) {
   const [openRows, setOpenRows] = useState<Set<string>>(new Set());
@@ -175,7 +174,7 @@ export function ServicesAccordion({
                         )}
                         style={{ fontFamily: 'var(--font-playfair), serif' }}
                       >
-                        R$ {Number(svc.base_price).toFixed(2).replace('.', ',')}
+                        {formatCurrency(Number(svc.base_price))}
                       </span>
 
                       {/* duracao */}

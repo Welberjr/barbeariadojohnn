@@ -325,14 +325,14 @@ export function AgendaView({
 
       {/* NAVEGACAO DE DATA: compacta */}
       <div className="flex items-center gap-2">
-        <button type="button" onClick={() => changeDate(-1)} className="btn-ghost p-2 rounded-md flex-shrink-0">
+        <button type="button" onClick={() => changeDate(-1)} aria-label="Dia anterior" className="btn-ghost p-2 rounded-md flex-shrink-0">
           <ChevronLeft className="w-4 h-4" />
         </button>
         <button type="button" onClick={goToToday} className="btn-ghost text-xs px-2.5 py-1.5 flex-shrink-0">Hoje</button>
         <input type="date" value={selectedDate}
           onChange={(e) => router.push('/admin/agenda?date=' + e.target.value)}
           className="input text-sm flex-1 min-w-0" />
-        <button type="button" onClick={() => changeDate(1)} className="btn-ghost p-2 rounded-md flex-shrink-0">
+        <button type="button" onClick={() => changeDate(1)} aria-label="Próximo dia" className="btn-ghost p-2 rounded-md flex-shrink-0">
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>

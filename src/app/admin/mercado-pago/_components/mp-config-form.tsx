@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Loader2, Save, Eye, EyeOff, Key, Webhook } from 'lucide-react';
-import { updateMPConfig } from '../../mp/actions';
+import { updateMPConfig } from '../actions';
 
 interface MPConfig {
   enabled?: boolean;

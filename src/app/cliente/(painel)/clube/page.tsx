@@ -1,6 +1,7 @@
 import { Crown, CheckCircle2, Scissors, ChevronLeft, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { requireCustomer } from '@/lib/customer-auth';
+import { formatCurrency } from '@/lib/utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { lojaAtual } from '@/lib/loja';
 
@@ -8,7 +9,7 @@ export const metadata = { title: 'Clube VIP' };
 export const dynamic = 'force-dynamic';
 
 export default async function ClubeVipPage() {
-  const { customer } = await requireCustomer();
+  await requireCustomer();
   const admin = createAdminClient();
 
   const { data: plans } = await admin
@@ -84,7 +85,7 @@ export default async function ClubeVipPage() {
                 </div>
                 <div className="text-right">
                   <p className="text-xl font-bold text-gold" style={{ fontFamily: 'var(--font-playfair), serif' }}>
-                    R$ {Number(plan.price).toFixed(2).replace('.', ',')}
+                    {formatCurrency(Number(plan.price))}
                   </p>
                   <p className="text-[10px] text-fg-subtle">/mês</p>
                 </div>

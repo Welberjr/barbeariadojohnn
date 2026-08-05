@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { getSessionCustomer } from '@/lib/customer-auth';
+import { ASSISTENTE_LIGADO } from '@/lib/assistente';
 import { CLIENT_TOOLS, executeClientTool } from '@/lib/ai/tools';
 
 export const dynamic = 'force-dynamic';
@@ -45,16 +46,42 @@ A data de hoje é: ${new Date().toLocaleDateString('pt-BR', { weekday: 'long', d
 `;
 
 export async function POST(req: NextRequest) {
+  // Chave geral da Lara: desligada por decisão de produto (ver lib/assistente).
+  // O botão some dos painéis, e esta trava garante que chamar a rota por fora
+  // também não gera custo de API.
+  if (!ASSISTENTE_LIGADO) {
+    return NextResponse.json({ error: 'Assistente desativado no momento.' }, { status: 503 });
+  }
+
   const customer = await getSessionCustomer();
   if (!customer) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
 
   const { messages } = await req.json() as { messages: Anthropic.MessageParam[] };
   if (!messages?.length) return NextResponse.json({ error: 'Mensagens inválidas' }, { status: 400 });
 
+  // Freio de custo: o histórico inteiro ia para a API paga a cada mensagem, e
+  // crescia sem limite. Só as últimas 30 mensagens entram, que é contexto de
+  // sobra para uma conversa de agendamento.
+  const historico = messages.slice(-30);
+
+  // Freio de custo: um texto gigante colado no chat viraria milhares de tokens
+  // de entrada. Acima de 2000 caracteres a gente recusa com educação.
+  const ultima = historico[historico.length - 1];
+  const textoUltima = typeof ultima?.content === 'string'
+    ? ultima.content
+    : (ultima?.content ?? [])
+        .map((b) => (typeof b === 'object' && b !== null && 'text' in b ? String(b.text) : ''))
+        .join(' ');
+  if (textoUltima.length > 2000) {
+    return NextResponse.json({
+      reply: 'Sua mensagem ficou longa demais para eu processar de uma vez. Pode resumir em até 2000 caracteres? ✂️',
+    });
+  }
+
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
   // Agentic loop: IA pode chamar tools multiplas vezes
-  let currentMessages = [...messages];
+  let currentMessages = [...historico];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tools = CLIENT_TOOLS as any;
 

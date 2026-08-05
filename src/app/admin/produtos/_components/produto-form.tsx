@@ -19,6 +19,7 @@ import {
   Image as ImageIcon,
 } from 'lucide-react';
 import Link from 'next/link';
+import { formatCurrency } from '@/lib/utils';
 
 import {
   createProduct,
@@ -446,7 +447,7 @@ export function ProductForm({
                     lucroPorUnidade >= 0 ? 'text-success' : 'text-danger'
                   }`}
                 >
-                  R$ {lucroPorUnidade.toFixed(2).replace('.', ',')}
+                  {formatCurrency(lucroPorUnidade)}
                 </p>
               </div>
               <div>

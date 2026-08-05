@@ -32,28 +32,72 @@ function segredo(): string {
   return `convite-cliente:${chave}`;
 }
 
-function assinar(customerId: string): string {
+/**
+ * Validade do convite. O formato antigo valia para sempre: um link mandado por
+ * engano, ou parado num grupo de WhatsApp, abria a ficha do cliente anos
+ * depois. Trinta dias cobrem com folga o tempo entre mandar e a pessoa criar a
+ * senha.
+ */
+const VALIDADE_DIAS = 30;
+
+/** Assinatura do formato antigo, sem validade. Só existe para conferência. */
+function assinarAntigo(customerId: string): string {
   return createHmac('sha256', segredo()).update(customerId).digest('base64url').slice(0, 32);
 }
 
-/** O pedaço que vai na URL, depois do id. */
-export function gerarConvite(customerId: string): string {
-  return assinar(customerId);
+/**
+ * Assinatura do formato novo: o HMAC cobre o identificador E o prazo, então
+ * ninguém estica a validade de um convite trocando o número na URL, porque a
+ * assinatura deixa de bater.
+ */
+function assinarComPrazo(customerId: string, expiraEm: number): string {
+  return createHmac('sha256', segredo())
+    .update(`v2:${customerId}:${expiraEm}`)
+    .digest('base64url')
+    .slice(0, 32);
 }
 
-/** Confere se o convite foi mesmo gerado por nós para aquele cliente. */
+// Comparação de tempo constante: comparar com === entrega, pelo tempo de
+// resposta, quantos caracteres iniciais alguém acertou.
+function iguaisSemVazarTempo(esperado: string, recebido: string): boolean {
+  const a = Buffer.from(esperado);
+  const b = Buffer.from(recebido);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
+/** O pedaço que vai na URL, depois do id. Formato: v2.<vence em>.<assinatura>. */
+export function gerarConvite(customerId: string): string {
+  const expiraEm = Math.floor(Date.now() / 1000) + VALIDADE_DIAS * 24 * 60 * 60;
+  return `v2.${expiraEm}.${assinarComPrazo(customerId, expiraEm)}`;
+}
+
+/**
+ * Confere se o convite foi mesmo gerado por nós para aquele cliente e se ainda
+ * está no prazo.
+ */
 export function conviteValido(customerId: string, token: string | null | undefined): boolean {
   if (!token) return false;
 
-  const esperado = assinar(customerId);
+  // Formato novo: v2.<vence em segundos>.<assinatura>
+  if (token.startsWith('v2.')) {
+    const partes = token.split('.');
+    if (partes.length !== 3) return false;
 
-  // Comparação de tempo constante: comparar com === entrega, pelo tempo de
-  // resposta, quantos caracteres iniciais alguém acertou.
-  const a = Buffer.from(esperado);
-  const b = Buffer.from(token);
-  if (a.length !== b.length) return false;
+    const expiraEm = Number(partes[1]);
+    if (!Number.isInteger(expiraEm) || expiraEm <= 0) return false;
 
-  return timingSafeEqual(a, b);
+    // Convite vencido não abre a ficha, mesmo com assinatura certa.
+    if (expiraEm * 1000 < Date.now()) return false;
+
+    return iguaisSemVazarTempo(assinarComPrazo(customerId, expiraEm), partes[2]);
+  }
+
+  // Formato antigo, sem validade. Continua aceito porque os links já mandados
+  // aos clientes não podem quebrar de uma hora para outra.
+  // TODO: remover esta aceitação depois de uns meses (por volta de 11/2026),
+  // quando os convites antigos já tiverem sido usados ou reenviados no novo.
+  return iguaisSemVazarTempo(assinarAntigo(customerId), token);
 }
 
 /** O endereço completo, pronto para mandar. */

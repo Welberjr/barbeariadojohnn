@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { exigirGestao } from '@/lib/staff-auth';
+import { ASSISTENTE_LIGADO } from '@/lib/assistente';
 import { ADMIN_TOOLS, executeAdminTool } from '@/lib/ai/tools';
 
 export const dynamic = 'force-dynamic';
@@ -61,6 +62,13 @@ FORMATAÇÃO:
 Data de hoje: ${new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'America/Sao_Paulo' })}.`;
 
 export async function POST(req: NextRequest) {
+  // Chave geral da Lara: desligada por decisão de produto (ver lib/assistente).
+  // O botão some dos painéis, e esta trava garante que chamar a rota por fora
+  // também não gera custo de API.
+  if (!ASSISTENTE_LIGADO) {
+    return NextResponse.json({ error: 'Assistente desativado no momento.' }, { status: 503 });
+  }
+
   // A Lara do admin tem ferramentas de gestão (faturamento, comandas, clientes).
   // Só quem tem acesso de gestão conversa com ela: estar logado não basta.
   const acesso = await exigirGestao();
@@ -70,11 +78,32 @@ export async function POST(req: NextRequest) {
     (acesso.staff.fullName ?? acesso.staff.displayName ?? 'o gestor').split(' ')[0];
 
   const { messages } = await req.json() as { messages: Anthropic.MessageParam[] };
+  if (!messages?.length) return NextResponse.json({ error: 'Mensagens inválidas' }, { status: 400 });
+
+  // Freio de custo: o histórico inteiro ia para a API paga a cada mensagem, e
+  // crescia sem limite. Só as últimas 30 mensagens entram, que é contexto de
+  // sobra para uma conversa de gestão.
+  const historico = messages.slice(-30);
+
+  // Freio de custo: um texto gigante colado no chat viraria milhares de tokens
+  // de entrada. Acima de 2000 caracteres a gente recusa com educação.
+  const ultima = historico[historico.length - 1];
+  const textoUltima = typeof ultima?.content === 'string'
+    ? ultima.content
+    : (ultima?.content ?? [])
+        .map((b) => (typeof b === 'object' && b !== null && 'text' in b ? String(b.text) : ''))
+        .join(' ');
+  if (textoUltima.length > 2000) {
+    return NextResponse.json({
+      reply: 'Sua mensagem ficou longa demais para eu processar de uma vez. Pode resumir em até 2000 caracteres?',
+    });
+  }
+
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tools = ADMIN_TOOLS as any;
-  let currentMessages = [...messages];
+  let currentMessages = [...historico];
 
   for (let i = 0; i < 10; i++) {
     const response = await anthropic.messages.create({

@@ -232,7 +232,7 @@ export function AllowancesSection({ allowances, staff }: AllowancesSectionProps)
                 <tr key={a.id} className="border-b border-border/30 hover:bg-bg-elevated transition-colors">
                   <td className="py-3 text-fg font-medium">{a.staff_name}</td>
                   <td className="py-3 text-right text-danger font-semibold">
-                    R$ {a.amount.toFixed(2).replace('.', ',')}
+                    {formatCurrency(a.amount)}
                   </td>
                   <td className="py-3 text-fg-muted text-xs max-w-[180px] truncate">
                     {a.reason || '.'}
@@ -298,7 +298,7 @@ export function AllowancesSection({ allowances, staff }: AllowancesSectionProps)
               <h3 className="text-lg font-bold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>
                 Lançar Vale
               </h3>
-              <button type="button" onClick={() => setShowModal(false)} className="text-fg-subtle hover:text-fg">
+              <button type="button" onClick={() => setShowModal(false)} aria-label="Fechar" className="text-fg-subtle hover:text-fg">
                 <X className="w-4 h-4" />
               </button>
             </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { isValidElement, useState, useMemo } from 'react';
 import { Search, ChevronDown, ChevronRight, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -12,21 +12,59 @@ export interface HelpArticle {
   content: React.ReactNode;
 }
 
+/**
+ * Extrai o texto visível de um ReactNode, recursivamente.
+ *
+ * A busca antiga fazia String(content), que num elemento React vira
+ * "[object Object]": nenhuma palavra do corpo do artigo era encontrada.
+ * Aqui a árvore é percorrida de verdade: strings e números entram,
+ * elementos abrem os próprios children, e o resto (null, boolean) é ignorado.
+ */
+function extrairTexto(node: React.ReactNode): string {
+  if (node === null || node === undefined || typeof node === 'boolean') return '';
+  if (typeof node === 'string') return node;
+  if (typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(extrairTexto).join(' ');
+  if (isValidElement(node)) {
+    const { children } = node.props as { children?: React.ReactNode };
+    return extrairTexto(children);
+  }
+  return '';
+}
+
+/** Faixa dos acentos que o NFD separa da letra (U+0300 a U+036F). */
+const ACENTOS = new RegExp(
+  '[' + String.fromCharCode(0x0300) + '-' + String.fromCharCode(0x036f) + ']',
+  'g'
+);
+
+/** Minúsculas e sem acento, para "comissao" encontrar "comissão". */
+function normalizar(texto: string): string {
+  return texto.toLowerCase().normalize('NFD').replace(ACENTOS, '');
+}
+
 export function AjudaClient({ articles }: { articles: HelpArticle[] }) {
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<string | null>(articles[0]?.id ?? null);
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({});
 
+  // Texto pesquisável de cada artigo (título + categoria + corpo), montado uma vez.
+  const textoPesquisavel = useMemo(
+    () =>
+      new Map<string, string>(
+        articles.map((a): [string, string] => [
+          a.id,
+          normalizar(`${a.title} ${a.category} ${extrairTexto(a.content)}`),
+        ])
+      ),
+    [articles]
+  );
+
   const filtered = useMemo(() => {
-    const term = query.trim().toLowerCase();
+    const term = normalizar(query.trim());
     if (!term) return articles;
-    return articles.filter(
-      (a) =>
-        a.title.toLowerCase().includes(term) ||
-        a.category.toLowerCase().includes(term) ||
-        String(a.content).toLowerCase().includes(term)
-    );
-  }, [articles, query]);
+    return articles.filter((a) => (textoPesquisavel.get(a.id) ?? '').includes(term));
+  }, [articles, query, textoPesquisavel]);
 
   const categories = useMemo(() => {
     const map = new Map<string, HelpArticle[]>();

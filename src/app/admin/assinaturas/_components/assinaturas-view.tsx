@@ -755,6 +755,7 @@ export function AssinaturasView({
               <button
                 type="button"
                 onClick={() => setShowNew(false)}
+                aria-label="Fechar"
                 className="text-fg-subtle hover:text-fg"
               >
                 <X className="w-4 h-4" />
@@ -882,6 +883,7 @@ export function AssinaturasView({
                   setSettleSub(null);
                   setPreview(null);
                 }}
+                aria-label="Fechar"
                 className="text-fg-subtle hover:text-fg"
               >
                 <X className="w-4 h-4" />

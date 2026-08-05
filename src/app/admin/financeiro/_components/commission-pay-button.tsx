@@ -66,7 +66,7 @@ export function CommissionPayButton({
               <h3 className="text-lg font-bold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>
                 Pagar Comissão
               </h3>
-              <button type="button" onClick={() => setShowModal(false)} className="text-fg-subtle hover:text-fg">
+              <button type="button" onClick={() => setShowModal(false)} aria-label="Fechar" className="text-fg-subtle hover:text-fg">
                 <X className="w-4 h-4" />
               </button>
             </div>

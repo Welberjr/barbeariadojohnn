@@ -13,9 +13,8 @@
  */
 import { cache } from 'react';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { lojaAtual } from '@/lib/loja';
+import { lojaAtual, usuarioDaSessao } from '@/lib/loja';
 import {
   parseStaffPermissions,
   podeModulo,
@@ -49,10 +48,9 @@ const CAMPOS_STAFF =
  * uma consulta so, sem abrir mao de conferir no banco a cada requisicao.
  */
 export const getSessionStaff = cache(async function getSessionStaff(): Promise<SessionStaff | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Memoizado por requisicao junto com o lojaAtual: a mesma pergunta ao
+  // Supabase Auth nao e repetida pela guarda, pela loja e pelos dados.
+  const user = await usuarioDaSessao();
 
   if (!user) return null;
   // Cliente do painel do cliente nunca e equipe
@@ -114,10 +112,7 @@ export async function requireStaff(
   const staff = await getSessionStaff();
 
   if (!staff) {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await usuarioDaSessao();
     // Cliente logado vai para a area dele; qualquer outro caso volta ao login
     if (user?.user_metadata?.role === 'customer') redirect('/cliente');
     redirect('/login');
@@ -141,10 +136,7 @@ export async function requireCanManage(): Promise<SessionStaff> {
   const staff = await getSessionStaff();
 
   if (!staff) {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await usuarioDaSessao();
     if (user?.user_metadata?.role === 'customer') redirect('/cliente');
     redirect('/login');
   }
