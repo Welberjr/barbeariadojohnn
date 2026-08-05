@@ -194,11 +194,12 @@ export async function adjustCustomerPoints(
 export async function redeemReward(customerId: string, rewardId: string) {
   const admin = await createManagerClient();
 
-  // Busca prêmio
+  // Busca prêmio, sempre amarrado na unidade atual
   const { data: reward } = await admin
     .from('loyalty_rewards')
     .select('name, points_required, active')
     .eq('id', rewardId)
+    .eq('barbershop_id', (await lojaAtual()))
     .maybeSingle();
 
   if (!reward) return { ok: false, error: 'Prêmio não encontrado' };

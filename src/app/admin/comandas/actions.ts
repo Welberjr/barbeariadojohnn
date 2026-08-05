@@ -705,19 +705,15 @@ export async function closeComanda(
       if (!metodoDoRestante || metodoDoRestante === 'store_credit') {
         return {
           ok: false,
-          error: `O crédito cobre R$ ${creditoUsado.toFixed(2)}. Escolha como o cliente paga os R$ ${restante.toFixed(2)} restantes.`,
+          error: `O crédito cobre R$ ${creditoUsado.toFixed(2).replace('.', ',')}. Escolha como o cliente paga os R$ ${restante.toFixed(2).replace('.', ',')} restantes.`,
         };
       }
     } else {
       restante = 0;
     }
 
-    const baixa = await gastarCredito({
-      customerId: comanda.customer_id as string,
-      comandaId,
-      valor: creditoUsado,
-    });
-    if (!baixa.ok) return { ok: false, error: baixa.error };
+    // O debito em si acontece depois da trava de corrida, la embaixo: aqui so
+    // ficou decidido quanto o credito cobre.
   }
 
   // A taxa de cartao so incide sobre o que passou na maquininha
@@ -725,8 +721,11 @@ export async function closeComanda(
   const feeValue = Math.round(restante * feePercent) / 100;
   const netTotal = total - feeValue;
 
-  // 1. Atualiza comanda para closed
-  const { error: errUpdate } = await admin
+  // 1. Fecha a comanda com trava de corrida: o update so pega quem ainda esta
+  // aberta, entao dois cliques simultaneos tem um vencedor unico. Sem isso, os
+  // dois passavam pela leitura de status la em cima e cada um debitava credito
+  // e gravava pagamento de novo.
+  const { data: fechou, error: errUpdate } = await admin
     .from('comandas')
     .update({
       status: 'closed',
@@ -738,9 +737,33 @@ export async function closeComanda(
       closed_at: new Date().toISOString(),
     })
     .eq('id', comandaId)
-    .eq('barbershop_id', barbershopId);
+    .eq('barbershop_id', barbershopId)
+    .eq('status', 'open')
+    .select('id');
 
   if (errUpdate) return { ok: false, error: errUpdate.message };
+  if (!fechou?.length) {
+    return { ok: false, error: 'Esta comanda já foi fechada ou cancelada.' };
+  }
+
+  // 2. Com a trava vencida, debita o credito. Se a baixa falhar (saldo mudou
+  // entre a conferencia e agora), a comanda reabre para nao ficar fechada sem
+  // cobranca.
+  if (creditoUsado > 0) {
+    const baixa = await gastarCredito({
+      customerId: comanda.customer_id as string,
+      comandaId,
+      valor: creditoUsado,
+    });
+    if (!baixa.ok) {
+      await admin
+        .from('comandas')
+        .update({ status: 'open', closed_at: null })
+        .eq('id', comandaId)
+        .eq('barbershop_id', barbershopId);
+      return { ok: false, error: baixa.error };
+    }
+  }
 
   // 2-3. Pagamento + atualizar appointment em paralelo (independentes entre si)
   //
@@ -857,11 +880,40 @@ export async function cancelComanda(comandaId: string) {
 
   const { data: comanda } = await admin
     .from('comandas')
-    .select('id')
+    .select('id, status')
     .eq('id', comandaId)
     .eq('barbershop_id', barbershopId)
     .maybeSingle();
   if (!comanda) return { ok: false, error: 'Comanda não pertence a esta unidade.' };
+
+  // Cancelar e coisa de comanda aberta. Comanda fechada tem pagamento gravado:
+  // desfazer sem estornar devolvia estoque e apagava uso de assinatura de uma
+  // venda ja paga. Para desfazer fechada existe o estorno.
+  if (comanda.status !== 'open') {
+    return {
+      ok: false,
+      error: 'Só dá para cancelar comanda aberta. Para desfazer uma fechada, use o estorno.',
+    };
+  }
+
+  // Cancela primeiro, com trava de corrida: o update so pega quem ainda esta
+  // aberta, entao dois cliques (ou um cancelamento correndo com um fechamento)
+  // tem um vencedor unico e o estoque nao e devolvido duas vezes.
+  const { data: cancelou, error: errCancel } = await admin
+    .from('comandas')
+    .update({
+      status: 'cancelled',
+      closed_at: new Date().toISOString(),
+    })
+    .eq('id', comandaId)
+    .eq('barbershop_id', barbershopId)
+    .eq('status', 'open')
+    .select('id');
+
+  if (errCancel) return { ok: false, error: errCancel.message };
+  if (!cancelou?.length) {
+    return { ok: false, error: 'Esta comanda já foi fechada ou cancelada.' };
+  }
 
   const { data: items } = await admin
     .from('comanda_items')
@@ -913,17 +965,6 @@ export async function cancelComanda(comandaId: string) {
   }
   if (cancelOps.length > 0) await Promise.all(cancelOps);
 
-  const { error } = await admin
-    .from('comandas')
-    .update({
-      status: 'cancelled',
-      closed_at: new Date().toISOString(),
-    })
-    .eq('id', comandaId)
-    .eq('barbershop_id', barbershopId);
-
-  if (error) return { ok: false, error: error.message };
-
   revalidatePath('/admin/comandas');
   return { ok: true };
 }
@@ -939,6 +980,16 @@ export async function cancelComanda(comandaId: string) {
 export async function reabrirComanda(comandaId: string) {
   const admin = await createManagerClient();
   const gestor = await getSessionStaff();
+  const barbershopId = await lojaAtual();
+
+  // A RPC nao conhece unidade: a amarracao na loja e feita aqui, antes dela.
+  const { data: dona } = await admin
+    .from('comandas')
+    .select('id')
+    .eq('id', comandaId)
+    .eq('barbershop_id', barbershopId)
+    .maybeSingle();
+  if (!dona) return { ok: false, error: 'Comanda não pertence a esta unidade.' };
 
   const { error } = await admin.rpc('reabrir_comanda', {
     p_comanda_id: comandaId,
@@ -984,6 +1035,16 @@ export async function estornarComanda(comandaId: string, motivo: string) {
 
   const admin = await createManagerClient();
   const gestor = await getSessionStaff();
+  const barbershopId = await lojaAtual();
+
+  // Mesma amarracao do reabrir: a RPC nao conhece unidade.
+  const { data: dona } = await admin
+    .from('comandas')
+    .select('id')
+    .eq('id', comandaId)
+    .eq('barbershop_id', barbershopId)
+    .maybeSingle();
+  if (!dona) return { ok: false, error: 'Comanda não pertence a esta unidade.' };
 
   const { error } = await admin.rpc('estornar_comanda', {
     p_comanda_id: comandaId,
