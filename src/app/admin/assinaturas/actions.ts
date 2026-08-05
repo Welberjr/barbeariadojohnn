@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * Assinaturas (Clube) — reescrito 10/06/2026 para o modelo normalizado.
+ * Assinaturas (Clube) - reescrito 10/06/2026 para o modelo normalizado.
  *
  * ANTES: o codigo gravava em colunas inexistentes (billing_cycle,
  * includes_count...) e usava customer_subscriptions. NUNCA funcionou em prod.

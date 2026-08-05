@@ -21,9 +21,10 @@ describe('formatPhone', () => {
     expect(formatPhone('6133334444')).toBe('(61) 3333-4444');
   });
 
-  it('tira o 55 dos numeros que vieram do sistema antigo', () => {
-    // 55 + dez digitos: sobra um numero de oito casas, escrito como fixo
-    expect(formatPhone('556194245349')).toBe('(61) 9424-5349');
+  it('tira o 55 e devolve o nono digito dos numeros do sistema antigo', () => {
+    // 55 + celular de oito casas (como o EcoBarber gravou quase toda a base):
+    // o 9 volta na exibicao, em vez de aparecer com cara de fixo
+    expect(formatPhone('556194245349')).toBe('(61) 99424-5349');
   });
 
   it('numero de 13 digitos com 55 vira celular formatado', () => {

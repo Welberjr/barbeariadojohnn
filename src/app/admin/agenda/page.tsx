@@ -46,7 +46,7 @@ export default async function AgendaPage({ searchParams }: AgendaPageProps) {
       .in('role', ['barber', 'owner', 'manager'])
     .eq('atende_clientes', true)
       .order('display_name'),
-    // Appointments do dia (SEM service_id direto — usa appointment_services)
+    // Appointments do dia (SEM service_id direto - usa appointment_services)
     supabase
       .from('appointments')
       .select(

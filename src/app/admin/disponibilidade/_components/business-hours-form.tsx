@@ -17,7 +17,7 @@ const DAYS = [
   { key: 'wednesday' as const, label: 'Quarta-feira', short: 'QUA' },
   { key: 'thursday' as const, label: 'Quinta-feira', short: 'QUI' },
   { key: 'friday' as const, label: 'Sexta-feira', short: 'SEX' },
-  { key: 'saturday' as const, label: 'Sábado', short: 'SAB' },
+  { key: 'saturday' as const, label: 'Sábado', short: 'SÁB' },
   { key: 'sunday' as const, label: 'Domingo', short: 'DOM' },
 ];
 

@@ -87,7 +87,7 @@ export default async function BeneficiosPage() {
     { done: totalVisits >= 1, points: 100, label: 'Primeira visita registrada', icon: '💈' },
     { done: totalVisits >= 3, points: 150, label: '3 visitas realizadas', icon: '🔁' },
     { done: totalVisits >= 5, points: 200, label: '5 visitas realizadas', icon: '⭐' },
-    { done: totalVisits >= 10, points: 500, label: '10 visitas — cliente fiel', icon: '🏅' },
+    { done: totalVisits >= 10, points: 500, label: '10 visitas: cliente fiel', icon: '🏅' },
     { done: balance >= 100, points: 0, label: 'Acumular 100 pontos', icon: '💰' },
     { done: streak >= 2, points: 200, label: '2 meses consecutivos', icon: '🔥' },
     { done: !!subscription, points: 300, label: 'Assinar o Clube VIP', icon: '👑' },

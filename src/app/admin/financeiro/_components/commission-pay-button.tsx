@@ -46,7 +46,7 @@ export function CommissionPayButton({
     }
   }
 
-  if (amount <= 0) return <span className="text-xs text-fg-dim">—</span>;
+  if (amount <= 0) return <span className="text-xs text-fg-dim">-</span>;
 
   return (
     <>

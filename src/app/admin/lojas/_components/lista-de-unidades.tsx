@@ -12,6 +12,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { formatPhone } from '@/lib/utils';
 import { Store, Plus, X, Users, UserRound, Check, Power, Loader2 } from 'lucide-react';
 import {
   abrirUnidade,
@@ -153,7 +154,7 @@ export function ListaDeUnidades({ unidades }: { unidades: Unidade[] }) {
             <input
               name="nome"
               required
-              placeholder="Barbearia do Johnn — Águas Claras"
+              placeholder="Barbearia do Johnn - Águas Claras"
               className="input mt-1 w-full"
             />
             <span className="mt-1 block text-[10px] text-fg-subtle">
@@ -222,7 +223,7 @@ export function ListaDeUnidades({ unidades }: { unidades: Unidade[] }) {
                 </p>
                 <p className="mt-1 text-[11px] text-fg-subtle">
                   {endereco(u) || 'Sem endereço cadastrado'}
-                  {u.telefone ? ` · ${u.telefone}` : ''}
+                  {u.telefone ? ` · ${formatPhone(u.telefone)}` : ''}
                 </p>
                 <p className="mt-2 flex flex-wrap gap-3 text-[11px] text-fg-muted">
                   <span className="flex items-center gap-1">

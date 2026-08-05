@@ -53,6 +53,18 @@ const tierConfig: Record<
 // Fallback para tiers desconhecidos vindos do banco (evita crash de undefined.icon)
 const tierFallback = { label: 'Cliente', color: 'bg-fg-dim/10 text-fg-subtle border-border-strong', icon: Heart };
 
+/**
+ * O selo e DERIVADO do que o cliente fez (gasto e visitas), nunca da coluna
+ * customers.tier: ela nasce 'new' e nada no sistema a atualiza, entao todo
+ * mundo aparecia como Novo mesmo com anos de casa.
+ */
+function segmentoDoCliente(c: Customer, vipThreshold: number): Customer['tier'] {
+  if (!c.active) return 'inactive';
+  if (Number(c.total_spent ?? 0) > vipThreshold) return 'vip';
+  if (Number(c.total_appointments ?? 0) > 1) return 'active';
+  return 'new';
+}
+
 const loyaltyTierConfig: Record<string, string> = {
   bronze: 'text-amber-700',
   silver: 'text-gray-300',
@@ -68,6 +80,7 @@ interface CustomersListProps {
   page: number;
   totalPages: number;
   totalCount: number;
+  vipThreshold: number;
 }
 
 export function CustomersList({
@@ -77,6 +90,7 @@ export function CustomersList({
   page,
   totalPages,
   totalCount,
+  vipThreshold,
 }: CustomersListProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -255,7 +269,7 @@ export function CustomersList({
       ) : view === 'lista' ? (
         <div className="card divide-y divide-border/40">
           {customers.map((c) => {
-            const tierData = tierConfig[c.tier] ?? tierFallback;
+            const tierData = tierConfig[segmentoDoCliente(c, vipThreshold)] ?? tierFallback;
             const TierIcon = tierData.icon;
             const initials =
               (c.full_name ?? '')
@@ -335,7 +349,7 @@ export function CustomersList({
       ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {customers.map((c) => {
-          const tierData = tierConfig[c.tier] ?? tierFallback;
+          const tierData = tierConfig[segmentoDoCliente(c, vipThreshold)] ?? tierFallback;
           const TierIcon = tierData.icon;
           const initials =
             (c.full_name ?? '')

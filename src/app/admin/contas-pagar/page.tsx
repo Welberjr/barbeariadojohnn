@@ -464,7 +464,7 @@ export default async function ContasPagarPage({
                             {cat.name}
                           </span>
                         ) : (
-                          <span className="text-xs text-fg-dim">—</span>
+                          <span className="text-xs text-fg-dim">-</span>
                         )}
                       </td>
                       <td className="py-3 px-4 text-fg-muted text-xs">

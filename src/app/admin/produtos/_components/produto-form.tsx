@@ -446,7 +446,7 @@ export function ProductForm({
                     lucroPorUnidade >= 0 ? 'text-success' : 'text-danger'
                   }`}
                 >
-                  R$ {lucroPorUnidade.toFixed(2)}
+                  R$ {lucroPorUnidade.toFixed(2).replace('.', ',')}
                 </p>
               </div>
               <div>
@@ -458,7 +458,7 @@ export function ProductForm({
                     margem >= 0 ? 'text-success' : 'text-danger'
                   }`}
                 >
-                  {margem.toFixed(1)}%
+                  {margem.toFixed(1).replace('.', ',')}%
                 </p>
               </div>
             </div>

@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { Crown, Plus, Users, TrendingUp, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
+import { subscriptionKpis } from '@/lib/subscriptions';
 import { AssinaturasView } from './_components/assinaturas-view';
 import { SobrasSection } from './_components/sobras-section';
 
@@ -11,19 +12,6 @@ export const metadata = {
 };
 
 export const dynamic = 'force-dynamic';
-
-function monthlyEquivalent(price: number, period: string): number {
-  switch (period) {
-    case 'quarterly':
-      return price / 3;
-    case 'semiannual':
-      return price / 6;
-    case 'annual':
-      return price / 12;
-    default:
-      return price;
-  }
-}
 
 export default async function AssinaturasPage() {
   const admin = createAdminClient();
@@ -206,14 +194,14 @@ export default async function AssinaturasPage() {
     })
     .sort((a, b) => b.sobra - a.sobra);
 
-  // KPIs
-  const activeSubs = subscriptions.filter((s) =>
-    ['active', 'past_due'].includes(s.status)
-  );
-  const expiredCount = activeSubs.filter((s) => s.is_expired).length;
-  const mrr = activeSubs.reduce(
-    (sum, s) => sum + monthlyEquivalent(s.plan_price, s.plan_period),
-    0
+  // KPIs: mesma fonte que o dashboard, para as duas telas contarem igual
+  const kpisSubs = subscriptionKpis(
+    subscriptions.map((s) => ({
+      status: s.status,
+      current_price: s.plan_price,
+      current_period_end: s.current_period_end,
+      period: s.plan_period,
+    }))
   );
 
   return (
@@ -278,7 +266,7 @@ export default async function AssinaturasPage() {
             className="text-2xl font-bold text-success"
             style={{ fontFamily: 'var(--font-playfair), serif' }}
           >
-            {activeSubs.length}
+            {kpisSubs.assinantes}
           </p>
         </div>
 
@@ -295,7 +283,7 @@ export default async function AssinaturasPage() {
             className="text-2xl font-bold text-gold"
             style={{ fontFamily: 'var(--font-playfair), serif' }}
           >
-            {formatCurrency(mrr)}
+            {formatCurrency(kpisSubs.mrr)}
           </p>
           <p className="text-[10px] text-fg-subtle mt-1">
             Receita recorrente mensal
@@ -306,7 +294,7 @@ export default async function AssinaturasPage() {
           <div className="flex items-center gap-3 mb-2">
             <div
               className={`p-2 rounded-md ${
-                expiredCount > 0
+                kpisSubs.inadimplentes > 0
                   ? 'bg-danger/10 text-danger'
                   : 'bg-info/10 text-info'
               }`}
@@ -314,19 +302,19 @@ export default async function AssinaturasPage() {
               <AlertTriangle className="w-4 h-4" />
             </div>
             <p className="text-[10px] tracking-widest uppercase text-fg-muted">
-              Vencidas
+              Inadimplentes
             </p>
           </div>
           <p
             className={`text-2xl font-bold ${
-              expiredCount > 0 ? 'text-danger' : 'text-fg'
+              kpisSubs.inadimplentes > 0 ? 'text-danger' : 'text-fg'
             }`}
             style={{ fontFamily: 'var(--font-playfair), serif' }}
           >
-            {expiredCount}
+            {kpisSubs.inadimplentes}
           </p>
           <p className="text-[10px] text-fg-subtle mt-1">
-            aguardando pagamento
+            atrasadas ou com ciclo vencido
           </p>
         </div>
       </div>

@@ -31,10 +31,10 @@ const sizeMap = {
  * Quem sobe a própria logo passa a ver a dela no lugar do emblema.
  *
  * Variantes:
- * - full: completa (default) — login, hero, autenticação
- * - compact: emblema + texto horizontal — sidebars largas, headers
- * - icon: só o emblema, sem texto — favicons, sidebars colapsadas
- * - mono: tudo em uma cor (currentColor) — uso especial em badges/print
+ * - full: completa (default) - login, hero, autenticação
+ * - compact: emblema + texto horizontal - sidebars largas, headers
+ * - icon: só o emblema, sem texto - favicons, sidebars colapsadas
+ * - mono: tudo em uma cor (currentColor) - uso especial em badges/print
  */
 export function Logo({
   className,

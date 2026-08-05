@@ -17,7 +17,9 @@ export const viewport: Viewport = {
 export async function generateMetadata(): Promise<Metadata> {
   const marca = await marcaAtual();
   return {
-    title: `${marca.nome} — Gestão`,
+    // O template da raiz ja anexa a marca ("%s | nome da barbearia"). Repetir
+    // o nome aqui dobrava a marca e ainda levava travessao para a aba.
+    title: 'Gestão',
     manifest: '/manifest-admin.json',
     appleWebApp: {
       capable: true,
@@ -45,6 +47,7 @@ export default async function AdminLayout({
   );
 
   const marca = await marcaAtual();
+  const primeiroNome = (staff.fullName ?? staff.displayName).split(' ')[0];
 
   // Unidades onde ele trabalha. Com uma só, o menu não mostra nada disso.
   const daVez = await lojaAtual();
@@ -70,7 +73,7 @@ export default async function AdminLayout({
         <main className="flex-1 p-6 lg:p-8 overflow-x-auto">{children}</main>
       </div>
     </div>
-    <ChatFloatLazy endpoint="/api/chat/admin" title="Lara" avatarSrc="/lara.webp" welcomeMessage="Opa, Jonathan, tudo bem? 👋 Tô aqui pra te ajudar com a barbearia. Quer ver o quê: faturamento, movimento, barbeiros ou produtos? E de qual período, hoje, semana ou mês?" placeholder="Como foi o faturamento essa semana?" accentColor="#ce0056" />
+    <ChatFloatLazy endpoint="/api/chat/admin" title="Lara" avatarSrc="/lara.webp" welcomeMessage={`Opa, ${primeiroNome}, tudo bem? 👋 Tô aqui pra te ajudar com a barbearia. Quer ver o quê: faturamento, movimento, barbeiros ou produtos? E de qual período, hoje, semana ou mês?`} placeholder="Como foi o faturamento essa semana?" accentColor="#ce0056" />
     </>
   );
 }

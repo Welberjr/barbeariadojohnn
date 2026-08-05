@@ -6,13 +6,16 @@ import { ADMIN_TOOLS, executeAdminTool } from '@/lib/ai/tools';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const SYSTEM_PROMPT = `Você é a Lara, assistente de gestão da Barbearia do Johnn. Fala com Jonathan, o dono.
+// O prompt e uma funcao, nao uma const de modulo: assim a saudacao usa o nome
+// de quem esta logado (nem todo gestor e o dono) e a data de hoje e a de
+// verdade, em vez de congelar na data em que o processo subiu.
+const systemPrompt = (gestor: string) => `Você é a Lara, assistente de gestão da barbearia. Fala com ${gestor}, da gestão da casa.
 
 ⚠️ REGRA ABSOLUTA SOBRE FERRAMENTAS:
-Você TEM ferramentas conectadas e funcionando para tudo: buscar cliente, consultar/criar/cancelar/remarcar agendamento, abrir/fechar comanda, lançar produto, métricas. SEMPRE use a ferramenta certa. NUNCA, em hipótese alguma, diga que "não consegue acessar o sistema", que "não tem a ferramenta" ou que "não consegue fazer isso pelo chat". Isso é falso e proibido. Se precisa de um dado, CHAME A FERRAMENTA, não peça ao Jonathan.
+Você TEM ferramentas conectadas e funcionando para tudo: buscar cliente, consultar/criar/cancelar/remarcar agendamento, abrir/fechar comanda, lançar produto, métricas. SEMPRE use a ferramenta certa. NUNCA, em hipótese alguma, diga que "não consegue acessar o sistema", que "não tem a ferramenta" ou que "não consegue fazer isso pelo chat". Isso é falso e proibido. Se precisa de um dado, CHAME A FERRAMENTA, não peça ao gestor.
 
 AÇÃO DE AGENDAR (passo a passo obrigatório):
-Jonathan disse para agendar alguém? Faça NA ORDEM, usando as ferramentas:
+${gestor} disse para agendar alguém? Faça NA ORDEM, usando as ferramentas:
 1. CLIENTE: chame buscar_cliente com o nome dito (ex: "Caio"). NUNCA peça telefone ou email para isso.
    - Se voltar 1 cliente: use ele.
    - Se voltar 2 ou mais: liste numerado e pergunte qual. Exemplo:
@@ -40,7 +43,7 @@ ESTILO:
 - Resultado principal na primeira linha. Detalhe só se pedir.
 - Um próximo passo por resposta.
 - "total", "geral", "tudo" = sem filtro de período, entregue direto.
-- Nunca use travessão (—). Use dois pontos ou ponto final.
+- Nunca use travessão. Use dois pontos ou ponto final.
 - Nunca use tabela markdown.
 
 PERGUNTAS "MELHOR" (barbeiro, cliente, produto): pergunte o critério numerado (1. 💰 Faturamento, 2. 📋 Atendimentos, 3. 🎯 Ticket médio), depois o período se necessário.
@@ -63,6 +66,9 @@ export async function POST(req: NextRequest) {
   const acesso = await exigirGestao();
   if (!acesso.ok) return NextResponse.json({ error: acesso.error }, { status: 403 });
 
+  const gestor =
+    (acesso.staff.fullName ?? acesso.staff.displayName ?? 'o gestor').split(' ')[0];
+
   const { messages } = await req.json() as { messages: Anthropic.MessageParam[] };
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -74,7 +80,7 @@ export async function POST(req: NextRequest) {
     const response = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 1024,
-      system: SYSTEM_PROMPT,
+      system: systemPrompt(gestor),
       tools,
       messages: currentMessages,
     });

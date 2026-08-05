@@ -130,8 +130,8 @@ export function TransactionModal({ type, staff, onClose }: TransactionModalProps
           {!form.staff_id && (
             <p className="text-[10px] text-fg-subtle mt-1">
               {isIncome
-                ? 'Receita direto pro caixa — sem comissão de profissional.'
-                : 'Despesa geral da barbearia — não vinculada a nenhum profissional.'}
+                ? 'Receita direto pro caixa, sem comissão de profissional.'
+                : 'Despesa geral da barbearia, não vinculada a nenhum profissional.'}
             </p>
           )}
         </div>

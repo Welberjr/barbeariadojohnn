@@ -10,7 +10,7 @@ import {
 } from '@/lib/jornada';
 
 // =============================================================
-// BUSINESS HOURS — horário de funcionamento da barbearia
+// BUSINESS HOURS - horário de funcionamento da barbearia
 // =============================================================
 
 export interface DayHours {
@@ -45,7 +45,7 @@ export async function updateBusinessHours(hours: BusinessHours) {
 }
 
 // =============================================================
-// DAYS OFF — folgas e bloqueios
+// DAYS OFF - folgas e bloqueios
 // =============================================================
 
 export interface DayOffData {
@@ -92,7 +92,7 @@ export async function deleteDayOff(id: string) {
 }
 
 // =============================================================
-// JORNADA DO PROFISSIONAL — horario proprio e almoco
+// JORNADA DO PROFISSIONAL - horario proprio e almoco
 // =============================================================
 
 /**

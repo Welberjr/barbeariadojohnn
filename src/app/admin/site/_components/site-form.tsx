@@ -217,7 +217,7 @@ export function SiteForm({ defaultValues }: SiteFormProps) {
 
         {gallery.length === 0 ? (
           <p className="text-xs text-fg-subtle italic py-2">
-            Nenhuma foto adicionada. Cole URLs de imagens (ex: do Imgur, Unsplash ou seu hospedagem).
+            Nenhuma foto adicionada. Cole URLs de imagens (ex: do Imgur, do Unsplash ou da sua hospedagem).
           </p>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">

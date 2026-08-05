@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, Info } from 'lucide-react';
 import { requireStaff } from '@/lib/staff-auth';
 import { podeModulo } from '@/lib/staff-permissions';
 import { financeiroDoPeriodo } from '@/lib/painel/dados';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, primeiraMaiuscula } from '@/lib/utils';
 
 export const metadata = { title: 'Meu financeiro' };
 export const dynamic = 'force-dynamic';
@@ -70,7 +70,7 @@ export default async function FinanceiroPainelPage({ searchParams }: FinanceiroP
         <Link href={`/painel/financeiro?mes=${somarMeses(mes, -1)}`} className="btn-ghost p-3">
           <ChevronLeft className="w-5 h-5" />
         </Link>
-        <p className="text-sm text-fg font-medium capitalize">{mesLegivel(mes)}</p>
+        <p className="text-sm text-fg font-medium">{primeiraMaiuscula(mesLegivel(mes))}</p>
         <Link href={`/painel/financeiro?mes=${somarMeses(mes, 1)}`} className="btn-ghost p-3">
           <ChevronRight className="w-5 h-5" />
         </Link>

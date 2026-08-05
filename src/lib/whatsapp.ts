@@ -1,4 +1,5 @@
 import { lojaPadrao } from '@/lib/loja';
+import { normalizarTelefone } from '@/lib/telefone';
 /**
  * WhatsApp integration helper.
  *
@@ -39,16 +40,12 @@ export interface SendMessageResult {
  */
 export function normalizePhoneE164(input: string): string {
   if (!input) return '';
-  const digits = input.replace(/\D/g, '');
-  // Se já começa com 55 e tem 12-13 dígitos, está pronto
-  if (digits.length === 12 || digits.length === 13) {
-    if (digits.startsWith('55')) return digits;
-  }
-  // Se tem 10-11 dígitos, é local brasileiro — prepend 55
-  if (digits.length === 10 || digits.length === 11) {
-    return `55${digits}`;
-  }
-  return digits;
+  // A forma canonica tira o 55, injeta o nono digito que o sistema antigo nao
+  // gravou e devolve DDD + numero. Sem isso, a mensagem automatica saia para
+  // um celular de oito casas, que nao recebe nada desde 2013.
+  const canonico = normalizarTelefone(input);
+  if (canonico) return `55${canonico}`;
+  return input.replace(/\D/g, '');
 }
 
 /**

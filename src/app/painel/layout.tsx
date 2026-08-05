@@ -16,7 +16,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: {
       default: `Meu Painel | ${marca.nome}`,
-      template: '%s | Meu Painel',
+      template: `%s | Meu Painel | ${marca.nome}`,
     },
     manifest: '/manifest-painel.json',
     appleWebApp: {

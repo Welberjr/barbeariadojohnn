@@ -25,10 +25,20 @@ interface ClientesPageProps {
 export default async function ClientesPage({ searchParams }: ClientesPageProps) {
   const { q, tier, page: pageParam } = await searchParams;
   const supabase = createAdminClient();
+  const loja = await lojaAtual();
 
   const page = Math.max(1, parseInt(pageParam ?? '1', 10) || 1);
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
+
+  // O criterio VIP vem antes de tudo porque entra nas consultas de contagem
+  // e de filtro logo abaixo.
+  const { data: shopConfig } = await supabase
+    .from('barbershops')
+    .select('vip_total_spent_threshold')
+    .eq('id', loja)
+    .maybeSingle();
+  const vipThreshold = Number(shopConfig?.vip_total_spent_threshold ?? 500);
 
   let query = supabase
     .from('customers')
@@ -36,7 +46,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
       'id, full_name, phone, email, cpf, birth_date, tier, loyalty_tier, loyalty_points, total_appointments, total_spent, last_visit_at, photo_url, active, created_at',
       { count: 'exact' }
     )
-    .eq('barbershop_id', (await lojaAtual()))
+    .eq('barbershop_id', loja)
     .order('full_name', { ascending: true });
 
   if (q && q.trim()) {
@@ -49,39 +59,44 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
     }
   }
 
+  // A segmentacao e DERIVADA do que o cliente fez (gasto e visitas), nao da
+  // coluna customers.tier: aquela coluna nasce 'new' e nada no sistema a
+  // atualiza, entao ela mentia 0 VIPs com cliente de mil reais na base.
   if (tier && tier !== 'all') {
-    query = query.eq('tier', tier);
+    if (tier === 'vip') query = query.gt('total_spent', vipThreshold);
+    else if (tier === 'active')
+      query = query.gt('total_appointments', 1).lte('total_spent', vipThreshold);
+    else if (tier === 'new')
+      query = query.lte('total_appointments', 1).lte('total_spent', vipThreshold);
+    else if (tier === 'inactive') query = query.eq('active', false);
+  }
+  if (tier !== 'inactive') {
+    query = query.eq('active', true);
   }
 
   // A página filtrada e as stats globais não dependem uma da outra: tudo junto.
   const admin = createAdminClient();
-  const [{ data: customers, count, error }, { count: totalAll }, { count: vips }, { count: regulars }, { count: news }, { data: topCustomers }, { data: shopConfig }] =
+  const [{ data: customers, count, error }, { count: totalAll }, { count: vips }, { count: regulars }, { count: news }, { data: topCustomers }] =
     await Promise.all([
       query.range(from, to),
-      supabase.from('customers').select('id', { count: 'exact', head: true }).eq('barbershop_id', (await lojaAtual())),
-      supabase.from('customers').select('id', { count: 'exact', head: true }).eq('barbershop_id', (await lojaAtual())).eq('tier', 'vip'),
-      supabase.from('customers').select('id', { count: 'exact', head: true }).eq('barbershop_id', (await lojaAtual())).eq('tier', 'active'),
-      supabase.from('customers').select('id', { count: 'exact', head: true }).eq('barbershop_id', (await lojaAtual())).eq('tier', 'new'),
+      supabase.from('customers').select('id', { count: 'exact', head: true }).eq('barbershop_id', loja).eq('active', true),
+      supabase.from('customers').select('id', { count: 'exact', head: true }).eq('barbershop_id', loja).eq('active', true).gt('total_spent', vipThreshold),
+      supabase.from('customers').select('id', { count: 'exact', head: true }).eq('barbershop_id', loja).eq('active', true).gt('total_appointments', 1).lte('total_spent', vipThreshold),
+      supabase.from('customers').select('id', { count: 'exact', head: true }).eq('barbershop_id', loja).eq('active', true).lte('total_appointments', 1).lte('total_spent', vipThreshold),
       admin
         .from('customers')
         .select('id, full_name, photo_url, total_spent, total_appointments, tier')
-        .eq('barbershop_id', (await lojaAtual()))
+        .eq('barbershop_id', loja)
         .eq('active', true)
         .order('total_spent', { ascending: false })
         .limit(5),
-      admin
-        .from('barbershops')
-        .select('vip_total_spent_threshold')
-        .eq('id', (await lojaAtual()))
-        .maybeSingle(),
     ]);
 
   const totalCount = count ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
-  const vipThreshold = Number(shopConfig?.vip_total_spent_threshold ?? 500);
   const totalTicket = (topCustomers ?? []).reduce((s, c) => s + Number(c.total_spent ?? 0), 0);
-  const topVip = (topCustomers ?? []).find((c) => c.tier === 'vip');
+  const topVip = (topCustomers ?? []).find((c) => Number(c.total_spent ?? 0) > vipThreshold);
   const globalTicket =
     (totalAll ?? 0) > 0
       ? (topCustomers ?? []).reduce((s, c) => {
@@ -165,10 +180,10 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
             <div className="p-2 rounded-md bg-info/10 text-info">
               <TrendingUp className="w-4 h-4" />
             </div>
-            <p className="text-[10px] tracking-widest uppercase text-fg-muted flex items-center gap-1">Ticket médio <InfoTip text="Gasto médio por visita considerando todos os clientes. Bom termômetro de quanto cada cadeira rende." /></p>
+            <p className="text-[10px] tracking-widest uppercase text-fg-muted flex items-center gap-1">Ticket médio <InfoTip text="Gasto médio por visita entre os 5 clientes que mais gastaram. O ticket médio geral da casa está no Financeiro." /></p>
           </div>
           <p className="text-2xl font-bold text-fg" style={{ fontFamily: 'var(--font-playfair), serif' }}>{formatCurrency(globalTicket)}</p>
-          <p className="text-[10px] text-fg-subtle mt-1">Média por atendimento</p>
+          <p className="text-[10px] text-fg-subtle mt-1">Média por atendimento do top 5</p>
         </div>
 
         <div className="card p-5">
@@ -229,6 +244,7 @@ export default async function ClientesPage({ searchParams }: ClientesPageProps) 
           page={page}
           totalPages={totalPages}
           totalCount={totalCount}
+          vipThreshold={vipThreshold}
         />
       )}
 

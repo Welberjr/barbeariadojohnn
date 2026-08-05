@@ -66,7 +66,7 @@ export function UpcomingAppointments({ appointments }: { appointments: Appointme
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-fg font-medium truncate">{svc}</p>
                 <p className="text-[11px] text-fg-muted">
-                  {fmtDateTime(a.start_at)} · {a.staff?.display_name ?? '—'}
+                  {fmtDateTime(a.start_at)} · {a.staff?.display_name ?? '-'}
                 </p>
               </div>
               <ChevronRight className="w-4 h-4 text-fg-subtle flex-shrink-0" />

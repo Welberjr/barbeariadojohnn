@@ -9,7 +9,7 @@ import {
   CreditCard,
 } from 'lucide-react';
 import Link from 'next/link';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, primeiraMaiuscula } from '@/lib/utils';
 import { CommissionPayButton } from './_components/commission-pay-button';
 import { AllowancesSection } from './_components/allowances-section';
 import { PayoutHistorySection } from './_components/payout-history';
@@ -169,7 +169,7 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
   for (const item of items) {
     const sid = item.staff_id as string | null;
     if (!sid) continue;
-    const name = staffMap.get(sid) ?? '—';
+    const name = staffMap.get(sid) ?? '-';
     const cur = commissionByStaff.get(sid) ?? { name, commission: 0, vendas: 0, servicos: 0, produtos: 0, atend: 0 };
     cur.commission += Number(item.commission_value ?? 0);
     cur.vendas += Number(item.total_price ?? 0);
@@ -211,7 +211,7 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
     return map[m] ?? m;
   };
 
-  const fmtDate = (iso: string | null) => iso ? new Date(iso).toLocaleDateString('pt-BR') : '—';
+  const fmtDate = (iso: string | null) => iso ? new Date(iso).toLocaleDateString('pt-BR') : '-';
 
   // Histograma por dia (receitas das comandas + manuais vs despesas)
   const dayMap = new Map<string, { income: number; expense: number }>();
@@ -246,7 +246,7 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
   const allowances = ((allowancesRaw ?? []) as any[]).map((a) => ({
     id: a.id as string,
     staff_id: a.staff_id as string,
-    staff_name: (a.staff?.display_name as string) ?? '—',
+    staff_name: (a.staff?.display_name as string) ?? '-',
     amount: Number(a.amount ?? 0),
     reason: (a.reason as string | null) ?? null,
     status: a.status as string,
@@ -262,10 +262,12 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const payoutHistory = (payoutHistoryRaw ?? []) as any[];
 
-  const monthLabel = new Date(fromDate.getFullYear(), fromDate.getMonth()).toLocaleString('pt-BR', {
-    month: 'long',
-    year: 'numeric',
-  });
+  const monthLabel = primeiraMaiuscula(
+    new Date(fromDate.getFullYear(), fromDate.getMonth()).toLocaleString('pt-BR', {
+      month: 'long',
+      year: 'numeric',
+    })
+  );
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -397,8 +399,8 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
                     <td className="py-3 text-right text-fg-muted">{c.atend}</td>
                     <td className="py-3 text-right text-fg">{formatCurrency(c.vendas)}</td>
                     <td className="py-3 text-right text-gold font-semibold">{formatCurrency(c.commission)}</td>
-                    <td className="py-3 text-right text-fg-muted">—</td>
-                    <td className="py-3 text-right text-fg-muted">—</td>
+                    <td className="py-3 text-right text-fg-muted">-</td>
+                    <td className="py-3 text-right text-fg-muted">-</td>
                     <td className="py-3 text-right font-semibold text-fg">{formatCurrency(c.commission)}</td>
                     <td className="py-3 text-right">
                       <CommissionPayButton
@@ -480,7 +482,7 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
                 {formatCurrency(totalServicos)}
               </p>
               <p className="text-[11px] text-fg-subtle mt-1">
-                {mixBase > 0 ? `${((totalServicos / mixBase) * 100).toFixed(1)}% do mix` : '—'}
+                {mixBase > 0 ? `${((totalServicos / mixBase) * 100).toFixed(1).replace('.', ',')}% do mix` : '-'}
               </p>
             </div>
             <div className="p-4 rounded-md bg-bg-elevated border border-border/60">
@@ -489,7 +491,7 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
                 {formatCurrency(totalProdutosMix)}
               </p>
               <p className="text-[11px] text-fg-subtle mt-1">
-                {mixBase > 0 ? `${((totalProdutosMix / mixBase) * 100).toFixed(1)}% do mix` : '—'}
+                {mixBase > 0 ? `${((totalProdutosMix / mixBase) * 100).toFixed(1).replace('.', ',')}% do mix` : '-'}
               </p>
             </div>
           </div>
@@ -512,13 +514,13 @@ export default async function FinanceiroPage({ searchParams }: FinanceiroPagePro
               const closedDate = c.closed_at ? new Date(c.closed_at as string) : null;
               const dateStr = closedDate
                 ? closedDate.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
-                : '—';
+                : '-';
               return (
                 <Link key={c.id} href={`/admin/comandas/${c.id}`}
                   className="flex items-center justify-between gap-3 p-3 rounded-md bg-bg-elevated border border-border/60 hover:border-gold/40 transition-colors">
                   <div>
                     <p className="text-xs text-fg-subtle">{dateStr}</p>
-                    <p className="text-sm text-fg-muted">{staffMap.get(c.staff_id as string) ?? '—'}</p>
+                    <p className="text-sm text-fg-muted">{staffMap.get(c.staff_id as string) ?? '-'}</p>
                   </div>
                   <p className="text-lg font-bold text-gold">{formatCurrency(Number(c.total ?? 0))}</p>
                 </Link>

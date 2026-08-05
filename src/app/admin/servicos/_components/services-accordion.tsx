@@ -297,7 +297,7 @@ export function ServicesAccordion({
                                     <div className="input text-[11px] py-1 px-1 text-center">
                                       {promo?.price != null
                                         ? `R$${Number(promo.price).toFixed(0)}`
-                                        : '—'}
+                                        : '-'}
                                     </div>
                                   </div>
                                 );

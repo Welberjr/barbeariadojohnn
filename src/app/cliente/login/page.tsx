@@ -3,7 +3,8 @@ import { CustomerLoginForm } from './_components/customer-login-form';
 import { SairDestaConta } from './_components/sair-desta-conta';
 
 export const metadata = {
-  title: 'Área do Cliente | Barbearia do Johnn',
+  // A marca entra pelo template do layout raiz; escrever aqui dobrava o nome.
+  title: 'Área do Cliente',
 };
 
 interface Props {

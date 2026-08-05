@@ -1,5 +1,5 @@
 /**
- * Supabase Client — Server Components, Server Actions, Route Handlers
+ * Supabase Client - Server Components, Server Actions, Route Handlers
  * Use em Server Components, Server Actions e API Routes
  */
 import { createServerClient } from '@supabase/ssr';
@@ -22,7 +22,7 @@ export async function createClient() {
               cookieStore.set(name, value, options)
             );
           } catch {
-            // Server Component não pode setar cookies — ignora
+            // Server Component não pode setar cookies - ignora
           }
         },
       },

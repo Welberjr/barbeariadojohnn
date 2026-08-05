@@ -80,26 +80,34 @@ export async function awardPointsForComanda(opts: {
 
     let balanceAfter = points;
     if (!current) {
-      await admin.from('loyalty_points').insert({
+      const { error } = await admin.from('loyalty_points').insert({
         barbershop_id: loja,
         customer_id: opts.customerId,
         balance: points,
         lifetime_earned: points,
         lifetime_redeemed: 0,
       });
+      if (error) {
+        console.error('[loyalty] falhou ao criar saldo de pontos:', error.message);
+        return { ok: false, points: 0 };
+      }
     } else {
       balanceAfter = Number(current.balance ?? 0) + points;
-      await admin
+      const { error } = await admin
         .from('loyalty_points')
         .update({
           balance: balanceAfter,
           lifetime_earned: Number(current.lifetime_earned ?? 0) + points,
         })
         .eq('id', current.id);
+      if (error) {
+        console.error('[loyalty] falhou ao atualizar saldo de pontos:', error.message);
+        return { ok: false, points: 0 };
+      }
     }
 
     // Evento (alimenta ranking semestral) + extrato legado
-    await admin.from('loyalty_points_events').insert({
+    const { error: erroEvento } = await admin.from('loyalty_points_events').insert({
       barbershop_id: loja,
       customer_id: opts.customerId,
       event_type: 'earned_service',
@@ -108,22 +116,34 @@ export async function awardPointsForComanda(opts: {
       comanda_id: opts.comandaId,
       description: 'Pontos do atendimento',
     });
-    await admin.from('loyalty_transactions').insert({
+    if (erroEvento) {
+      // O saldo ja subiu; sem o evento a idempotencia por comanda deixa de
+      // segurar um segundo credito. Melhor avisar alto do que seguir mudo.
+      console.error('[loyalty] saldo creditado mas o evento falhou:', erroEvento.message);
+      return { ok: false, points };
+    }
+    const { error: erroExtrato } = await admin.from('loyalty_transactions').insert({
       barbershop_id: loja,
       customer_id: opts.customerId,
       type: 'earn',
       points,
       reason: 'Atendimento na barbearia',
     });
+    if (erroExtrato) {
+      console.error('[loyalty] extrato de pontos falhou:', erroExtrato.message);
+    }
 
     // Espelha no cadastro (a lista de clientes le customers.loyalty_points)
-    await admin
+    const { error: erroEspelho } = await admin
       .from('customers')
       .update({
         loyalty_points: balanceAfter,
         last_visit_at: new Date().toISOString(),
       })
       .eq('id', opts.customerId);
+    if (erroEspelho) {
+      console.error('[loyalty] espelho no cadastro falhou:', erroEspelho.message);
+    }
 
     await notifyCustomer({
       customerId: opts.customerId,
@@ -134,7 +154,10 @@ export async function awardPointsForComanda(opts: {
     });
 
     return { ok: true, points };
-  } catch {
+  } catch (erro) {
+    // Pontos nunca podem derrubar o fechamento da comanda, mas falha muda
+    // vira chamado de "cliente sem pontos" sem ninguem saber onde olhar.
+    console.error('[loyalty] credito de pontos falhou:', erro);
     return { ok: false, points: 0 };
   }
 }
@@ -145,6 +168,24 @@ export interface RankingRow {
   photo_url: string | null;
   points: number;
   position: number;
+}
+
+// Cadastros que existem so para a operacao fechar comanda de quem nao tem
+// ficha ("Avulso corte" e parentes). Pontuam como qualquer cliente, mas nao
+// disputam o ranking publico do aplicativo.
+const NOMES_INTERNOS = [/^avulso\b/i, /^cliente avulso\b/i, /^balc[aã]o\b/i, /^venda avulsa\b/i];
+function ehCadastroInterno(nome?: string | null): boolean {
+  return !!nome && NOMES_INTERNOS.some((re) => re.test(nome.trim()));
+}
+
+/** Quantos pontos cada R$ 1,00 vale nesta loja (config da fidelidade). */
+export async function pontosPorReal(): Promise<number> {
+  const { data } = await createAdminClient()
+    .from('barbershops')
+    .select('loyalty_points_per_brl')
+    .eq('id', await lojaAtual())
+    .maybeSingle();
+  return Number(data?.loyalty_points_per_brl ?? 1);
 }
 
 /**
@@ -188,7 +229,12 @@ export async function getRankings(opts: {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const allTime: RankingRow[] = ((lifetimeRows ?? []) as any[])
-    .filter((r) => r.customers && r.customers.active !== false)
+    .filter(
+      (r) =>
+        r.customers &&
+        r.customers.active !== false &&
+        !ehCadastroInterno(r.customers.full_name)
+    )
     .map((r, i) => ({
       customer_id: r.customer_id,
       full_name: r.customers.full_name as string,
@@ -215,9 +261,11 @@ export async function getRankings(opts: {
   if (missingIds.length > 0) {
     const { data: extra } = await admin
       .from('customers')
-      .select('id, full_name, photo_url')
+      .select('id, full_name, photo_url, active')
       .in('id', missingIds);
     for (const c of extra ?? []) {
+      // Desativado nao disputa ranking nenhum, igual ao criterio do geral
+      if (c.active === false) continue;
       nameMap.set(c.id as string, {
         customer_id: c.id as string,
         full_name: c.full_name as string,
@@ -229,6 +277,11 @@ export async function getRankings(opts: {
   }
 
   const semester: RankingRow[] = includeSemester ? Array.from(sums.entries())
+    .filter(([id]) => {
+      const row = nameMap.get(id);
+      // Sem ficha (desativado) ou cadastro interno: fora do ranking publico
+      return !!row && !ehCadastroInterno(row.full_name);
+    })
     .sort((a, b) => b[1] - a[1])
     .map(([id, pts], i) => ({
       customer_id: id,

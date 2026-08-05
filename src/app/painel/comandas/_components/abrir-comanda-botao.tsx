@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Loader2, Plus, Search, X, UserPlus } from 'lucide-react';
+import { formatPhone } from '@/lib/utils';
 import { abrirMinhaComanda } from '../actions';
 import { buscarClienteParaComanda } from '../buscar-actions';
 import { cadastrarClienteRapido } from '../../clientes/actions';
@@ -143,7 +144,7 @@ export function AbrirComandaBotao({
                 className="w-full text-left p-3 rounded-md border border-border hover:border-gold/40 transition-colors"
               >
                 <span className="block text-sm text-fg">{c.full_name}</span>
-                {c.phone && <span className="block text-xs text-fg-muted">{c.phone}</span>}
+                {c.phone && <span className="block text-xs text-fg-muted">{formatPhone(c.phone)}</span>}
               </button>
             ))}
           </div>

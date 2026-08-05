@@ -19,7 +19,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn, formatCurrency, SHOP_TIME_ZONE } from '@/lib/utils';
+import { cn, formatCurrency, formatPhone, primeiraMaiuscula, SHOP_TIME_ZONE } from '@/lib/utils';
 import {
   updateAppointmentStatus,
   deleteAppointment,
@@ -226,7 +226,7 @@ export function AppointmentDrawer({
                     Telefone
                   </p>
                   <p className="text-sm text-fg">
-                    {appointment.customers.phone}
+                    {formatPhone(appointment.customers.phone)}
                   </p>
                 </div>
               </div>
@@ -264,7 +264,7 @@ export function AppointmentDrawer({
                 <p className="text-[10px] text-fg-dim uppercase tracking-wider">
                   Data
                 </p>
-                <p className="text-sm text-fg capitalize">{dateStr}</p>
+                <p className="text-sm text-fg">{primeiraMaiuscula(dateStr)}</p>
               </div>
             </div>
 

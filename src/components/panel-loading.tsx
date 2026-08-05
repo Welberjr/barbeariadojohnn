@@ -8,10 +8,10 @@ export function PanelLoading({ cards = 4 }: PanelLoadingProps) {
       <div className="h-8 w-48 rounded bg-bg-surface" />
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: cards }, (_, index) => (
-          <div key={index} className="h-28 rounded-xl border border-border bg-surface" />
+          <div key={index} className="h-28 rounded-xl border border-border bg-bg-surface" />
         ))}
       </div>
-      <div className="h-64 rounded-xl border border-border bg-surface" />
+      <div className="h-64 rounded-xl border border-border bg-bg-surface" />
     </div>
   );
 }

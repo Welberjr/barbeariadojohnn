@@ -17,7 +17,7 @@ import {
   Sliders,
   Users,
 } from 'lucide-react';
-import { formatCurrency, SHOP_TIME_ZONE } from '@/lib/utils';
+import { formatCurrency, formatPhone, SHOP_TIME_ZONE } from '@/lib/utils';
 import { InfoTip } from '@/components/info-tip';
 import { Paginacao } from '@/components/paginacao';
 
@@ -818,7 +818,7 @@ export function FidelidadeView({
                           <p className="text-fg font-medium">{b.customer_name}</p>
                           {b.customer_phone && (
                             <p className="text-[11px] text-fg-subtle">
-                              {b.customer_phone}
+                              {formatPhone(b.customer_phone)}
                             </p>
                           )}
                         </td>

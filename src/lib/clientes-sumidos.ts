@@ -9,6 +9,7 @@
  * cada 15 dias e sumiu ha 45 e mais urgente que quem vinha a cada 3 meses e
  * sumiu ha 60. Por isso a lista ordena por atraso em relacao ao ritmo DELE.
  */
+import { normalizarTelefone } from '@/lib/telefone';
 
 export interface ClienteSumido {
   id: string;
@@ -126,8 +127,9 @@ export function ritmoEmPalavras(ritmoDias: number | null): string | null {
 export function linkWhatsApp(c: ClienteSumido, nomeBarbearia: string): string | null {
   if (!c.telefone) return null;
 
-  const numero = c.telefone.replace(/\D/g, '');
-  if (numero.length < 10) return null;
+  // Forma canonica: injeta o nono digito que o sistema antigo nao gravou.
+  const numero = normalizarTelefone(c.telefone);
+  if (!numero) return null;
 
   const primeiroNome = c.nome.split(' ')[0];
   const texto =
@@ -135,6 +137,5 @@ export function linkWhatsApp(c: ClienteSumido, nomeBarbearia: string): string | 
     `Faz um tempo que você não aparece e a gente guardou seu horário de sempre. ` +
     `Quer marcar${c.servicoHabitual ? ' um ' + c.servicoHabitual.toLowerCase() : ''} essa semana?`;
 
-  const comDDI = numero.startsWith('55') ? numero : `55${numero}`;
-  return `https://wa.me/${comDDI}?text=${encodeURIComponent(texto)}`;
+  return `https://wa.me/55${numero}?text=${encodeURIComponent(texto)}`;
 }

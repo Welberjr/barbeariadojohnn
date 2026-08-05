@@ -229,11 +229,11 @@ export function ProductsTable({ products, categories }: ProductsTableProps) {
                 <div className="hidden md:grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_auto] gap-3 px-4 py-3 items-center">
                   <p className="text-sm text-fg font-medium">{p.name}</p>
                   <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-bg-elevated border border-border text-fg-muted w-fit">
-                    {p.category_name || '—'}
+                    {p.category_name || '-'}
                   </span>
-                  <p className="text-sm text-fg-muted">{p.brand || '—'}</p>
+                  <p className="text-sm text-fg-muted">{p.brand || '-'}</p>
                   <p className="text-sm font-semibold text-fg">{formatCurrency(p.sale_price)}</p>
-                  <p className="text-sm text-fg-muted">{p.cost_price > 0 ? formatCurrency(p.cost_price) : '—'}</p>
+                  <p className="text-sm text-fg-muted">{p.cost_price > 0 ? formatCurrency(p.cost_price) : '-'}</p>
                   <p className={cn('text-sm font-semibold', esgotado ? 'text-danger' : baixo ? 'text-warning' : 'text-fg')}>
                     {p.stock_current}
                     {esgotado && <span className="ml-1 text-[9px]">ESGOTADO</span>}

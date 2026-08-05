@@ -36,10 +36,10 @@ const ARTICLES: HelpArticle[] = [
         <S>O Dashboard é a primeira tela que você vê ao entrar. Ele foi criado para responder a pergunta do dono ao chegar: o que está acontecendo agora?</S>
         <H>Os 4 cards do dia</H>
         <Ul>
-          <Li><strong>Faturado hoje</strong> — soma das comandas já fechadas hoje, com número de vendas e ticket médio do dia.</Li>
-          <Li><strong>Agenda de hoje</strong> — atendimentos concluídos vs. total agendado para hoje.</Li>
-          <Li><strong>Em curso agora</strong> — comandas abertas neste momento e quanto somam (dinheiro ainda na casa).</Li>
-          <Li><strong>Mês até agora</strong> — faturamento do mês com seta verde (crescimento) ou vermelha (queda) vs. mesmo período do mês passado.</Li>
+          <Li><strong>Faturado hoje</strong>:{' '}soma das comandas já fechadas hoje, com número de vendas e ticket médio do dia.</Li>
+          <Li><strong>Agenda de hoje</strong>:{' '}atendimentos concluídos vs. total agendado para hoje.</Li>
+          <Li><strong>Em curso agora</strong>:{' '}comandas abertas neste momento e quanto somam (dinheiro ainda na casa).</Li>
+          <Li><strong>Mês até agora</strong>:{' '}faturamento do mês com seta verde (crescimento) ou vermelha (queda) vs. mesmo período do mês passado.</Li>
         </Ul>
         <H>Alertas acionáveis</H>
         <S>Se existirem contas vencidas, assinaturas inadimplentes ou produtos com estoque baixo, um banner colorido aparece automaticamente. Clique nele para ir direto à tela que resolve o problema.</S>
@@ -60,12 +60,12 @@ const ARTICLES: HelpArticle[] = [
         <S>A Agenda mostra os agendamentos do dia em uma grade visual por barbeiro. É daqui que você controla quem está marcado, confirma presença e gerencia o fluxo do dia.</S>
         <H>Legenda de cores</H>
         <Ul>
-          <Li><strong>Amarelo/dourado</strong> — Agendado (marcado, mas ainda não confirmado).</Li>
-          <Li><strong>Verde</strong> — Confirmado (cliente confirmou presença).</Li>
-          <Li><strong>Azul</strong> — Em atendimento (está na cadeira agora).</Li>
-          <Li><strong>Cinza</strong> — Concluído (atendimento finalizado).</Li>
-          <Li><strong>Vermelho</strong> — Cancelado.</Li>
-          <Li><strong>Roxo</strong> — Não compareceu (no-show).</Li>
+          <Li><strong>Amarelo/dourado</strong>:{' '}Agendado (marcado, mas ainda não confirmado).</Li>
+          <Li><strong>Verde</strong>:{' '}Confirmado (cliente confirmou presença).</Li>
+          <Li><strong>Azul</strong>:{' '}Em atendimento (está na cadeira agora).</Li>
+          <Li><strong>Cinza</strong>:{' '}Concluído (atendimento finalizado).</Li>
+          <Li><strong>Vermelho</strong>:{' '}Cancelado.</Li>
+          <Li><strong>Roxo</strong>:{' '}Não compareceu (no-show).</Li>
         </Ul>
         <H>Como confirmar um agendamento</H>
         <S>Clique sobre o bloco dourado na grade. O painel lateral desliza com os detalhes. Toque em "Confirmar" para mudar para verde. Use isso para saber quem realmente vai aparecer no dia.</S>
@@ -97,9 +97,9 @@ const ARTICLES: HelpArticle[] = [
         <S>Selecione a forma de pagamento: Dinheiro, PIX, Crédito ou Débito. Toque em "Fechar comanda". O sistema registra a venda, desconta estoque, calcula comissão e atualiza o financeiro.</S>
         <H>Filtros da lista</H>
         <Ul>
-          <Li><strong>Hoje</strong> — comandas fechadas no dia atual.</Li>
-          <Li><strong>Todas</strong> — histórico completo paginado (10 por página).</Li>
-          <Li><strong>Data específica</strong> — escolha qualquer dia no campo de data.</Li>
+          <Li><strong>Hoje</strong>:{' '}comandas fechadas no dia atual.</Li>
+          <Li><strong>Todas</strong>:{' '}histórico completo paginado (10 por página).</Li>
+          <Li><strong>Data específica</strong>:{' '}escolha qualquer dia no campo de data.</Li>
         </Ul>
         <H>Errou depois de fechar</H>
         <S>O próprio barbeiro pode reabrir a comanda dele por até uma hora depois de fechar, corrigir e fechar de novo. Passou de uma hora, só a gestão resolve, pelo estorno, para não existir movimento mudando de valor no dia seguinte sem ninguém saber explicar.</S>
@@ -118,10 +118,10 @@ const ARTICLES: HelpArticle[] = [
         <S>Clique em qualquer cliente para abrir o perfil completo: total gasto, número de visitas, ticket médio, pontos acumulados, assinatura ativa e histórico de comandas.</S>
         <H>KPIs do topo</H>
         <Ul>
-          <Li><strong>Total clientes</strong> — clientes ativos no cadastro.</Li>
-          <Li><strong>Cliente VIP</strong> — quem mais gastou na barbearia desde o início.</Li>
-          <Li><strong>Ticket médio</strong> — gasto médio por visita de toda a cartela.</Li>
-          <Li><strong>Recorrentes</strong> — clientes com mais de uma visita.</Li>
+          <Li><strong>Total clientes</strong>:{' '}clientes ativos no cadastro.</Li>
+          <Li><strong>Cliente VIP</strong>:{' '}quem mais gastou na barbearia desde o início.</Li>
+          <Li><strong>Ticket médio</strong>:{' '}gasto médio por visita de toda a cartela.</Li>
+          <Li><strong>Recorrentes</strong>:{' '}clientes com mais de uma visita.</Li>
         </Ul>
         <H>Cliente cadastrado pelo barbeiro</H>
         <S>O barbeiro também cadastra cliente na hora, pelo painel dele, com nome e telefone. Se o telefone já existir no cadastro, o sistema usa a ficha que existe em vez de criar outra, então a lista não enche de gente repetida.</S>
@@ -221,12 +221,12 @@ const ARTICLES: HelpArticle[] = [
         <S>Tudo o que aparece ali é dele e só dele. A agenda dele, o dinheiro dele, os vales dele, os clientes que ele já atendeu. Ninguém vê o faturamento da casa nem o resultado dos colegas.</S>
         <H>As telas</H>
         <Ul>
-          <Li><strong>Hoje</strong> — o próximo cliente, quantos faltam, quanto ele já produziu e quanto é de comissão.</Li>
-          <Li><strong>Agenda</strong> — os atendimentos do dia, com o botão de confirmar, iniciar, concluir e marcar falta.</Li>
-          <Li><strong>Comandas</strong> — abrir, lançar, fechar e cancelar a comanda dele.</Li>
-          <Li><strong>Financeiro</strong> — produção e comissão do período, com o que já foi pago.</Li>
-          <Li><strong>Vales</strong> — o que ele já pegou e o pedido de vale novo.</Li>
-          <Li><strong>Clientes</strong> — quem ele atende, com quantas vezes e quanto costuma gastar.</Li>
+          <Li><strong>Hoje</strong>:{' '}o próximo cliente, quantos faltam, quanto ele já produziu e quanto é de comissão.</Li>
+          <Li><strong>Agenda</strong>:{' '}os atendimentos do dia, com o botão de confirmar, iniciar, concluir e marcar falta.</Li>
+          <Li><strong>Comandas</strong>:{' '}abrir, lançar, fechar e cancelar a comanda dele.</Li>
+          <Li><strong>Financeiro</strong>:{' '}produção e comissão do período, com o que já foi pago.</Li>
+          <Li><strong>Vales</strong>:{' '}o que ele já pegou e o pedido de vale novo.</Li>
+          <Li><strong>Clientes</strong>:{' '}quem ele atende, com quantas vezes e quanto costuma gastar.</Li>
         </Ul>
         <H>Primeiro acesso</H>
         <S>Você entrega a senha em Profissionais. Na primeira entrada o sistema obriga a pessoa a trocar por uma senha só dela, e a sua deixa de valer. Ninguém entra no painel antes de trocar.</S>
@@ -241,12 +241,12 @@ const ARTICLES: HelpArticle[] = [
         <S>Você decide, pessoa por pessoa, o que ela enxerga. Em Profissionais, abra o cadastro e use o bloco de acesso.</S>
         <H>Os seis módulos</H>
         <Ul>
-          <Li><strong>Financeiro</strong> — ver a própria produção e comissão.</Li>
-          <Li><strong>Ver vales</strong> — acompanhar os adiantamentos dele.</Li>
-          <Li><strong>Pedir vale</strong> — solicitar adiantamento pelo painel. Só funciona junto com "ver vales".</Li>
-          <Li><strong>Operar agenda</strong> — confirmar, iniciar, concluir, encaixar cliente e bloquear o dia.</Li>
-          <Li><strong>Comanda</strong> — abrir e fechar a própria comanda.</Li>
-          <Li><strong>Clientes</strong> — ver a lista de quem ele atende.</Li>
+          <Li><strong>Financeiro</strong>:{' '}ver a própria produção e comissão.</Li>
+          <Li><strong>Ver vales</strong>:{' '}acompanhar os adiantamentos dele.</Li>
+          <Li><strong>Pedir vale</strong>:{' '}solicitar adiantamento pelo painel. Só funciona junto com "ver vales".</Li>
+          <Li><strong>Operar agenda</strong>:{' '}confirmar, iniciar, concluir, encaixar cliente e bloquear o dia.</Li>
+          <Li><strong>Comanda</strong>:{' '}abrir e fechar a própria comanda.</Li>
+          <Li><strong>Clientes</strong>:{' '}ver a lista de quem ele atende.</Li>
         </Ul>
         <S>O menu do painel muda na hora: o que está desligado some da tela dele e também deixa de funcionar por dentro, mesmo que alguém tente entrar pelo endereço direto.</S>
         <H>Acesso de gestão</H>
@@ -295,12 +295,12 @@ const ARTICLES: HelpArticle[] = [
         <S>O cliente tem a área dele, com login próprio. É onde ele marca horário sozinho, acompanha os pontos e vê a assinatura, sem precisar ligar para a barbearia.</S>
         <H>O que ele faz por lá</H>
         <Ul>
-          <Li><strong>Agendar</strong> — escolhe serviço, profissional e horário. Só aparecem horários realmente livres, respeitando a jornada e o almoço de quem vai atender.</Li>
-          <Li><strong>Meus agendamentos</strong> — os próximos e o histórico, com cancelamento até 2 horas antes.</Li>
-          <Li><strong>Confirmar presença</strong> — responde ao aviso da barbearia sem sair do aplicativo.</Li>
-          <Li><strong>Clube e benefícios</strong> — pontos, prêmios, ranking e a assinatura dele.</Li>
-          <Li><strong>Loja</strong> — os produtos da barbearia.</Li>
-          <Li><strong>Notificações</strong> — tudo o que a barbearia avisou.</Li>
+          <Li><strong>Agendar</strong>:{' '}escolhe serviço, profissional e horário. Só aparecem horários realmente livres, respeitando a jornada e o almoço de quem vai atender.</Li>
+          <Li><strong>Meus agendamentos</strong>:{' '}os próximos e o histórico, com cancelamento até 2 horas antes.</Li>
+          <Li><strong>Confirmar presença</strong>:{' '}responde ao aviso da barbearia sem sair do aplicativo.</Li>
+          <Li><strong>Clube e benefícios</strong>:{' '}pontos, prêmios, ranking e a assinatura dele.</Li>
+          <Li><strong>Loja</strong>:{' '}os produtos da barbearia.</Li>
+          <Li><strong>Notificações</strong>:{' '}tudo o que a barbearia avisou.</Li>
         </Ul>
         <Tip>Nada do que o cliente vê expõe a operação: ele enxerga o que é dele, e só.</Tip>
       </div>
@@ -313,9 +313,9 @@ const ARTICLES: HelpArticle[] = [
         <S>Um dia antes do atendimento, o sistema manda sozinho um aviso para o cliente pedindo que ele confirme se vem. O aviso chega no aplicativo dele, não por WhatsApp: o WhatsApp fica com uma pessoa de verdade.</S>
         <H>Como aparece para cada um</H>
         <Ul>
-          <Li><strong>Cliente</strong> — o horário dele ganha um botão "Confirmar que eu vou". Um toque e pronto.</Li>
-          <Li><strong>Barbeiro</strong> — na agenda dele aparece "Cliente confirmou", "Aguardando confirmação" ou "Não respondeu".</Li>
-          <Li><strong>Gestão</strong> — a mesma informação na agenda da barbearia.</Li>
+          <Li><strong>Cliente</strong>:{' '}o horário dele ganha um botão "Confirmar que eu vou". Um toque e pronto.</Li>
+          <Li><strong>Barbeiro</strong>:{' '}na agenda dele aparece "Cliente confirmou", "Aguardando confirmação" ou "Não respondeu".</Li>
+          <Li><strong>Gestão</strong>:{' '}a mesma informação na agenda da barbearia.</Li>
         </Ul>
         <S>"Não respondeu" só aparece quando o horário está chegando perto. Antes disso o cliente ainda tem tempo, e cobrar cedo demais assusta sem necessidade.</S>
         <H>Quantas horas antes</H>
@@ -352,9 +352,9 @@ const ARTICLES: HelpArticle[] = [
         <S>O valor do plano é dividido pelos atendimentos incluídos, o que dá quanto vale cada corte. Os cortes que ele usou vão para os barbeiros que atenderam, na proporção de quantos cada um fez. O que não foi usado é a sobra.</S>
         <H>Para onde vai a sobra</H>
         <Ul>
-          <Li><strong>Fica com a barbearia</strong> — o padrão.</Li>
-          <Li><strong>Divide igual</strong> — reparte entre quem atendeu o assinante no ciclo.</Li>
-          <Li><strong>Quem atendeu mais</strong> — vai inteira para quem mais atendeu aquele cliente.</Li>
+          <Li><strong>Fica com a barbearia</strong>:{' '}o padrão.</Li>
+          <Li><strong>Divide igual</strong>:{' '}reparte entre quem atendeu o assinante no ciclo.</Li>
+          <Li><strong>Quem atendeu mais</strong>:{' '}vai inteira para quem mais atendeu aquele cliente.</Li>
         </Ul>
         <S>Você escolhe o destino, e a tela mostra quanto cada barbeiro tem a receber daquele cliente antes de pagar.</S>
         <Warn>A sobra só existe depois que o ciclo fecha. Enquanto o mês está correndo, o cliente ainda pode usar o que falta.</Warn>

@@ -1,5 +1,6 @@
 import { Phone } from 'lucide-react';
 import { requireStaff } from '@/lib/staff-auth';
+import { normalizarTelefone } from '@/lib/telefone';
 import { clientesDoStaff } from '@/lib/painel/dados';
 import { montarSelo, corDoSelo } from '@/lib/painel/assinatura-selo';
 
@@ -57,7 +58,7 @@ export default async function ClientesPainelPage() {
 
                   {c.telefone && (
                     <a
-                      href={`https://wa.me/55${c.telefone.replace(/\D/g, '')}`}
+                      href={`https://wa.me/55${normalizarTelefone(c.telefone) ?? c.telefone.replace(/\D/g, '')}`}
                       target="_blank"
                       rel="noreferrer"
                       className="btn-ghost text-xs shrink-0"

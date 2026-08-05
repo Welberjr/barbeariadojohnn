@@ -15,6 +15,7 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Link2, Check, MessageCircle, Copy } from 'lucide-react';
+import { normalizarTelefone } from '@/lib/telefone';
 
 interface Props {
   clienteId: string;
@@ -39,11 +40,13 @@ export function ConvidarCliente({ nome, telefone, link, mensagem }: Props) {
     }
   }
 
-  const numero = (telefone ?? '').replace(/\D/g, '');
-  const zap =
-    numero.length >= 10
-      ? `https://wa.me/${numero.startsWith('55') ? numero : '55' + numero}?text=${encodeURIComponent(mensagem)}`
-      : null;
+  // A forma canonica devolve o celular COM o nono digito, mesmo quando o
+  // cadastro veio do sistema antigo sem ele. Sem isso o convite ia para um
+  // numero de oito casas que nao existe mais.
+  const numero = normalizarTelefone(telefone ?? '') ?? '';
+  const zap = numero
+    ? `https://wa.me/55${numero}?text=${encodeURIComponent(mensagem)}`
+    : null;
 
   return (
     <section className="card space-y-3 p-5">

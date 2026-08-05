@@ -179,7 +179,7 @@ export function AssinaturasView({
         subStatusFilter === 'all' || sub.status === subStatusFilter;
       return matchQ && matchStatus;
     });
-  }, [subscriptions, subQuery, subStatusFilter]);
+  }, [localSubs, subQuery, subStatusFilter]);
 
   const subTotalPages = Math.max(1, Math.ceil(filteredSubs.length / subPageSize));
   const subSafePage = Math.min(subPage, subTotalPages);

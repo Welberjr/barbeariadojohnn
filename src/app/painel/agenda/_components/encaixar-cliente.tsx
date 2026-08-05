@@ -16,7 +16,7 @@ import { Loader2, Plus, Search, UserPlus, X, ArrowLeft, Clock } from 'lucide-rea
 
 import { buscarClienteParaEncaixe, encaixarCliente } from '../actions';
 import { cadastrarClienteRapido } from '../../clientes/actions';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatPhone } from '@/lib/utils';
 
 interface ServicoOpcao {
   id: string;
@@ -240,7 +240,7 @@ export function EncaixarCliente({ data, servicos }: Props) {
                 className="w-full text-left p-3 rounded-md border border-border hover:border-gold/40 transition-colors"
               >
                 <span className="block text-sm text-fg">{c.full_name}</span>
-                {c.phone && <span className="block text-xs text-fg-muted">{c.phone}</span>}
+                {c.phone && <span className="block text-xs text-fg-muted">{formatPhone(c.phone)}</span>}
               </button>
             ))}
           </div>

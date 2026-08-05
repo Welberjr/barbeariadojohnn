@@ -23,6 +23,8 @@ import {
   type StatusAgendamento,
 } from '@/lib/painel/agenda-estados';
 import { montarSelo, corDoSelo, type AssinaturaResumo } from '@/lib/painel/assinatura-selo';
+import { normalizarTelefone } from '@/lib/telefone';
+import { primeiraMaiuscula } from '@/lib/utils';
 import { useAcaoRapida } from '@/lib/use-acao-rapida';
 import {
   situacao as situacaoConfirmacao,
@@ -156,7 +158,7 @@ export function AgendaView({ data, agendamentos, podeOperar, servicos }: AgendaV
         </button>
 
         <div className="text-center">
-          <p className="text-sm text-fg font-medium capitalize">{dataLegivel}</p>
+          <p className="text-sm text-fg font-medium">{primeiraMaiuscula(dataLegivel)}</p>
           {pendente && <p className="text-[10px] text-fg-dim">carregando...</p>}
         </div>
 
@@ -246,7 +248,7 @@ export function AgendaView({ data, agendamentos, podeOperar, servicos }: AgendaV
                 <div className="flex flex-wrap items-center gap-2">
                   {a.telefone && (
                     <a
-                      href={`https://wa.me/55${a.telefone.replace(/\D/g, '')}`}
+                      href={`https://wa.me/55${normalizarTelefone(a.telefone) ?? a.telefone.replace(/\D/g, '')}`}
                       target="_blank"
                       rel="noreferrer"
                       className="btn-ghost text-xs"

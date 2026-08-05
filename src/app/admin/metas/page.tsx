@@ -9,7 +9,7 @@ import {
   Gauge,
   Pencil,
 } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, primeiraMaiuscula } from '@/lib/utils';
 import { GoalsManager } from './_components/goals-manager';
 import { InfoTip } from '@/components/info-tip';
 
@@ -237,7 +237,7 @@ export default async function MetasPage({ searchParams }: PageProps) {
           <p className="text-sm text-fg-muted mt-1">Acompanhe metas da barbearia e dos profissionais</p>
         </div>
         <div className="mt-3 md:mt-0 inline-flex md:block items-center gap-2 px-3 py-1.5 md:p-0 rounded-full md:rounded-none bg-bg-elevated md:bg-transparent">
-          <p className="text-sm text-fg-muted capitalize">{monthLabel}</p>
+          <p className="text-sm text-fg-muted">{primeiraMaiuscula(monthLabel)}</p>
           <span className="md:hidden text-fg-dim">·</span>
           <p className="text-[11px] text-fg-subtle">Dia {dayOfMonth}/{daysInMonth} · {(elapsedRatio * 100).toFixed(0)}%</p>
         </div>

@@ -65,7 +65,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
       // existir, o fallback com select basico roda logo abaixo.
       supabase
         .from('transactions')
-        .select('type, amount, cost_amount')
+        .select('type, amount, cost_amount, category')
         .eq('barbershop_id', (await lojaAtual()))
         .in('type', ['product', 'expense', 'other'])
         .gte('occurred_at', periodStart)
@@ -164,7 +164,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
   if (txAttempt.error) {
     const fallback = await supabase
       .from('transactions')
-      .select('type, amount')
+      .select('type, amount, category')
       .eq('barbershop_id', (await lojaAtual()))
       .in('type', ['product', 'expense', 'other'])
       .gte('occurred_at', periodStart)
@@ -191,20 +191,46 @@ export default async function DREPage({ searchParams }: DREPageProps) {
     ])
   );
 
+  // A chave e o NOME normalizado, nao o id: "Aluguel" vinda de Contas a Pagar
+  // (categoria por uuid) e "Aluguel" digitada num lancamento avulso do
+  // Financeiro (texto livre) caem na mesma fatia.
   const despesasPorCategoria = new Map<string, { name: string; color: string | null; total: number; count: number }>();
   for (const b of bills) {
-    const cid = (b.category_id as string) ?? 'sem-categoria';
     const cat = b.category_id
       ? categoryMap.get(b.category_id as string)
       : null;
+    const nomeCat = cat?.name ?? 'Sem categoria';
+    const cid = nomeCat.toLowerCase();
     const current =
       despesasPorCategoria.get(cid) ?? {
-        name: cat?.name ?? 'Sem categoria',
+        name: nomeCat,
         color: cat?.color ?? null,
         total: 0,
         count: 0,
       };
     current.total += Number(b.paid_amount ?? b.amount ?? 0);
+    current.count += 1;
+    despesasPorCategoria.set(cid, current);
+  }
+
+  // Os lancamentos avulsos de despesa entram na mesma conta. Antes so as
+  // bills apareciam aqui, e a tela mostrava "nenhuma despesa" com o resumo
+  // somando milhares em despesas avulsas.
+  const catPorNome = new Map(
+    Array.from(categoryMap.values()).map((c) => [c.name.toLowerCase(), c])
+  );
+  for (const t of txRows) {
+    if (t.type !== 'expense') continue;
+    const nomeCat = String(t.category ?? '').trim() || 'Sem categoria';
+    const cid = nomeCat.toLowerCase();
+    const current =
+      despesasPorCategoria.get(cid) ?? {
+        name: nomeCat,
+        color: catPorNome.get(cid)?.color ?? null,
+        total: 0,
+        count: 0,
+      };
+    current.total += Number(t.amount ?? 0);
     current.count += 1;
     despesasPorCategoria.set(cid, current);
   }
@@ -405,7 +431,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
             {formatCurrency(lucroLiquido)}
           </p>
           <p className="text-[11px] text-fg-subtle mt-1">
-            Margem líquida: {margemLiquidaPct.toFixed(1)}%
+            Margem líquida: {margemLiquidaPct.toFixed(1).replace('.', ',')}%
           </p>
         </div>
       </div>
@@ -492,7 +518,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
               key={d.name}
               label={d.name}
               value={-d.total}
-              extra={`(${d.count} ${d.count === 1 ? 'conta' : 'contas'})`}
+              extra={`(${d.count} ${d.count === 1 ? 'lançamento' : 'lançamentos'})`}
             />
           ))}
 
@@ -556,7 +582,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
                     />
                   </div>
                   <p className="text-[10px] text-fg-subtle mt-1">
-                    {pct.toFixed(1)}% do total de despesas · {d.count}{' '}
+                    {pct.toFixed(1).replace('.', ',')}% do total de despesas · {d.count}{' '}
                     {d.count === 1 ? 'lançamento' : 'lançamentos'}
                   </p>
                 </div>
@@ -593,7 +619,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
               {formatCurrency(totalServicos)}
             </p>
             <p className="text-[11px] text-fg-subtle mt-1">
-              {baseComposicao > 0 ? `${pctServicos.toFixed(1)}%` : 'sem dados'}{' '}
+              {baseComposicao > 0 ? `${pctServicos.toFixed(1).replace('.', ',')}%` : 'sem dados'}{' '}
               da receita
             </p>
           </div>
@@ -611,7 +637,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
               {formatCurrency(totalProdutosReal)}
             </p>
             <p className="text-[11px] text-fg-subtle mt-1">
-              {baseComposicao > 0 ? `${pctProdutos.toFixed(1)}%` : 'sem dados'}{' '}
+              {baseComposicao > 0 ? `${pctProdutos.toFixed(1).replace('.', ',')}%` : 'sem dados'}{' '}
               da receita
             </p>
           </div>
@@ -630,7 +656,7 @@ export default async function DREPage({ searchParams }: DREPageProps) {
                 {formatCurrency(txReceitas)}
               </p>
               <p className="text-[11px] text-fg-subtle mt-1">
-                {baseComposicao > 0 ? `${pctReceitasExtras.toFixed(1)}%` : 'sem dados'}{' '}
+                {baseComposicao > 0 ? `${pctReceitasExtras.toFixed(1).replace('.', ',')}%` : 'sem dados'}{' '}
                 da receita
               </p>
             </div>

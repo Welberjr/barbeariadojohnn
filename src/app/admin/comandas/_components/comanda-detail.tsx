@@ -26,7 +26,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency, formatPhone } from '@/lib/utils';
 import { isDayAllowed, formatAllowedDays } from '@/lib/subscriptions';
 import { quantoOCreditoCobre } from '@/lib/credito-cliente';
 import {
@@ -455,7 +455,7 @@ export function ComandaDetail({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* COLUNA ESQUERDA — Info da comanda e itens */}
+      {/* COLUNA ESQUERDA - Info da comanda e itens */}
       <div className="lg:col-span-2 space-y-4">
         {/* Header da comanda */}
         <div className="card p-5">
@@ -489,7 +489,7 @@ export function ComandaDetail({
                   {comanda.customers?.phone && (
                     <span className="flex items-center gap-1">
                       <Phone className="w-3 h-3" />
-                      {comanda.customers.phone}
+                      {formatPhone(comanda.customers.phone)}
                     </span>
                   )}
                   <span className="flex items-center gap-1">
@@ -881,7 +881,7 @@ export function ComandaDetail({
         </section>
       </div>
 
-      {/* COLUNA DIREITA — Resumo e fechamento */}
+      {/* COLUNA DIREITA - Resumo e fechamento */}
       <div className="space-y-4">
         <div className="card p-5 sticky top-4 space-y-4">
           <div>

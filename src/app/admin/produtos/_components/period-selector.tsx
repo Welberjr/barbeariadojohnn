@@ -1,5 +1,7 @@
 'use client';
 
+import { primeiraMaiuscula } from '@/lib/utils';
+
 interface PeriodSelectorProps {
   value: string;
   year: number;
@@ -18,7 +20,9 @@ export function PeriodSelector({ value, year, month }: PeriodSelectorProps) {
       {Array.from({ length: 6 }).map((_, i) => {
         const d = new Date(year, month - i, 1);
         const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        const label = d.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+        const label = primeiraMaiuscula(
+          d.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
+        );
         return (
           <option key={val} value={val}>
             {label}

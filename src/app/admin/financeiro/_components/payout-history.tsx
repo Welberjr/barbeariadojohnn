@@ -27,7 +27,7 @@ interface StaffOption {
 const PAGE_SIZE = 5;
 
 function fmtDate(d: string | null) {
-  if (!d) return '—';
+  if (!d) return '-';
   const iso = d.length === 10 ? `${d}T00:00:00` : d;
   return new Date(iso).toLocaleDateString('pt-BR', {
     day: '2-digit',
@@ -131,7 +131,7 @@ export function PayoutHistorySection({
                     className="border-b border-border/30 hover:bg-bg-elevated transition-colors"
                   >
                     <td className="py-3 text-fg">
-                      {p.staff?.display_name ?? '—'}
+                      {p.staff?.display_name ?? '-'}
                     </td>
                     <td className="py-3 text-fg-muted">
                       {fmtDate(p.period_start)} a {fmtDate(p.period_end)}
@@ -142,7 +142,7 @@ export function PayoutHistorySection({
                     <td className="py-3 text-right text-fg-muted">
                       {Number(p.total_allowances ?? 0) > 0
                         ? `- ${formatCurrency(Number(p.total_allowances))}`
-                        : '—'}
+                        : '-'}
                     </td>
                     <td className="py-3 text-right text-success font-semibold">
                       {formatCurrency(Number(p.amount_paid ?? 0))}

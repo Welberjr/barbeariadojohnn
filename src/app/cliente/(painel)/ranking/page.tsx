@@ -1,6 +1,6 @@
 import { Trophy, Star, Medal } from 'lucide-react';
 import { requireCustomer } from '@/lib/customer-auth';
-import { getRankings, type RankingRow } from '@/lib/loyalty';
+import { getRankings, pontosPorReal, type RankingRow } from '@/lib/loyalty';
 import { cn } from '@/lib/utils';
 
 export const metadata = { title: 'Ranking' };
@@ -163,10 +163,20 @@ function Board({
 
 export default async function RankingPage() {
   const { customer } = await requireCustomer();
-  const rankings = await getRankings({
-    limit: 20,
-    highlightCustomerId: customer.id,
-  });
+  const [rankings, porReal] = await Promise.all([
+    getRankings({
+      limit: 20,
+      highlightCustomerId: customer.id,
+    }),
+    pontosPorReal(),
+  ]);
+
+  // A regra vem da configuracao da fidelidade, nao de um numero escrito na
+  // tela: se a gestao mudar a taxa, o texto acompanha.
+  const regraDePontos =
+    porReal >= 1
+      ? `Cada R$ 1 gasto vale ${porReal.toLocaleString('pt-BR')} ${porReal === 1 ? 'ponto' : 'pontos'}.`
+      : `A cada R$ ${(1 / porReal).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} gastos você ganha 1 ponto.`;
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -182,7 +192,7 @@ export default async function RankingPage() {
         </h1>
         <p className="text-xs text-fg-muted mt-1 flex items-center gap-1.5">
           <Star className="w-3 h-3 text-gold fill-current" />
-          Cada R$ 1 gasto vale 10 pontos. Quanto mais você vem, mais sobe!
+          {regraDePontos} Quanto mais você vem, mais sobe!
         </p>
       </div>
 

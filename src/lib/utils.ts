@@ -1,8 +1,18 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { formatarTelefoneExibicao } from '@/lib/telefone';
 
 /** Fuso horário usado por toda a operação da barbearia. */
 export const SHOP_TIME_ZONE = 'America/Sao_Paulo';
+
+/**
+ * Em português só a primeira letra sobe. "terça-feira, 4 de agosto" vira
+ * "Terça-feira, 4 de agosto". A classe capitalize do Tailwind sobe TODA
+ * palavra e produz "Terça-Feira, 4 De Agosto", que não existe no idioma.
+ */
+export function primeiraMaiuscula(texto: string): string {
+  return texto ? texto.charAt(0).toUpperCase() + texto.slice(1) : texto;
+}
 
 /**
  * Combina classes Tailwind sem conflitos.
@@ -55,21 +65,12 @@ export function formatDate(date: Date | string, format: 'short' | 'long' | 'date
 }
 
 /**
- * Formata telefone brasileiro
+ * Formata telefone brasileiro.
+ *
+ * Delega para a forma canonica de lib/telefone: celular gravado pelo sistema
+ * antigo sem o nono digito ganha o 9 na exibicao, em vez de aparecer com cara
+ * de fixo.
  */
 export function formatPhone(phone: string): string {
-  // Os telefones que vieram do sistema antigo tem o 55 do Brasil na frente.
-  // Sem tirar, o numero caia no fim da funcao e aparecia cru na tela, colado,
-  // do jeito que ninguem le telefone.
-  const cleaned = phone
-    .replace(/\D/g, '')
-    .replace(/^55(?=\d{10,11}$)/, '');
-
-  if (cleaned.length === 11) {
-    return cleaned.replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3');
-  }
-  if (cleaned.length === 10) {
-    return cleaned.replace(/^(\d{2})(\d{4})(\d{4})$/, '($1) $2-$3');
-  }
-  return phone;
+  return formatarTelefoneExibicao(phone);
 }

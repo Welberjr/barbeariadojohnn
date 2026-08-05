@@ -3,7 +3,28 @@ import {
   normalizarTelefone,
   variantesDoTelefone,
   mesmoTelefone,
+  formatarTelefoneExibicao,
 } from './telefone';
+
+describe('formatarTelefoneExibicao', () => {
+  it('celular do sistema antigo aparece com o nono dígito', () => {
+    // Gravado sem o 9 e com o 55, como 408 dos 414 clientes da base
+    expect(formatarTelefoneExibicao('556191723963')).toBe('(61) 99172-3963');
+  });
+
+  it('celular completo aparece com máscara de onze dígitos', () => {
+    expect(formatarTelefoneExibicao('61993070607')).toBe('(61) 99307-0607');
+  });
+
+  it('fixo continua com máscara de dez dígitos', () => {
+    expect(formatarTelefoneExibicao('6133334444')).toBe('(61) 3333-4444');
+  });
+
+  it('número que não dá para entender volta como veio', () => {
+    expect(formatarTelefoneExibicao('123')).toBe('123');
+    expect(formatarTelefoneExibicao(null)).toBe('');
+  });
+});
 
 describe('normalizarTelefone', () => {
   it('celular antigo de oito casas ganha o nono dígito', () => {

@@ -4,7 +4,8 @@ import { clienteDoConvite } from './actions';
 import { CadastroForm } from './_components/cadastro-form';
 
 export const metadata = {
-  title: 'Criar conta | Barbearia do Johnn',
+  // A marca entra pelo template do layout raiz; escrever aqui dobrava o nome.
+  title: 'Criar conta',
 };
 
 export const dynamic = 'force-dynamic';

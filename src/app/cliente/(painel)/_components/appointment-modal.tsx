@@ -113,7 +113,7 @@ export function AppointmentModal({ appointment, onClose }: AppointmentModalProps
               </div>
               <div className="flex items-center gap-2 text-sm text-fg-muted">
                 <User className="w-3.5 h-3.5 text-gold flex-shrink-0" />
-                <span>{appointment.staff?.display_name ?? '—'}</span>
+                <span>{appointment.staff?.display_name ?? '-'}</span>
               </div>
             </div>
           </div>

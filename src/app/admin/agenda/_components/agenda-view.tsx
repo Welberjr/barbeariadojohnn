@@ -9,7 +9,7 @@ import {
   Plus,
   CalendarOff,
 } from 'lucide-react';
-import { cn, SHOP_TIME_ZONE } from '@/lib/utils';
+import { cn, primeiraMaiuscula, SHOP_TIME_ZONE } from '@/lib/utils';
 import { calcularColunas } from '@/lib/agenda-sobreposicao';
 import { InfoTip } from '@/components/info-tip';
 import { AppointmentDrawer } from './appointment-drawer';
@@ -313,7 +313,7 @@ export function AgendaView({
           <h1 className="text-xl md:text-2xl font-bold text-fg leading-tight" style={{ fontFamily: "var(--font-playfair), serif" }}>
             Agenda
           </h1>
-          <p className="text-xs text-fg-muted capitalize truncate">{dateFormatted}</p>
+          <p className="text-xs text-fg-muted truncate">{primeiraMaiuscula(dateFormatted)}</p>
         </div>
         <button type="button"
           onClick={() => { if (staff.length > 0) setNewAptContext({ staffId: staff[0].id, startTime: '09:00' }); }}
@@ -395,7 +395,7 @@ export function AgendaView({
             <CalendarOff className="w-4 h-4 text-danger" />
             <div>
               <p className="text-sm font-medium text-danger">
-                Barbearia fechada — {barbershopDayOff.type ?? 'folga'}
+                Barbearia fechada: {barbershopDayOff.type ?? 'folga'}
               </p>
               {barbershopDayOff.reason && (
                 <p className="text-xs text-fg-muted mt-0.5">

@@ -81,6 +81,7 @@ export function SlideModal({
           <button
             type="button"
             onClick={onClose}
+            aria-label="Fechar"
             className="text-fg-subtle hover:text-fg mt-0.5 flex-shrink-0"
           >
             <X className="w-5 h-5" />

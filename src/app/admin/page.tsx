@@ -20,8 +20,9 @@ import {
 } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { creditoPorComanda } from '@/lib/creditos-db';
+import { subscriptionKpis } from '@/lib/subscriptions';
 import Link from 'next/link';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency, primeiraMaiuscula } from '@/lib/utils';
 import { InfoTip } from '@/components/info-tip';
 
 import { lojaAtual } from '@/lib/loja';
@@ -162,7 +163,7 @@ export default async function DashboardPage() {
       .eq('active', true),
     admin
       .from('subscriptions')
-      .select('status, current_price')
+      .select('status, current_price, current_period_end, plan:subscription_plans (period)')
       .eq('barbershop_id', (await lojaAtual()))
       .in('status', ['active', 'past_due']),
     admin
@@ -235,11 +236,19 @@ export default async function DashboardPage() {
   const lowStock = ((productsRaw ?? []) as { id: string; name: string; stock_current: number; stock_minimum: number }[])
     .filter((p) => Number(p.stock_current) <= Number(p.stock_minimum));
 
-  const subsAtivas = (subsRaw ?? []).filter((s) => s.status === 'active');
-  const subsInadimplentes = (subsRaw ?? []).filter((s) => s.status === 'past_due');
-  const mrr = subsAtivas.reduce((s, sub) => s + Number(sub.current_price ?? 0), 0);
+  // Fonte unica com a tela de Assinaturas: mesmo criterio de assinante,
+  // inadimplente e MRR (equivalente mensal, nao preco cru).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const kpisSubs = subscriptionKpis(
+    ((subsRaw ?? []) as any[]).map((s) => ({
+      status: s.status as string,
+      current_price: s.current_price as number | null,
+      current_period_end: s.current_period_end as string | null,
+      period: (Array.isArray(s.plan) ? s.plan[0]?.period : s.plan?.period) ?? null,
+    }))
+  );
 
-  const temAlertas = billsVencidas.length > 0 || billsHoje.length > 0 || subsInadimplentes.length > 0 || lowStock.length > 0;
+  const temAlertas = billsVencidas.length > 0 || billsHoje.length > 0 || kpisSubs.inadimplentes > 0 || lowStock.length > 0;
 
   // Meta do mes
   const revenueTarget = Number(goalRaw?.revenue_target ?? 0);
@@ -258,7 +267,7 @@ export default async function DashboardPage() {
   }
   const ranking = Array.from(revenueByStaff.entries())
     .map(([sid, total]) => ({
-      name: staffNames.get(sid) ?? '—',
+      name: staffNames.get(sid) ?? '-',
       total,
       count: countByStaff.get(sid) ?? 0,
     }))
@@ -323,7 +332,7 @@ export default async function DashboardPage() {
   const busiestDayEntry = Array.from(dayCount.entries()).sort((a, b) => b[1] - a[1])[0];
   const insights = getInsights({
     cancelRate,
-    peakHour: peakEntry?.[0] ?? '—',
+    peakHour: peakEntry?.[0] ?? '-',
     peakHourCount: peakEntry?.[1] ?? 0,
     busiestDay: DAY_NAMES[busiestDayEntry?.[0] ?? 6] ?? 'Sábado',
     busiestDayCount: busiestDayEntry?.[1] ?? 0,
@@ -344,8 +353,8 @@ export default async function DashboardPage() {
       {/* HEADER + ACOES RAPIDAS */}
       <div className="flex items-end justify-between flex-wrap gap-4">
         <div>
-          <p className="text-[10px] text-fg-dim tracking-[0.25em] uppercase mb-1 capitalize">
-            {hojeLabel}
+          <p className="text-[10px] text-fg-dim tracking-[0.25em] mb-1">
+            {primeiraMaiuscula(hojeLabel)}
           </p>
           <h1 className="text-3xl text-fg font-bold" style={{ fontFamily: 'var(--font-playfair), serif' }}>
             Visão Geral
@@ -467,7 +476,7 @@ export default async function DashboardPage() {
               <ChevronRight className="w-4 h-4 text-fg-subtle" />
             </Link>
           )}
-          {subsInadimplentes.length > 0 && (
+          {kpisSubs.inadimplentes > 0 && (
             <Link
               href="/admin/assinaturas"
               className="card p-4 border-warning/40 bg-warning/5 hover:bg-warning/10 transition-colors flex items-center gap-3"
@@ -477,7 +486,7 @@ export default async function DashboardPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-fg">
-                  {subsInadimplentes.length} assinatura{subsInadimplentes.length > 1 ? 's' : ''} inadimplente{subsInadimplentes.length > 1 ? 's' : ''}
+                  {kpisSubs.inadimplentes} assinatura{kpisSubs.inadimplentes > 1 ? 's' : ''} inadimplente{kpisSubs.inadimplentes > 1 ? 's' : ''}
                 </p>
                 <p className="text-[11px] text-fg-subtle">Cobre o cliente e regularize o ciclo</p>
               </div>
@@ -541,7 +550,7 @@ export default async function DashboardPage() {
                     <div className="min-w-0 flex-1">
                       <p className="text-sm text-fg font-medium truncate">{custName ?? 'Cliente'}</p>
                       <p className="text-[11px] text-fg-subtle truncate">
-                        {servNames || 'Serviço'} · {staffName ?? '—'}
+                        {servNames || 'Serviço'} · {staffName ?? '-'}
                       </p>
                     </div>
                     <span
@@ -617,16 +626,16 @@ export default async function DashboardPage() {
           <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border/50">
             <div>
               <p className="text-[9px] uppercase tracking-wider text-fg-dim">Assinantes</p>
-              <p className="text-base font-bold text-fg">{subsAtivas.length}</p>
+              <p className="text-base font-bold text-fg">{kpisSubs.assinantes}</p>
             </div>
             <div>
-              <p className="text-[9px] uppercase tracking-wider text-fg-dim flex items-center gap-1">MRR <InfoTip text="Receita recorrente mensal: a soma das mensalidades dos assinantes ativos do clube." /></p>
-              <p className="text-base font-bold text-gold">{formatCurrency(mrr)}</p>
+              <p className="text-[9px] uppercase tracking-wider text-fg-dim flex items-center gap-1">MRR <InfoTip text="Receita recorrente mensal: o equivalente mensal das assinaturas vigentes do clube, incluindo as atrasadas." /></p>
+              <p className="text-base font-bold text-gold">{formatCurrency(kpisSubs.mrr)}</p>
             </div>
             <div>
               <p className="text-[9px] uppercase tracking-wider text-fg-dim">Inadimplentes</p>
-              <p className={cn('text-base font-bold', subsInadimplentes.length > 0 ? 'text-warning' : 'text-fg')}>
-                {subsInadimplentes.length}
+              <p className={cn('text-base font-bold', kpisSubs.inadimplentes > 0 ? 'text-warning' : 'text-fg')}>
+                {kpisSubs.inadimplentes}
               </p>
             </div>
           </div>

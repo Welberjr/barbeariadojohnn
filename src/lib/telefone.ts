@@ -71,6 +71,21 @@ export function variantesDoTelefone(valor: string): string[] {
 }
 
 /**
+ * A forma como o telefone se le na tela.
+ *
+ * Passa pela forma canonica antes: o numero que o sistema antigo gravou sem o
+ * nono digito ganha o 9 aqui e deixa de aparecer como se fosse fixo. Fixo de
+ * verdade (comeca com 2 a 5) continua com oito casas.
+ */
+export function formatarTelefoneExibicao(valor: string | null | undefined): string {
+  if (!valor) return '';
+  const n = normalizarTelefone(valor);
+  if (!n) return valor;
+  if (n.length === 11) return `(${n.slice(0, 2)}) ${n.slice(2, 7)}-${n.slice(7)}`;
+  return `(${n.slice(0, 2)}) ${n.slice(2, 6)}-${n.slice(6)}`;
+}
+
+/**
  * Diz se dois telefones sao o mesmo numero, escritos de jeitos diferentes.
  */
 export function mesmoTelefone(a: string, b: string): boolean {

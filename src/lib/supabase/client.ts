@@ -1,5 +1,5 @@
 /**
- * Supabase Client — Browser (Client Components)
+ * Supabase Client - Browser (Client Components)
  * Use em componentes "use client"
  */
 import { createBrowserClient } from '@supabase/ssr';

@@ -83,7 +83,7 @@ export function QuickSellButton({ products }: { products: Product[] }) {
                     <option value="">Selecione um produto</option>
                     {sellable.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.name} — {formatCurrency(p.sale_price)} (estoque: {p.stock_current})
+                        {p.name} · {formatCurrency(p.sale_price)} (estoque: {p.stock_current})
                       </option>
                     ))}
                   </select>

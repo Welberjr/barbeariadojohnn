@@ -1,5 +1,5 @@
 /**
- * Motor de assinaturas (Clube) — regras de negocio centralizadas.
+ * Motor de assinaturas (Clube) - regras de negocio centralizadas.
  *
  * Modelo (tabelas normalizadas):
  *  - subscription_plans: preco, periodo, allowed_days, included_uses,
@@ -169,6 +169,65 @@ export function centsToBRL(cents: number): number {
 
 export function toCents(value: number): number {
   return Math.round(value * 100);
+}
+
+// ---------------------------------------------------------------------------
+// KPIs do clube: fonte unica para o dashboard e a tela de assinaturas
+// ---------------------------------------------------------------------------
+
+/**
+ * Assinante vigente e quem tem contrato de pe: active OU past_due. O atrasado
+ * continua com direito de uso (e cobranca em aberto), entao sai da conta de
+ * assinantes so quando cancela. Era daqui que nascia o 12 x 16 entre telas.
+ */
+export const STATUS_VIGENTES = ['active', 'past_due'] as const;
+
+/** Equivalente mensal do preco conforme o periodo do plano. */
+export function monthlyEquivalent(price: number, period: string): number {
+  switch (period) {
+    case 'quarterly':
+      return price / 3;
+    case 'semiannual':
+      return price / 6;
+    case 'annual':
+      return price / 12;
+    default:
+      return price;
+  }
+}
+
+export interface SubKpiRow {
+  status: string;
+  current_price: number | null;
+  current_period_end?: string | null;
+  period?: string | null;
+}
+
+/**
+ * Numeros oficiais do clube.
+ *
+ * Inadimplente = vigente que nao quitou o ciclo: marcado past_due OU com o
+ * ciclo vencido sem pagamento lancado. O OU importa porque nada no sistema
+ * escreve past_due hoje; sem olhar o fim do ciclo, "vencidas" dava 0 para
+ * sempre.
+ */
+export function subscriptionKpis(rows: SubKpiRow[], now = new Date()) {
+  const vigentes = rows.filter((r) =>
+    (STATUS_VIGENTES as readonly string[]).includes(r.status)
+  );
+  const mensal = (r: SubKpiRow) =>
+    monthlyEquivalent(Number(r.current_price ?? 0), r.period ?? 'monthly');
+  const inadimplentes = vigentes.filter(
+    (r) =>
+      r.status === 'past_due' ||
+      (!!r.current_period_end && now > new Date(r.current_period_end))
+  );
+  return {
+    assinantes: vigentes.length,
+    mrr: vigentes.reduce((s, r) => s + mensal(r), 0),
+    mrrEmRisco: inadimplentes.reduce((s, r) => s + mensal(r), 0),
+    inadimplentes: inadimplentes.length,
+  };
 }
 
 // ---------------------------------------------------------------------------
