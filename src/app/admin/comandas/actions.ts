@@ -5,8 +5,9 @@ import { revalidatePath } from 'next/cache';
 import { getSessionStaff } from '@/lib/staff-auth';
 import { getActiveSubscription, isDayAllowed, formatAllowedDays } from '@/lib/subscriptions';
 import { awardPointsForComanda } from '@/lib/loyalty';
-import { gastarCredito, saldoDeCredito } from '@/lib/creditos-db';
-import { quantoOCreditoCobre } from '@/lib/credito-cliente';
+import { creditosDoCliente, gastarCredito, saldoDeCredito } from '@/lib/creditos-db';
+import { comoGastar, quantoOCreditoCobre } from '@/lib/credito-cliente';
+import { ajustarEstoque } from '@/lib/estoque';
 import { notifyCustomer } from '@/lib/notifications';
 
 import { lojaAtual } from '@/lib/loja';
@@ -451,12 +452,7 @@ export async function addProductToComanda(
   const { error } = await admin.from('comanda_items').insert(payload);
   if (error) return { ok: false, error: error.message };
 
-  const newStock = Math.max(0, Number(product?.stock_current ?? 0) - quantity);
-  await admin
-    .from('products')
-    .update({ stock_current: newStock })
-    .eq('id', productId)
-    .eq('barbershop_id', barbershopId);
+  await ajustarEstoque(productId, -quantity);
 
   await recalculateTotalDelta(comandaId);
 
@@ -490,19 +486,7 @@ export async function removeComandaItem(
   if (!item) return { ok: false, error: 'Item não pertence a esta comanda.' };
 
   if (item?.item_type === 'product' && item.product_id) {
-    const { data: prod } = await admin
-      .from('products')
-      .select('stock_current')
-      .eq('id', item.product_id)
-      .eq('barbershop_id', barbershopId)
-      .maybeSingle();
-    const newStock =
-      Number(prod?.stock_current ?? 0) + Number(item.quantity ?? 0);
-    await admin
-      .from('products')
-      .update({ stock_current: newStock })
-      .eq('id', item.product_id)
-      .eq('barbershop_id', barbershopId);
+    await ajustarEstoque(item.product_id as string, Number(item.quantity ?? 0));
   }
 
   // Item coberto por assinatura: estorna o uso (se nao acertado)
@@ -721,10 +705,110 @@ export async function closeComanda(
   const feeValue = Math.round(restante * feePercent) / 100;
   const netTotal = total - feeValue;
 
-  // 1. Fecha a comanda com trava de corrida: o update so pega quem ainda esta
-  // aberta, entao dois cliques simultaneos tem um vencedor unico. Sem isso, os
-  // dois passavam pela leitura de status la em cima e cada um debitava credito
-  // e gravava pagamento de novo.
+  // Visita conta sempre; valor gasto so o que saiu do bolso do cliente. O que
+  // foi abatido do credito nao pode empurrar ninguem para o topo do ranking
+  // de VIP com um dinheiro que a barbearia nunca recebeu.
+  const saiuDoBolso = Number((total - creditoUsado).toFixed(2));
+
+  // Cada forma de pagamento vira uma linha. Quase sempre e uma so; com credito
+  // podem ser duas, e e isso que deixa o financeiro separar depois o que foi
+  // dinheiro de verdade do que foi abatido do credito.
+  const pagamentosBase =
+    creditoUsado > 0
+      ? [
+          {
+            method: 'store_credit',
+            amount: creditoUsado,
+            installments: 1,
+            fee_percent: 0,
+            fee_value: 0,
+            net_amount: creditoUsado,
+          },
+          ...(restante > 0
+            ? [
+                {
+                  method: metodoDoRestante,
+                  amount: restante,
+                  installments: 1,
+                  fee_percent: feePercent,
+                  fee_value: feeValue,
+                  net_amount: Number((restante - feeValue).toFixed(2)),
+                },
+              ]
+            : []),
+        ]
+      : [
+          {
+            method,
+            amount: total,
+            installments: 1,
+            fee_percent: feePercent,
+            fee_value: feeValue,
+            net_amount: netTotal,
+          },
+        ];
+
+  // Quais creditos cobrem o valor, decidido aqui (a regra testada mora em
+  // credito-cliente.ts); o banco so recebe o plano pronto.
+  let usosCredito: { credit_id: string; amount: number }[] = [];
+  if (creditoUsado > 0) {
+    const plano = comoGastar(
+      await creditosDoCliente(comanda.customer_id as string),
+      creditoUsado
+    );
+    if (plano.length === 0) {
+      return { ok: false, error: 'O crédito do cliente mudou agora há pouco. Confira o saldo e tente de novo.' };
+    }
+    usosCredito = plano.map((p) => ({ credit_id: p.creditoId, amount: p.valor }));
+  }
+
+  // 1. Caminho preferido: a transacao no banco (admin_fechar_comanda) fecha,
+  // cobra, debita o credito, conclui o atendimento e soma os totais do cliente
+  // de uma vez so: ou tudo acontece, ou nada acontece. Enquanto a migracao
+  // admin-fechar-comanda-atomico.sql nao estiver aplicada, cai no caminho
+  // antigo logo abaixo, que tem trava de corrida mas escreve em etapas.
+  const rpc = await admin.rpc('admin_fechar_comanda', {
+    p_comanda_id: comandaId,
+    p_barbershop_id: barbershopId,
+    p_discount_percent: discountPct,
+    p_total: total,
+    p_card_fee_total: feeValue,
+    p_net_total: netTotal,
+    p_pagamentos: pagamentosBase,
+    p_usos_credito: usosCredito,
+    p_saiu_do_bolso: saiuDoBolso,
+  });
+
+  if (!rpc.error) {
+    if (comanda.customer_id) {
+      await awardPointsForComanda({
+        comandaId,
+        customerId: comanda.customer_id as string,
+        amount: total,
+      });
+    }
+    revalidatePath('/admin/comandas');
+    revalidatePath('/admin/agenda');
+    return { ok: true };
+  }
+
+  const msgRpc = rpc.error.message ?? '';
+  if (/JA_FECHADA/.test(msgRpc)) {
+    return { ok: false, error: 'Esta comanda já foi fechada ou cancelada.' };
+  }
+  if (/NAO_ENCONTRADA/.test(msgRpc)) {
+    return { ok: false, error: 'Comanda não pertence a esta unidade.' };
+  }
+  const rpcAindaNaoExiste =
+    rpc.error.code === 'PGRST202' ||
+    (/admin_fechar_comanda/i.test(msgRpc) && /(find|exist|schema cache)/i.test(msgRpc));
+  if (!rpcAindaNaoExiste) {
+    return { ok: false, error: msgRpc || 'Não foi possível fechar a comanda.' };
+  }
+
+  // 2. Caminho antigo, para o banco que ainda nao tem a transacao. Fecha a
+  // comanda com trava de corrida: o update so pega quem ainda esta aberta,
+  // entao dois cliques simultaneos tem um vencedor unico.
   const { data: fechou, error: errUpdate } = await admin
     .from('comandas')
     .update({
@@ -746,7 +830,7 @@ export async function closeComanda(
     return { ok: false, error: 'Esta comanda já foi fechada ou cancelada.' };
   }
 
-  // 2. Com a trava vencida, debita o credito. Se a baixa falhar (saldo mudou
+  // Com a trava vencida, debita o credito. Se a baixa falhar (saldo mudou
   // entre a conferencia e agora), a comanda reabre para nao ficar fechada sem
   // cobranca.
   if (creditoUsado > 0) {
@@ -765,51 +849,11 @@ export async function closeComanda(
     }
   }
 
-  // 2-3. Pagamento + atualizar appointment em paralelo (independentes entre si)
-  //
-  // Cada forma de pagamento vira uma linha. Quase sempre e uma so; com credito
-  // podem ser duas, e e isso que deixa o financeiro separar depois o que foi
-  // dinheiro de verdade do que foi abatido do credito.
-  const pagamentos =
-    creditoUsado > 0
-      ? [
-          {
-            barbershop_id: barbershopId,
-            comanda_id: comandaId,
-            method: 'store_credit',
-            amount: creditoUsado,
-            installments: 1,
-            fee_percent: 0,
-            fee_value: 0,
-            net_amount: creditoUsado,
-          },
-          ...(restante > 0
-            ? [
-                {
-                  barbershop_id: barbershopId,
-                  comanda_id: comandaId,
-                  method: metodoDoRestante,
-                  amount: restante,
-                  installments: 1,
-                  fee_percent: feePercent,
-                  fee_value: feeValue,
-                  net_amount: Number((restante - feeValue).toFixed(2)),
-                },
-              ]
-            : []),
-        ]
-      : [
-          {
-            barbershop_id: barbershopId,
-            comanda_id: comandaId,
-            method,
-            amount: total,
-            installments: 1,
-            fee_percent: feePercent,
-            fee_value: feeValue,
-            net_amount: netTotal,
-          },
-        ];
+  const pagamentos = pagamentosBase.map((p) => ({
+    ...p,
+    barbershop_id: barbershopId,
+    comanda_id: comandaId,
+  }));
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const parallelOps: any[] = [
@@ -842,11 +886,6 @@ export async function closeComanda(
       .eq('id', comanda.customer_id)
       .eq('barbershop_id', barbershopId)
       .maybeSingle();
-
-    // Visita conta sempre; valor gasto so o que saiu do bolso do cliente. O que
-    // foi abatido do credito nao pode empurrar ninguem para o topo do ranking
-    // de VIP com um dinheiro que a barbearia nunca recebeu.
-    const saiuDoBolso = Number((total - creditoUsado).toFixed(2));
 
     await Promise.all([
       customer
@@ -929,27 +968,10 @@ export async function cancelComanda(comandaId: string) {
     .map((i) => i.subscription_usage_id)
     .filter(Boolean) as string[];
 
-  // Buscar estoques de todos os produtos de uma vez
-  const productOps: Promise<unknown>[] = [];
-  if (productItems.length > 0) {
-    const pids = productItems.map((i) => i.product_id as string);
-    const { data: prods } = await admin
-      .from('products')
-      .select('id, stock_current')
-      .in('id', pids)
-      .eq('barbershop_id', barbershopId);
-    const stockMap = new Map((prods ?? []).map((p) => [p.id, Number(p.stock_current ?? 0)]));
-    for (const item of productItems) {
-      const current = stockMap.get(item.product_id as string) ?? 0;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      productOps.push(
-        admin.from('products')
-          .update({ stock_current: current + Number(item.quantity ?? 0) })
-          .eq('id', item.product_id as string)
-          .eq('barbershop_id', barbershopId) as any
-      );
-    }
-  }
+  // Devolucao de estoque pela conta atomica (dentro do banco), uma por item
+  const productOps: Promise<unknown>[] = productItems.map((item) =>
+    ajustarEstoque(item.product_id as string, Number(item.quantity ?? 0))
+  );
 
   // Todos os updates em paralelo
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
